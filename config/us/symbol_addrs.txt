@@ -102,6 +102,7 @@ NSProbeSafe = 0x80014B50; // type:func
 NSEntryPageStruct = 0x8001418C; // type:func
 NSPageDelete = 0x80013F74; // type:func
 NSPageOpen = 0x80013FA8; // type:func
+NSCdSeek = 0x80012F7C; // type:func
 NSInit = 0x80014BC8; // type:func
 NSKill = 0x80015110; // type:func
 sprintf = 0x80048120; // type:func

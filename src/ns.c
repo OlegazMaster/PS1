@@ -30,7 +30,8 @@ typedef struct {
     Nsd *nsd; /* 0x18 */
     u8 unk1C[0xA0C];
     s32 page_count; /* 0xA28 */
-    u8 unkA2C[0x10];
+    s32 unkA2C;
+    u8 unkA30[0xC];
     struct PageStruct **page_map; /* 0xA3C */
 } NsState;
 
@@ -53,6 +54,7 @@ typedef struct PageStruct {
     s32 unk1C;
     u8 unk20[0x4];
     struct PageStruct *unk24;
+    u8 unk28[0x4];
 } PageStruct;
 
 extern u8 D_8005F408;
@@ -62,15 +64,15 @@ typedef struct {
     u8 unk2[0x2A];
 } Unk2C;
 
-typedef struct {
-    u8 unk0[0x6];
-    s16 unk6;
-    u8 unk8[0x10];
-    s32 unk18;
-    u8 unk1C[0x10];
-} Unk80060BB8;
+extern PageStruct D_80060BB8[10];
+extern PageStruct D_80060D70[];
 
-extern Unk80060BB8 D_80060BB8[10];
+typedef struct {
+    u32 sector;
+    u8 unk4[0x8];
+} Unk8006C4D8;
+
+extern Unk8006C4D8 D_8006C4D8[];
 
 typedef struct {
     u8 unk0[0x30];
@@ -275,7 +277,18 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012CBC);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012EAC);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012F7C);
+s32 func_800459AC(s32, s32);
+void func_80045E68(u32, u8 *);
+void func_80045B54(s32, u8 *);
+
+void NSCdSeek(s32 idx) {
+    u8 loc[4];
+
+    if (use_cd && ns.unkA2C == 0 && func_800459AC(1, 0) == 0) {
+        func_80045E68(D_8006C4D8[idx].sector & 0x7FFFFF, loc);
+        func_80045B54(0x15, loc);
+    }
+}
 
 s32 func_80047F44(s32, s32);
 s32 func_80045E48(s32);
@@ -331,7 +344,16 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_8001395C);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013A30);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013B00);
+void func_80013A30(s32 idx);
+
+void func_80013B00(s32 idx, s32 flag) {
+    if (flag) {
+        func_80013A30(idx);
+        D_80060D70[idx].state = 0x1E;
+    } else if (D_80060D70[idx].state == 0x1E) {
+        D_80060D70[idx].state = 1;
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013B8C);
 
@@ -390,7 +412,23 @@ PageStruct *NSPageOpen(s32 pgid, u32 eid, s32 flag, s32 count) {
     return func_80013C54(pgid, eid, flag, count);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014024);
+void func_80012CBC(s32 pgid);
+
+s32 func_80014024(s32 pgid, s32 flag, s32 count, u32 eid) {
+    PageStruct *ps;
+
+retry:
+    ps = NSPageOpen(pgid, eid, flag, count);
+    if (ps == (PageStruct *)-0xFF) {
+        return 1;
+    }
+    if ((flag & 1) && !(ps->state == 20 || ps->state == 21)) {
+        func_80012CBC(pgid);
+        count = 0;
+        goto retry;
+    }
+    return ps->unkF;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_800140C0);
 
@@ -479,12 +517,12 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", NSKill);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80015230);
 
-Unk80060BB8 *func_80015414(s32 arg0) {
-    Unk80060BB8 *p = D_80060BB8;
+PageStruct *func_80015414(s32 arg0) {
+    PageStruct *p = D_80060BB8;
     s32 i;
 
     for (i = 9; i >= 0; p++, i--) {
-        if (p->unk6 == 5 && p->unk18 == arg0) {
+        if (p->type == 5 && p->eid == arg0) {
             return p;
         }
     }

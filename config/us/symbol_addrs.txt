@@ -87,6 +87,8 @@ ticks_elapsed = 0x8003AE8C; // size:0x4
 
 // ns.c (names follow c1)
 NSEIDToString = 0x80011FD0; // type:func
+NSStringToEID = 0x800120AC; // type:func
+NSEIDTypeFromEID = 0x80012144; // type:func
 NSEIDValToString = 0x80012054; // type:func
 NSAlphaNumChar = 0x80012224; // type:func
 NSAlphaNumIndex = 0x8001223C; // type:func

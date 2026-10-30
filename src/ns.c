@@ -34,7 +34,6 @@ extern char eid_str_buf[];
 extern char eid_str_buf2[];
 
 int sprintf(char *buf, const char *fmt, ...);
-s32 func_80012144(u32 eid);
 
 
 char *NSEIDToString(u32 eid) {
@@ -62,9 +61,80 @@ char *NSEIDValToString(s32 eid) {
     return eid_str_buf2;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_800120AC);
+#ifdef NON_MATCHING
+/* Equivalent; the original's alphabet search loop keeps its exit test at the top. */
+u32 NSStringToEID(char *str) {
+    s32 i;
+    s32 n;
+    u32 eid = 0;
+    u8 c;
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012144);
+    for (n = 5; n != 0; n--) {
+        c = *str++;
+        if (c == 0) {
+            while (n--) {
+                eid = (eid << 6) | 0x3E;
+            }
+            return (eid << 1) | 1;
+        }
+        for (i = 0; i < 64; i++) {
+            if (alpha_map[i] == c) {
+                break;
+            }
+        }
+        if (i == 64) {
+            i = 0x3E;
+        }
+        eid = (eid << 6) | i;
+    }
+    return (eid << 1) | 1;
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/ns", NSStringToEID);
+#endif
+
+/* Entry type from the last character of an EID. */
+s32 NSEIDTypeFromEID(u32 eid) {
+    switch (alpha_map[(eid >> 1) & 0x3F]) {
+    case 'V':
+        return 1;
+    case 'S':
+        return 4;
+    case 'G':
+        return 2;
+    case 'W':
+        return 3;
+    case 'T':
+        return 5;
+    case 'L':
+        return 6;
+    case 'Z':
+        return 7;
+    case 'C':
+        return 11;
+    case 'A':
+        return 12;
+    case 'O':
+        return 20;
+    case 'M':
+        return 13;
+    case 'I':
+        return 16;
+    case 'N':
+        return 14;
+    case 'R':
+        return 17;
+    case 'U':
+        return 18;
+    case 'B':
+        return 19;
+    case 'D':
+        return 21;
+    case 'X':
+        return 15;
+    }
+    return 0;
+}
 
 char NSAlphaNumChar(s32 idx) {
     return alpha_map[idx];
@@ -106,7 +176,7 @@ s32 NSEIDType(NsdPte *pte) {
     if (!(pte->value & 3)) {
         return ((Entry *)pte->value)->type;
     }
-    return func_80012144(pte->eid);
+    return NSEIDTypeFromEID(pte->eid);
 }
 
 s32 NSCountEntries(NsState *nss, s32 type) {
@@ -132,8 +202,6 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_8001242C);
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012588);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012634);
-
-INCLUDE_RODATA("asm/us/nonmatchings/ns", jtbl_80010000);
 
 INCLUDE_RODATA("asm/us/nonmatchings/ns", D_80010068);
 

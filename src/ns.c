@@ -60,6 +60,7 @@ typedef struct {
     s32 unkA2C;
     u8 unkA30[0xC];
     PageStruct **page_map; /* 0xA3C */
+    s32 unkA40;
 } NsState;
 
 extern NsState ns;
@@ -367,7 +368,42 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012B00);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012CBC);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012EAC);
+typedef struct {
+    u8 unk0[0x10];
+    u8 *unk10;
+} Unk80065D5C;
+
+typedef struct {
+    u8 unk0[0x1C];
+    s32 unk1C;
+} Unk80061A7C;
+
+typedef struct {
+    u8 unk0[0xCC];
+    Unk80065D5C *unkCC;
+} Unk80065C90;
+
+extern Unk80065C90 D_80065C90;
+extern s16 D_80060B1C;
+extern s32 D_800691FC;
+extern s32 D_800608E8;
+extern Unk80061A7C *D_80061A7C;
+void func_80035078(u8 *);
+void func_80012CBC(s32 pgid);
+void func_80016634(s32);
+
+void func_80012EAC(void) {
+    ns.unkA40 = 1;
+    while (ns.page_count != 0 || D_800691FC >= 0) {
+        if (D_80065C90.unkCC != NULL && D_80060B1C != -1) {
+            func_80035078(D_80065C90.unkCC->unk10 + 0x2E4);
+        }
+        func_80012CBC(-1);
+        if (D_800691FC >= 0 && D_800608E8 != D_80061A7C->unk1C) {
+            func_80016634(1);
+        }
+    }
+}
 
 s32 func_800459AC(s32, s32);
 void func_80045E68(u32, u8 *);
@@ -661,7 +697,44 @@ void *NSEntryPage(void *en_ref) {
     return ps->page;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_800142B4);
+s32 func_80014024(s32 pgid, s32 flag, s32 count, u32 eid);
+
+#ifdef NON_MATCHING
+/* Equivalent; only the register of the final load differs. */
+u32 NSOpen(u32 *en_ref, s32 flag, s32 count) {
+    NsdPte *pte;
+    PageStruct *ps;
+
+    if (!(flag & 2)) {
+        if (*en_ref == 0x6396347F) {
+            return -0xA;
+        }
+        if (*en_ref & 1) {
+            pte = NSProbe(*en_ref);
+            *en_ref = (u32)pte;
+            en_ref = (u32 *)pte;
+        } else {
+            en_ref = (u32 *)*en_ref;
+        }
+    }
+    if (!(((NsdPte *)en_ref)->value & 1)) {
+        if (count != 0) {
+            ps = NSEntryPageStruct(((NsdPte *)en_ref)->value);
+            if (ps != NULL) {
+                func_80014024(ps->pgid, flag, count, ((NsdPte *)en_ref)->eid);
+            }
+        }
+        return ((NsdPte *)en_ref)->value;
+    }
+    func_80014024(((NsdPte *)en_ref)->value, flag, count, ((NsdPte *)en_ref)->eid);
+    if (((NsdPte *)en_ref)->value & 1) {
+        return 0;
+    }
+    return ((NsdPte *)en_ref)->value;
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/ns", NSOpen);
+#endif
 
 void *func_8001439C(NsdPte *pte, s32 count) {
     u32 value = pte->value;

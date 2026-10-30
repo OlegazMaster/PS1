@@ -847,7 +847,29 @@ s32 NSCountAvailablePages(void) {
     return count;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014650);
+void func_80014650(u32 *bits) {
+    PageStruct *ps;
+    s32 i;
+    s32 idx;
+
+    for (i = 7; i >= 0; i--) {
+        bits[i] = 0;
+    }
+    ps = ns.virtual_pages;
+    for (i = ns.virtual_page_count - 1; i >= 0; i--, ps++) {
+        if (ps->state != 1 && ps->unkF != 0) {
+            idx = ps->pgid >> 1;
+            bits[idx / 32] |= 1 << (idx % 32);
+        }
+    }
+    ps = ns.physical_pages;
+    for (i = ns.physical_page_count - 1; i >= 0; i--, ps++) {
+        if (ps->state != 1 && ps->unkF != 0) {
+            idx = ps->pgid >> 1;
+            bits[idx / 32] |= 1 << (idx % 32);
+        }
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014788);
 

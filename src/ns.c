@@ -496,7 +496,7 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_800131CC);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_800132F8);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_800137AC);
+INCLUDE_ASM("asm/us/nonmatchings/ns", NSPageAllocate);
 
 s32 NSTexturePageAllocate(void) {
     s32 i;
@@ -603,7 +603,53 @@ PageStruct *NSPageCreateVirtual(s32 pgid, u32 eid, s32 flag, s32 count) {
 INCLUDE_ASM("asm/us/nonmatchings/ns", NSPageCreateVirtual);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013D04);
+s32 NSPageAllocate(s32 *count, s32 flag);
+
+#ifdef NON_MATCHING
+/* Equivalent; the original keeps the loop constants out of registers. */
+PageStruct *NSPageCreatePhysical(PageStruct *ps, s32 pgid, u32 eid, s32 *count, s32 flag) {
+    PageStruct *first;
+    PageStruct *dst;
+    s32 idx;
+    s32 i;
+
+    idx = NSPageAllocate(count, flag);
+    if (idx == -1) {
+        return (PageStruct *)-0xC;
+    }
+    dst = &ns.physical_pages[idx + *count - 1];
+    if (ps != NULL) {
+        first = dst;
+        pgid = ps->pgid >> 1;
+        for (i = *count - 1; i >= 0; i--, dst--) {
+            ps = ns.page_map[pgid + i];
+            dst->pgid = ps->pgid;
+            if (eid != 0x6396347F) {
+                dst->eid = eid;
+            } else {
+                dst->eid = ps->eid;
+            }
+            ps->state = 1;
+            dst->unkF = ps->unkF;
+            ps->unkF = 0;
+            dst->ref_count = ps->ref_count;
+            dst->timestamp = ps->timestamp;
+            dst->unk24 = first;
+            dst->unk1C = *count;
+            if (i == *count - 1) {
+                dst->state = 2;
+            } else {
+                dst->state = 12;
+            }
+            ns.page_map[dst->pgid >> 1] = dst;
+        }
+        return first;
+    }
+    return dst;
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/ns", NSPageCreatePhysical);
+#endif
 
 void func_80013E64(PageStruct *ps) {
     if (ps->unkF > 0) {

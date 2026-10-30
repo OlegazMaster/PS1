@@ -25,7 +25,8 @@ typedef struct {
 typedef struct {
     u8 unk0[0x8];
     NsdPte **pte_buckets; /* 0x8: 256 hash buckets of the NSD */
-    u8 unkC[0xC];
+    NsdPte *ptes; /* 0xC */
+    u8 unk10[0x8];
     Nsd *nsd; /* 0x18 */
     u8 unk1C[0xA0C];
     s32 page_count; /* 0xA28 */
@@ -48,7 +49,7 @@ typedef struct PageStruct {
     s8 unkF;
     u8 unk10[0x4];
     s32 pgid; /* 0x14 */
-    u8 unk18[0x4];
+    u32 eid; /* 0x18 */
     s32 unk1C;
     u8 unk20[0x4];
     struct PageStruct *unk24;
@@ -85,6 +86,7 @@ void NSPageDelete(PageStruct *ps);
 NsdPte *NSProbe(u32 eid);
 PageStruct *NSEntryPageStruct(void *en_ref);
 void *func_800140C0(u32 pgid, s32 count);
+PageStruct *func_80013C54(s32 pgid, u32 eid, s32 flag, s32 count);
 
 
 char *NSEIDToString(u32 eid) {
@@ -354,7 +356,16 @@ void NSPageDecRef(PageStruct *ps) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013EFC);
+void func_80013EFC(PageStruct *ps) {
+    if (ps->ref_count != 0) {
+        ps->unkF -= ps->ref_count;
+        ps->ref_count = 0;
+        if (ps->unkF <= 0 && ps->type == 0) {
+            NSPageDelete(ps);
+            ns.page_count--;
+        }
+    }
+}
 
 void NSPageDelete(PageStruct *ps) {
     ps->state = 1;
@@ -363,7 +374,21 @@ void NSPageDelete(PageStruct *ps) {
     ns.page_map[ps->pgid >> 1] = (PageStruct *)-0x12;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013FA8);
+PageStruct *NSPageOpen(s32 pgid, u32 eid, s32 flag, s32 count) {
+    PageStruct *ps = ns.page_map[pgid >> 1];
+
+    if (ps != (PageStruct *)-0x12) {
+        if (ps != (PageStruct *)-0xFF) {
+            if (flag & 4) {
+                ps->ref_count += count;
+            }
+            ps->eid = eid;
+            ps->unkF += count;
+        }
+        return ps;
+    }
+    return func_80013C54(pgid, eid, flag, count);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014024);
 
@@ -437,7 +462,16 @@ NsdPte *NSProbe(u32 eid) {
     return pte;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014B50);
+NsdPte *NSProbeSafe(u32 eid) {
+    NsdPte *pte = ns.pte_buckets[(eid >> 15) & 0xFF];
+
+    while (pte->eid != eid) {
+        if (++pte - ns.ptes >= ns.nsd->pte_count) {
+            return (NsdPte *)-0xA;
+        }
+    }
+    return pte;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", NSInit);
 

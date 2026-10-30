@@ -72,3 +72,15 @@ nd_entry_80041648 = 0x80041648; // type:func
 nd_entry_80041768 = 0x80041768; // type:func
 nd_entry_800418CC = 0x800418CC; // type:func
 nd_entry_80041A3C = 0x80041A3C; // type:func
+
+// Main loop globals (names follow c1)
+done = 0x800608E4; // size:0x4
+bonus_return = 0x80060928; // size:0x4
+next_lid = 0x80060AC0; // size:0x4
+ns = 0x80061030;
+context = 0x80061A78;
+pads = 0x80065BC8;
+savestate = 0x80065DD8;
+game = 0x80068E98;
+// A counter stored inside Naughty Dog's assembly module
+ticks_elapsed = 0x8003AE8C; // size:0x4

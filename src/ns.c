@@ -828,27 +828,24 @@ void func_80014468(void) {
     }
 }
 
-#ifdef NON_MATCHING
-/* Equivalent; the original walks the virtual pages with a reversed counter. */
 s32 NSCountAvailablePages(void) {
-    s32 count = ns.physical_page_count;
+    PageStruct *ps;
+    s32 count;
     s32 i;
 
-    for (i = 0; i < ns.virtual_page_count; i++) {
-        if (ns.virtual_pages[i].state != 1 && ns.virtual_pages[i].unkF != 0) {
+    count = ns.physical_page_count;
+    for (ps = ns.virtual_pages, i = ns.virtual_page_count - 1; i >= 0; i--, ps++) {
+        if (ps->state != 1 && ps->unkF != 0) {
             count--;
         }
     }
-    for (i = 0; i < ns.physical_page_count; i++) {
-        if (ns.physical_pages[i].state != 1 && ns.physical_pages[i].unkF != 0) {
+    for (ps = ns.physical_pages, i = 0; i < ns.physical_page_count; ps++, i++) {
+        if (ps->state != 1 && ps->unkF != 0) {
             count--;
         }
     }
     return count;
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/ns", NSCountAvailablePages);
-#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014650);
 

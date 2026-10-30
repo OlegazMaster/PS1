@@ -18,7 +18,10 @@ typedef struct {
 typedef struct {
     u8 unk0[0x404];
     s32 pte_count; /* 0x404 */
-    u8 unk408[0x118];
+    u8 unk408[0x10];
+    s32 unk418;
+    u8 unk41C[0x4];
+    u32 page_offsets[64]; /* 0x420 */
     NsdPte ptes[1]; /* 0x520 */
 } Nsd;
 
@@ -32,7 +35,8 @@ typedef struct PageStruct {
     void *page; /* 0x0 */
     s16 state; /* 0x4 */
     s16 type; /* 0x6 */
-    u8 unk8[0x4];
+    s16 unk8;
+    s16 unkA;
     s16 unkC;
     s8 ref_count; /* 0xE */
     s8 unkF;
@@ -51,7 +55,9 @@ typedef struct {
     NsdPte *ptes; /* 0xC */
     u8 unk10[0x8];
     Nsd *nsd; /* 0x18 */
-    u8 unk1C[0xC];
+    u8 unk1C[0x4];
+    s32 sector; /* 0x20: first sector of the NSF file */
+    u8 unk24[0x4];
     s32 physical_page_count; /* 0x28 */
     PageStruct physical_pages[21]; /* 0x2C */
     s32 virtual_page_count; /* 0x3C8 */
@@ -405,16 +411,17 @@ void func_80012EAC(void) {
     }
 }
 
-s32 func_800459AC(s32, s32);
-void func_80045E68(u32, u8 *);
-void func_80045B54(s32, u8 *);
+s32 CdSync(s32 mode, u8 *result);
+void CdIntToPos(s32 sector, u8 *loc);
+s32 CdControl(s32 com, u8 *param);
+s32 CdRead(s32 sectors, void *buf, s32 mode);
 
 void NSCdSeek(s32 idx) {
     u8 loc[4];
 
-    if (use_cd && ns.unkA2C == 0 && func_800459AC(1, 0) == 0) {
-        func_80045E68(D_8006C4D8[idx].sector & 0x7FFFFF, loc);
-        func_80045B54(0x15, loc);
+    if (use_cd && ns.unkA2C == 0 && CdSync(1, NULL) == 0) {
+        CdIntToPos(D_8006C4D8[idx].sector & 0x7FFFFF, loc);
+        CdControl(0x15, loc);
     }
 }
 
@@ -437,7 +444,36 @@ s32 func_80013000(s32 arg0) {
     return ret == 0;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013050);
+s32 NSCdRead(PageStruct *ps, s32 count) {
+    u8 loc[16];
+    s32 pgid = ps->pgid;
+    s32 size;
+    void *buf;
+    s32 sector;
+    s32 status;
+
+    if (ps->unkA != 0) {
+        size = (count << 5) - ps->unk8;
+        buf = (u8 *)ps->page + (ps->unk8 << 11);
+        sector = ns.sector + (ns.nsd->page_offsets[pgid >> 1] >> 6);
+    } else {
+        size = count << 5;
+        buf = ps->page;
+        sector = ns.sector + ns.nsd->unk418 + ((pgid >> 1) << 5);
+    }
+retry:
+    CdIntToPos(sector, loc);
+    if (!CdControl(2, loc)) {
+        goto retry;
+    }
+    if ((status = CdSync(1, NULL)) ? status == 5 : CdSync(0, NULL) == 5) {
+        goto retry;
+    }
+    if (!CdRead(size, buf, 0x80)) {
+        goto retry;
+    }
+    return -0xFF;
+}
 
 s32 func_80013158(PageStruct *ps, s32 pgid) {
     s32 last;

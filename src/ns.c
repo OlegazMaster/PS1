@@ -103,6 +103,7 @@ extern char eid_str_buf[];
 extern char eid_str_buf2[];
 
 int sprintf(char *buf, const char *fmt, ...);
+int printf(const char *fmt, ...);
 void NSPageDelete(PageStruct *ps);
 NsdPte *NSProbe(u32 eid);
 PageStruct *NSEntryPageStruct(u32 ref);
@@ -244,7 +245,10 @@ char D_800608B0[] = "hde\n";
 Rect16 tpage_rect = { 0, 0, 256, 128 };
 char D_800608C0[] = "de ls\n";
 char D_800608C8[] = "de l\n";
+#ifndef NON_MATCHING
+/* The "!mem\n" literal of NSPageAllocate, which is still assembly in matching builds. */
 char D_800608D0[] = "!mem\n";
+#endif
 
 s32 NSEIDType(NsdPte *pte) {
     if (!(pte->value & 3)) {
@@ -496,7 +500,69 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_800131CC);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_800132F8);
 
+void func_80012B00(PageStruct *ps);
+
+/* Finds the longest run of free (or evictable, preferring the oldest) physical pages. */
+#ifdef NON_MATCHING
+/* Equivalent; the original computes the address of ns once for both uses. */
+s32 NSPageAllocate(s32 *count, s32 flag) {
+    s32 page_count;
+    s32 wanted;
+    s32 i;
+    s32 len;
+    u32 age;
+    s32 idx_max = -1;
+    s32 len_max;
+    u32 age_max;
+    PageStruct *ps;
+
+    i = 0;
+    page_count = ns.physical_page_count;
+    if (page_count > 0) {
+        wanted = *count;
+        age = 0;
+    next_run:
+        len = 0;
+    next_page:
+        if (len < (wanted < page_count - i ? wanted : page_count - i)) {
+            ps = &ns.physical_pages[i + len];
+            if (ps->state != 1) {
+                if (!(ps->state == 20 || ps->state == 21) || ps->unkF > 0) {
+                    goto end_run;
+                }
+                age += 1 + ps->timestamp;
+            }
+            if (idx_max == -1 || len + 1 > len_max || (len + 1 == len_max && age >= age_max)) {
+                idx_max = i;
+                len_max = len + 1;
+                age_max = age;
+            }
+            len++;
+            goto next_page;
+        }
+    end_run:
+        i++;
+        age = 0;
+        if (i < page_count) {
+            goto next_run;
+        }
+    }
+    if (idx_max != -1) {
+        for (i = idx_max; i < idx_max + len_max; i++) {
+            func_80012B00(&ns.physical_pages[i]);
+        }
+        *count = len_max;
+        return idx_max;
+    }
+    *count = 0;
+    if (flag) {
+        printf("!mem\n");
+    }
+    return -1;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/ns", NSPageAllocate);
+#endif
 
 s32 NSTexturePageAllocate(void) {
     s32 i;

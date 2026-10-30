@@ -896,7 +896,72 @@ void func_80014788(u32 *bits) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_800148F8);
+/* Number of pages that loading the given entries would need. */
+s32 NSCountAvailablePages2(u32 **list, s32 len) {
+    s32 cache[40];
+    s32 cache_size = 0;
+    s32 count = 0;
+    s32 i;
+    s32 ii;
+    u32 value;
+    NsdPte *pte;
+    PageStruct *ps;
+
+    for (i = len - 1; i >= 0; i--) {
+        value = *list[i];
+        if (value & 1) {
+            pte = NSProbe(value);
+            *list[i] = (u32)pte;
+        } else {
+            pte = (NsdPte *)value;
+        }
+        if (!(pte->value & 1)) {
+            ps = NSEntryPageStruct(pte->value);
+            if (ps == NULL || ps->type == 2) {
+                continue;
+            }
+            if (ps->state != 1 && ps->unkF != 0) {
+                continue;
+            }
+            for (ii = 0; ii < cache_size; ii++) {
+                if (ps->pgid == cache[ii]) {
+                    break;
+                }
+            }
+            if (ii != cache_size) {
+                continue;
+            }
+            count++;
+            cache[cache_size++] = ps->pgid;
+        } else {
+            ps = ns.page_map[(s32)pte->value >> 1];
+            if (ps == (PageStruct *)-0x12) {
+                for (ii = 0; ii < cache_size; ii++) {
+                    if (pte->value == cache[ii]) {
+                        break;
+                    }
+                }
+                if (ii != cache_size) {
+                    continue;
+                }
+                count++;
+                cache[cache_size++] = pte->value;
+            } else if (ps != (PageStruct *)-0xFF && ps->type < 2 && ps->unkF == 0) {
+                for (ii = 0; ii < cache_size; ii++) {
+                    if (ps->pgid == cache[ii]) {
+                        break;
+                    }
+                }
+                if (ii != cache_size) {
+                    continue;
+                }
+                count++;
+                cache[cache_size++] = ps->pgid;
+            }
+        }
+    }
+    return count;
+}
 
 NsdPte *NSProbe(u32 eid) {
     NsdPte *pte = ns.pte_buckets[(eid >> 15) & 0xFF];

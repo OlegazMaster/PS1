@@ -105,34 +105,23 @@ void NSPageDelete(PageStruct *ps);
 NsdPte *NSProbe(u32 eid);
 PageStruct *NSEntryPageStruct(void *en_ref);
 void *func_800140C0(u32 pgid, s32 count);
-#ifdef NON_MATCHING
-/* Equivalent; GCC picks other registers for the page pointer and counter. */
-PageStruct *NSPageCreateVirtual(s32 pgid, u32 eid, s32 flag, s32 count) {
-    PageStruct *ps;
+PageStruct *NSPageCreateVirtual(s32 pgid, u32 eid, s32 flag, s32 count);
+
+char *NSEIDToString(u32 eid) {
     s32 i;
 
-    for (i = 0, ps = ns.virtual_pages; i < ns.virtual_page_count; i++, ps++) {
-        if (ps->state == 1) {
-            ps->state = 2;
-            ps->pgid = pgid;
-            ps->unkF = count;
-            if (flag & 4) {
-                ps->ref_count = count;
-            } else {
-                ps->ref_count = 0;
-            }
-            ps->eid = eid;
-            ps->timestamp = ticks_elapsed;
-            ns.page_map[pgid >> 1] = ps;
-            ns.page_count++;
-            return ps;
+    if (eid & 1) {
+        eid_str_buf[5] = 0;
+        eid >>= 1;
+        for (i = 4; i >= 0; i--) {
+            eid_str_buf[i] = alpha_map[eid & 0x3F];
+            eid >>= 6;
         }
+    } else {
+        sprintf(eid_str_buf, "[%X]", eid);
     }
-    return NULL;
+    return eid_str_buf;
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/ns", NSPageCreateVirtual);
-#endif
 
 char *NSEIDValToString(s32 eid) {
     if (eid & 1) {
@@ -458,6 +447,8 @@ void func_80013B00(s32 idx, s32 flag) {
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013B8C);
 
+#ifdef NON_MATCHING
+/* Equivalent; GCC picks other registers for the page pointer and counter. */
 PageStruct *NSPageCreateVirtual(s32 pgid, u32 eid, s32 flag, s32 count) {
     NsState *nss = &ns;
     PageStruct *ps;
@@ -482,6 +473,9 @@ PageStruct *NSPageCreateVirtual(s32 pgid, u32 eid, s32 flag, s32 count) {
     }
     return NULL;
 }
+#else
+INCLUDE_ASM("asm/us/nonmatchings/ns", NSPageCreateVirtual);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013D04);
 

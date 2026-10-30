@@ -82,8 +82,10 @@ check: $(TARGET)
 		&& echo "$(TARGET): OK, совпадает с оригиналом" \
 		|| (echo "$(TARGET): НЕ совпадает с оригиналом"; exit 1)
 
+# PS-EXE files are padded with zeros to a multiple of 0x800 bytes.
 $(TARGET): $(ELF)
 	$(OBJCOPY) -O binary $< $@
+	truncate -s %2048 $@
 
 $(ELF): $(OBJECTS) $(LD_SCRIPT) config/$(VERSION)/undefined_syms.txt
 	$(LD) $(LDFLAGS) -o $@
@@ -116,6 +118,9 @@ init:
 
 extract: $(CONFIG)
 	$(SPLAT) $(CONFIG)
+	@# GNU as gives .bss a 16-byte alignment, so ld would move the NOLOAD bss
+	@# section; the PSY-Q linker put it right after the data.
+	sed -i -E 's/^(\s*\.\w+_bss) \(NOLOAD\) :/\1 . (NOLOAD) :/' $(LD_SCRIPT)
 
 $(CONFIG):
 	@echo "$(CONFIG) не найден: положите $(EXE_NAME) в disc/ и выполните 'make init'"

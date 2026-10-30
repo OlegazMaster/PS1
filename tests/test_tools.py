@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
+import disc_image  # noqa: E402
 import gen_config  # noqa: E402
 import progress  # noqa: E402
 import psexe  # noqa: E402
@@ -144,6 +145,86 @@ class ProgressTest(unittest.TestCase):
             self.assertEqual(stats.total_bytes, 48)
             self.assertEqual(stats.done_bytes, 16)
             self.assertEqual(set(stats.remaining), {"func_todo", "func_segment"})
+
+
+def dir_record(name: bytes, lba: int, size: int, is_dir: bool = False) -> bytes:
+    length = 33 + len(name) + (len(name) + 1) % 2
+    record = bytearray(length)
+    record[0] = length
+    struct.pack_into("<I", record, 2, lba)
+    struct.pack_into(">I", record, 6, lba)
+    struct.pack_into("<I", record, 10, size)
+    struct.pack_into(">I", record, 14, size)
+    record[25] = 2 if is_dir else 0
+    record[32] = len(name)
+    record[33:33 + len(name)] = name
+    return bytes(record)
+
+
+def make_iso(files: dict) -> list:
+    """Builds the 2048-byte sectors of a tiny ISO 9660 image: root + one subdirectory."""
+    sectors = [bytes(2048)] * 16
+    root_lba, sub_lba, first_file_lba = 18, 19, 20
+    lba = first_file_lba
+    root, sub, contents = [], [], []
+    for path, data in files.items():
+        entries = sub if "/" in path else root
+        entries.append(dir_record(path.split("/")[-1].encode() + b";1", lba, len(data)))
+        contents.append(data)
+        lba += (len(data) + 2047) // 2048
+    root = [dir_record(b"\0", root_lba, 2048, True), dir_record(b"\1", root_lba, 2048, True),
+            dir_record(b"S0", sub_lba, 2048, True)] + root
+    sub = [dir_record(b"\0", sub_lba, 2048, True), dir_record(b"\1", root_lba, 2048, True)] + sub
+
+    pvd = bytearray(2048)
+    pvd[0] = 1
+    pvd[1:6] = b"CD001"
+    pvd[156:190] = dir_record(b"\0", root_lba, 2048, True)
+    sectors += [bytes(pvd), bytes(2048), b"".join(root).ljust(2048, b"\0"), b"".join(sub).ljust(2048, b"\0")]
+    for data in contents:
+        for i in range(0, max(len(data), 1), 2048):
+            sectors.append(data[i:i + 2048].ljust(2048, b"\0"))
+    return sectors
+
+
+def to_raw_mode2(sectors: list) -> bytes:
+    raw = b""
+    for user_data in sectors:
+        header = disc_image.SYNC + bytes([0, 2, 0, 2]) + bytes(8)
+        raw += (header + user_data).ljust(disc_image.RAW_SECTOR_SIZE, b"\0")
+    return raw
+
+
+class DiscImageTest(unittest.TestCase):
+    FILES = {
+        "SYSTEM.CNF": b"BOOT = cdrom:\\SCUS_942.44;1\r\nTCB = 4\r\n",
+        "SCUS_942.44": bytes(range(256)) * 20,
+        "S0/S0000002.NSF": b"level data",
+    }
+
+    def check(self, image: bytes):
+        disc = disc_image.DiscImage(image)
+        self.assertEqual(disc.boot_executable(), "SCUS_942.44")
+        self.assertEqual(disc.read_file("SCUS_942.44"), self.FILES["SCUS_942.44"])
+        self.assertEqual(disc.read_file("s0/s0000002.nsf"), b"level data")
+        self.assertEqual({path for path, _ in disc.walk()},
+                         {"S0", "S0/S0000002.NSF", "SYSTEM.CNF", "SCUS_942.44"})
+        with self.assertRaises(disc_image.DiscError):
+            disc.read_file("MISSING.BIN")
+
+    def test_iso(self):
+        self.check(b"".join(make_iso(self.FILES)))
+
+    def test_raw_mode2(self):
+        self.check(to_raw_mode2(make_iso(self.FILES)))
+
+    def test_partial_image(self):
+        sectors = make_iso(self.FILES)
+        # Cut the image inside the last file: everything before it still reads.
+        disc = disc_image.DiscImage(to_raw_mode2(sectors[:-1]))
+        self.assertEqual(disc.read_file("SCUS_942.44"), self.FILES["SCUS_942.44"])
+        with self.assertRaises(disc_image.DiscError):
+            disc.read_file("S0/S0000002.NSF")
 
 
 class VersionsTest(unittest.TestCase):

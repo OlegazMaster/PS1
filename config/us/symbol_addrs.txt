@@ -1,1 +1,2 @@
 // Known symbols: name = 0xADDRESS; // type:func
+__SN_ENTRY_POINT = 0x800489F8; // type:func

@@ -18,12 +18,12 @@ SHELL := /bin/bash
 
 # ---- Toolchain ---------------------------------------------------------------
 
-# Compiler and assembler that produced the original executable. To be confirmed
-# by matching the first functions; switch with e.g. `make COMPILER=gcc-2.8.1-psx`.
+# Compiler that produced the original executable: GCC 2.7.2 reproduces main()
+# exactly, 2.8.1 schedules it differently.
 COMPILER      ?= gcc-2.7.2-psx
 ASPSX_VERSION ?= 2.56
-# -G value (small data accessed through $gp); 0 until the executable says otherwise.
-GP_SIZE       ?= 0
+# The game code reads small variables through $gp (-G8); the PSY-Q libraries do not.
+GP_SIZE       ?= 8
 
 TOOLCHAIN := tools/toolchain
 PYTHON    := $(if $(wildcard .venv/bin/python3),.venv/bin/python3,python3)

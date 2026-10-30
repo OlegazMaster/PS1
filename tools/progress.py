@@ -27,6 +27,13 @@ INCLUDE_ASM = re.compile(r"^\s*INCLUDE_ASM\(\s*\"[^\"]*\"\s*,\s*(\w+)\s*\)", re.
 # "build/us/src/gool.c.o(.text);" in the linker script -> "src/gool.c".
 LINKED_OBJECT = re.compile(r"\bbuild/[^/\s]+/(\S+?)\.o\b")
 
+# Code that is reported separately from the game's own C code, by file name.
+GAME = "код игры"
+CATEGORIES = {
+    "nd_asm": "ассемблер Naughty Dog",
+    "psyq": "библиотеки PSY-Q",
+}
+
 
 @dataclass
 class Stats:
@@ -77,24 +84,39 @@ def linked_sources(ld_script: Path) -> list:
     return list(dict.fromkeys(sources))
 
 
-def scan(root: Path, version: str) -> Stats:
-    stats = Stats()
+def category(source: str) -> str:
+    for part in Path(source).with_suffix("").parts:
+        for prefix, name in CATEGORIES.items():
+            if part.startswith(prefix):
+                return name
+    return GAME
+
+
+def scan(root: Path, version: str) -> dict:
+    """Returns {category: Stats}."""
+    all_stats = {GAME: Stats()}
+    all_stats.update({name: Stats() for name in CATEGORIES.values()})
     asm_dir = root / "asm" / version
     for source in linked_sources(asm_dir / "main.ld"):
+        stats = all_stats[category(source)]
         if source.endswith(".c"):
-            # splat keeps the asm of every function of src/<name>.c in
-            # asm/<version>/nonmatchings/<name>/<function>.s
+            # splat writes the asm of the functions of src/<name>.c to
+            # asm/<version>/nonmatchings/<name>/ (still INCLUDE_ASM) and
+            # asm/<version>/matchings/<name>/ (already in C).
             still_asm = included_functions(root / source)
             name = Path(source).relative_to("src").with_suffix("")
-            for asm_file in sorted((asm_dir / "nonmatchings" / name).glob("*.s")):
-                for function, size in function_sizes(asm_file).items():
-                    if size:
-                        stats.add(function, size, function not in still_asm)
+            functions = {}
+            for kind in ("nonmatchings", "matchings"):
+                for asm_file in sorted((asm_dir / kind / name).glob("*.s")):
+                    functions.update(function_sizes(asm_file))
+            for function, size in functions.items():
+                if size:
+                    stats.add(function, size, function not in still_asm)
         elif source.endswith(".s"):
             for function, size in function_sizes(root / source).items():
                 if size:
                     stats.add(function, size, False)
-    return stats
+    return all_stats
 
 
 def percent(part: int, whole: int) -> str:
@@ -111,14 +133,14 @@ def main(argv):
     if not ld_script.exists():
         raise SystemExit(f"{ld_script.relative_to(ROOT)} не найден: сначала выполните 'make extract'")
 
-    stats = scan(ROOT, args.version)
-    print(f"Crash Bandicoot 3 ({args.version}): декомпилировано "
-          f"{stats.done_bytes}/{stats.total_bytes} байт кода "
-          f"({percent(stats.done_bytes, stats.total_bytes)}), "
-          f"функций: {stats.done_funcs}/{stats.total_funcs}")
-    if args.verbose:
-        for name, size in sorted(stats.remaining.items(), key=lambda item: item[1]):
-            print(f"  {size:6d}  {name}")
+    print(f"Crash Bandicoot 3 ({args.version}), декомпилировано:")
+    for name, stats in scan(ROOT, args.version).items():
+        print(f"  {name:24s} {stats.done_bytes:7d}/{stats.total_bytes:<7d} байт "
+              f"({percent(stats.done_bytes, stats.total_bytes):>7s}), "
+              f"функций {stats.done_funcs}/{stats.total_funcs}")
+        if args.verbose:
+            for function, size in sorted(stats.remaining.items(), key=lambda item: item[1]):
+                print(f"      {size:6d}  {function}")
     return 0
 
 

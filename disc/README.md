@@ -17,9 +17,14 @@
 
 - **С диска:** вставьте диск в привод компьютера и скопируйте `SCUS_942.44`
   из корня диска в эту папку.
-- **Из образа `.bin/.cue`:** смонтируйте образ (WinCDEmu на Windows, `cdemu` на
-  Linux) и скопируйте файл. Другой способ — распаковать образ утилитой
-  `dumpsxiso` из проекта mkpsxiso: `dumpsxiso -x out game.bin`.
+- **Из образа `.bin/.cue` или `.iso`:** файл достанет `tools/disc_image.py`:
+
+```sh
+python3 tools/disc_image.py game.cue          # SCUS_942.44 -> disc/
+python3 tools/disc_image.py game.bin --list   # список файлов на диске
+```
+
+Подойдёт даже начало образа (первые 10 МБ): файл лежит в начале диска.
 
 Проверить файл: `python3 tools/psexe.py disc/SCUS_942.44`.
 

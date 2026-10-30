@@ -31,6 +31,8 @@ options:
   o_as_suffix: False
   use_legacy_include_asm: False
   migrate_rodata_to_functions: True
+  # Game code is compiled with -G8; see the maspsx README.
+  include_asm_macro_style: maspsx_hack
   section_order: [".rodata", ".text", ".data", ".bss"]
   subalign: 2
   # The PSY-Q linker does not align sections: keep splat from doing it.
@@ -56,7 +58,11 @@ segments:
     bss_size: 0xE040
     subsegments:
       - [0x800, rodata, "800"]
-      - [0x181C, asm, "181C"]
+      - [0x181C, asm, heap]       # memory allocator: InitHeap, malloc, free, ...
+      - [0x1E28, c, main]
+      - [0x2768, asm, "2768"]     # rest of the game C code, to be split into files
+      - [0x2A63C, asm, nd_asm]    # Naughty Dog's hand-written assembly (uses the GTE)
+      - [0x35F50, asm, psyq]      # PSY-Q libraries (libcd, libgpu, libspu, libapi, ...)
       - [0x4C440, data, "4C440"]
       - [0x51078, sdata, "51078"] # $gp = 0x80060878
       - { start: 0x51238, type: bss, vram: 0x80060A38 }

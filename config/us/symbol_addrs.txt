@@ -1,2 +1,64 @@
 // Known symbols: name = 0xADDRESS; // type:func
 __SN_ENTRY_POINT = 0x800489F8; // type:func
+
+// Startup and memory (PSY-Q startup calls InitHeap(start, size), then main)
+InitHeap = 0x800112B8; // type:func
+main = 0x80011628; // type:func
+__main = 0x80048AA0; // type:func
+
+// libcd
+CdInit = 0x80045750; // type:func
+def_cbsync = 0x800457E8; // type:func
+def_cbready = 0x80045810; // type:func
+def_cbread = 0x80045838; // type:func
+CdReset = 0x800458A0; // type:func
+CdSyncCallback = 0x800459EC; // type:func
+CdReadyCallback = 0x80045A04; // type:func
+CdReadCallback = 0x80048010; // type:func
+
+// BIOS calls (A0/B0/C0 tables, numbers from psx-spx)
+puts = 0x80048058; // type:func
+atoi = 0x80048070; // type:func
+strncmp = 0x800480A0; // type:func
+strcpy = 0x800480B0; // type:func
+strlen = 0x800480C0; // type:func
+bcopy = 0x800480D0; // type:func
+bzero = 0x800480E0; // type:func
+memcpy = 0x800480F0; // type:func
+memset = 0x80048100; // type:func
+printf = 0x80048110; // type:func
+memchr = 0x8004897C; // type:func
+FlushCache = 0x80048B78; // type:func
+_bu_init = 0x80048B98; // type:func
+_96_remove = 0x80048BC0; // type:func
+DeliverEvent = 0x80048BD8; // type:func
+OpenEvent = 0x80048BE8; // type:func
+CloseEvent = 0x80048BF8; // type:func
+TestEvent = 0x80048C08; // type:func
+EnableEvent = 0x80048C18; // type:func
+DisableEvent = 0x80048C28; // type:func
+SysEnqIntRP = 0x80049C18; // type:func
+SysDeqIntRP = 0x80049C28; // type:func
+ChangeClearRCnt = 0x80049C38; // type:func
+ChangeClearPad = 0x8004B48C; // type:func
+setjmp = 0x8004BBAC; // type:func
+ReturnFromException = 0x8004BBBC; // type:func
+ResetEntryInt = 0x8004BBCC; // type:func
+HookEntryInt = 0x8004BBDC; // type:func
+GPU_cw = 0x8004F1D4; // type:func
+WaitEvent = 0x80051704; // type:func
+_card_write = 0x8005B638; // type:func
+_new_card = 0x8005B658; // type:func
+InitPAD = 0x8005BA58; // type:func
+StartPAD = 0x8005BA68; // type:func
+StopPAD = 0x8005BA78; // type:func
+PAD_init = 0x8005BA88; // type:func
+InitCARD = 0x8005BBA8; // type:func
+StartCARD = 0x8005BBB8; // type:func
+StopCARD = 0x8005BBC8; // type:func
+
+// Entry points inside Naughty Dog's assembly whose addresses the C code takes
+nd_entry_80041648 = 0x80041648; // type:func
+nd_entry_80041768 = 0x80041768; // type:func
+nd_entry_800418CC = 0x800418CC; // type:func
+nd_entry_80041A3C = 0x80041A3C; // type:func

@@ -114,8 +114,10 @@ class ProgressTest(unittest.TestCase):
             asm = root / "asm" / "us"
             funcs = asm / "nonmatchings" / "engine" / "main"
             funcs.mkdir(parents=True)
-            for name in ("func_done", "func_todo"):
-                (funcs / f"{name}.s").write_text(ASM_FUNCTION.format(name=name))
+            (funcs / "func_todo.s").write_text(ASM_FUNCTION.format(name="func_todo"))
+            matched = asm / "matchings" / "engine" / "main"
+            matched.mkdir(parents=True)
+            (matched / "func_done.s").write_text(ASM_FUNCTION.format(name="func_done"))
             (asm / "900.s").write_text(
                 '.section .text, "ax"\n' + ASM_FUNCTION.format(name="func_segment")
                 + '.section .rodata\nglabel some_data\n    /* 900 80010100 */ .word 0x1\n'
@@ -130,7 +132,9 @@ class ProgressTest(unittest.TestCase):
                 "    build/us/src/engine/main.c.o(.rodata);\n"
                 "    build/us/src/engine/main.c.o(.text);\n"
                 "    build/us/asm/us/900.s.o(.text);\n"
+                "    build/us/asm/us/psyq.s.o(.text);\n"
             )
+            (asm / "psyq.s").write_text(ASM_FUNCTION.format(name="CdInit"))
             src = root / "src" / "engine"
             src.mkdir(parents=True)
             (src / "main.c").write_text(
@@ -139,12 +143,14 @@ class ProgressTest(unittest.TestCase):
                 'INCLUDE_ASM("asm/us/nonmatchings/engine/main", func_todo);\n'
             )
 
-            stats = progress.scan(root, "us")
+            all_stats = progress.scan(root, "us")
+            stats = all_stats[progress.GAME]
             self.assertEqual(stats.total_funcs, 3)
             self.assertEqual(stats.done_funcs, 1)
             self.assertEqual(stats.total_bytes, 48)
             self.assertEqual(stats.done_bytes, 16)
             self.assertEqual(set(stats.remaining), {"func_todo", "func_segment"})
+            self.assertEqual(set(all_stats[progress.CATEGORIES["psyq"]].remaining), {"CdInit"})
 
 
 def dir_record(name: bytes, lba: int, size: int, is_dir: bool = False) -> bytes:

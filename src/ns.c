@@ -40,7 +40,7 @@ typedef struct PageStruct {
     s32 pgid; /* 0x14 */
     u32 eid; /* 0x18 */
     s32 unk1C;
-    u8 unk20[0x4];
+    s32 *unk20;
     struct PageStruct *unk24;
     s32 timestamp; /* 0x28 */
 } PageStruct;
@@ -83,7 +83,7 @@ typedef struct {
 } Page;
 
 extern PageStruct D_80060BB8[10];
-extern PageStruct D_80060D70[];
+extern PageStruct D_80060D70[16];
 
 typedef struct {
     u32 sector;
@@ -107,6 +107,7 @@ NsdPte *NSProbe(u32 eid);
 PageStruct *NSEntryPageStruct(u32 ref);
 void *func_800140C0(u32 pgid, s32 count);
 PageStruct *NSPageCreateVirtual(s32 pgid, u32 eid, s32 flag, s32 count);
+s32 NSTexturePageFree(s32 idx);
 
 char *NSEIDToString(u32 eid) {
     s32 i;
@@ -431,15 +432,55 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_800132F8);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_800137AC);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_8001395C);
+s32 NSTexturePageAllocate(void) {
+    s32 i;
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013A30);
+    for (i = 15; i >= 0; i--) {
+        if (D_80060D70[i].state == 1) {
+            return i;
+        }
+    }
+    for (i = 15; i >= 0; i--) {
+        if (D_80060D70[i].state == 21) {
+            return i;
+        }
+    }
+    for (i = 15; i >= 0; i--) {
+        if ((D_80060D70[i].state == 20 || D_80060D70[i].state == 21) && D_80060D70[i].unkF == 0) {
+            NSTexturePageFree(i);
+            return i;
+        }
+    }
+    return -0xC;
+}
 
-void func_80013A30(s32 idx);
+void func_800181E0(u32 eid, s32 arg1);
+
+#ifdef NON_MATCHING
+/* Equivalent; the original loads the array address before scaling the index. */
+s32 NSTexturePageFree(s32 idx) {
+    PageStruct *ps;
+
+    ps = &D_80060D70[idx];
+    switch (ps->state) {
+    case 20:
+        func_800181E0(ps->eid, 0);
+        *ps->unk20 = ps->pgid;
+        ns.page_map[ps->pgid >> 1] = (PageStruct *)-0x12;
+        /* fallthrough */
+    case 21:
+        D_80060D70[idx].state = 1;
+        break;
+    }
+    return -0xE;
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/ns", NSTexturePageFree);
+#endif
 
 void func_80013B00(s32 idx, s32 flag) {
     if (flag) {
-        func_80013A30(idx);
+        NSTexturePageFree(idx);
         D_80060D70[idx].state = 0x1E;
     } else if (D_80060D70[idx].state == 0x1E) {
         D_80060D70[idx].state = 1;

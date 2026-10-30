@@ -871,7 +871,30 @@ void func_80014650(u32 *bits) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014788);
+void func_80014788(u32 *bits) {
+    PageStruct *ps;
+    s32 i;
+    s32 idx;
+
+    ps = ns.virtual_pages;
+    for (i = ns.virtual_page_count - 1; i >= 0; ps++, i--) {
+        if (ps->state != 1 && ps->unkF != 0) {
+            idx = ps->pgid >> 1;
+            if (!(bits[idx / 32] & (1 << (idx % 32)))) {
+                func_80013EFC(ps);
+            }
+        }
+    }
+    ps = ns.physical_pages;
+    for (i = ns.physical_page_count - 1; i >= 0; ps++, i--) {
+        if (ps->state != 1 && ps->unkF != 0) {
+            idx = ps->pgid >> 1;
+            if (!(bits[idx / 32] & (1 << (idx % 32)))) {
+                func_80013EFC(ps);
+            }
+        }
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_800148F8);
 

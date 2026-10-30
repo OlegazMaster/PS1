@@ -316,7 +316,7 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014024);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_800140C0);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_8001418C);
+INCLUDE_ASM("asm/us/nonmatchings/ns", NSEntryPageStruct);
 
 PageStruct *NSEntryPageStruct(void *en_ref);
 

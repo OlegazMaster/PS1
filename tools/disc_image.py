@@ -3,7 +3,8 @@
 
 Without --extract, copies the boot executable named in SYSTEM.CNF into disc/.
 Only the ISO 9660 data track is read; a partial image works as long as it
-contains the requested file.
+contains the requested file. The image may also be the first volume of an
+uncompressed ("store") 7z archive of it, e.g. game.7z.001.
 
 Usage: disc_image.py <image> [--list] [--extract PATH] [-o OUTPUT]
 """
@@ -19,6 +20,9 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW_SECTOR_SIZE = 2352
 SECTOR_SIZE = 2048
 SYNC = bytes([0x00] + [0xFF] * 10 + [0x00])
+SEVENZIP_MAGIC = b"7z\xbc\xaf\x27\x1c"
+# 7z signature header; with the "store" method the file follows it unchanged.
+SEVENZIP_HEADER_SIZE = 32
 PVD_LBA = 16
 DIR_FLAG = 0x02
 BOOT_LINE = re.compile(r"^\s*BOOT\s*=\s*cdrom:\\*([^\s;]+)", re.IGNORECASE | re.MULTILINE)
@@ -121,7 +125,12 @@ def load_image(path: Path) -> bytes:
         if not match:
             raise DiscError(f"{path}: в .cue нет строки FILE")
         path = path.parent / match.group(1)
-    return path.read_bytes()
+    data = path.read_bytes()
+    if data.startswith(SEVENZIP_MAGIC):
+        data = data[SEVENZIP_HEADER_SIZE:]
+        if not data.startswith(SYNC) and data[PVD_LBA * SECTOR_SIZE + 1:][:5] != b"CD001":
+            raise DiscError("7z-архив сжат: нужен архив с уровнем сжатия «без сжатия» (store)")
+    return data
 
 
 def main(argv):

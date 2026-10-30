@@ -233,6 +233,18 @@ class DiscImageTest(unittest.TestCase):
             disc.read_file("S0/S0000002.NSF")
 
 
+    def test_store_7z_volume(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            volume = Path(tmp) / "game.7z.001"
+            header = disc_image.SEVENZIP_MAGIC.ljust(disc_image.SEVENZIP_HEADER_SIZE, b"\0")
+            volume.write_bytes(header + to_raw_mode2(make_iso(self.FILES)))
+            self.check(disc_image.load_image(volume))
+
+            volume.write_bytes(header + bytes(range(256)) * 200)
+            with self.assertRaises(disc_image.DiscError):
+                disc_image.load_image(volume)
+
+
 class VersionsTest(unittest.TestCase):
     def test_known_versions(self):
         self.assertEqual(versions.get("us").exe, "SCUS_942.44")

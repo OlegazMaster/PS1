@@ -51,13 +51,19 @@
 sudo apt install binutils-mipsel-linux-gnu python3-venv git curl make cpp
 make setup      # скачивает компилятор PSY-Q GCC, maspsx, splat, m2c, asm-differ
 
-# скопируйте SCUS_942.44 с вашего диска в disc/ (см. disc/README.md)
-# или извлеките его из образа: python3 tools/disc_image.py game.cue
-make init       # создаёт config/us/splat.yaml по вашему файлу (один раз)
+# исполняемый файл с вашего диска -> disc/SCUS_942.44 (см. disc/README.md):
+python3 tools/disc_image.py game.cue   # из образа .cue/.bin, .iso или куска .7z.001
+
 make extract    # нарезает исполняемый файл на asm/ и заготовки src/
 make            # собирает build/us/SCUS_942.44 и сверяет с оригиналом
 make progress   # сколько кода уже на C
 ```
+
+Эти же шаги восстанавливают рабочее окружение в новой сессии или на другом
+компьютере. В git хранится всё, кроме файлов игры и того, что из них
+генерируется (`disc/`, `asm/`, `build/`), а также скачиваемого тулчейна.
+`make init` нужен только для новой версии игры (`make init VERSION=eu`):
+для `us` конфигурация уже есть в `config/us/`.
 
 Как декомпилировать функции, описано в [docs/decompiling.md](docs/decompiling.md).
 

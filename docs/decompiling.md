@@ -7,15 +7,14 @@
 
 ```sh
 make setup
-cp /путь/к/диску/SCUS_942.44 disc/
-make init        # config/us/splat.yaml, config/us/checksum.sha1
+python3 tools/disc_image.py game.cue   # SCUS_942.44 с вашего диска -> disc/
 make extract     # asm/us/, src/
 make             # должно быть «OK, совпадает с оригиналом»
 make expected    # снимок совпадающей сборки, эталон для `make diff`
 ```
 
-`make init` нужен только при создании проекта. Получившийся
-`config/us/splat.yaml` коммитится, и дальше его правят вручную.
+Конфигурация нарезки (`config/us/splat.yaml`) хранится в репозитории, её правят
+вручную. `make init` создаёт её заново только для новой версии игры.
 
 ## 1. Разделить код на файлы
 

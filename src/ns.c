@@ -60,6 +60,16 @@ typedef struct {
 } Unk2C;
 
 typedef struct {
+    u8 unk0[0x6];
+    s16 unk6;
+    u8 unk8[0x10];
+    s32 unk18;
+    u8 unk1C[0x10];
+} Unk80060BB8;
+
+extern Unk80060BB8 D_80060BB8[10];
+
+typedef struct {
     u8 unk0[0x30];
     Unk2C items[1];
 } Unk15468;
@@ -259,11 +269,42 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012EAC);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012F7C);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013000);
+s32 func_80047F44(s32, s32);
+s32 func_80045E48(s32);
+
+s32 func_80013000(s32 arg0) {
+    s32 ret = func_80047F44(arg0 == 0, 0);
+
+    if (ret < 0) {
+        return -0x10;
+    }
+    if (ret != 0) {
+        return 0;
+    }
+    ret = func_80045E48(arg0 == 0);
+    if (ret < 0) {
+        return -0x10;
+    }
+    return ret == 0;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013050);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013158);
+s32 func_80013158(PageStruct *ps, s32 pgid) {
+    s32 last;
+
+    if (pgid == -1) {
+        return 1;
+    }
+    pgid >>= 1;
+    last = ps->unk24->pgid >> 1;
+    if (pgid <= last) {
+        if (pgid > last - ps->unk1C) {
+            return 1;
+        }
+    }
+    return 0;
+}
 
 s32 func_800131B0(PageStruct *ps) {
     ps->state = 2;
@@ -365,7 +406,17 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", NSKill);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80015230);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80015414);
+Unk80060BB8 *func_80015414(s32 arg0) {
+    Unk80060BB8 *p = D_80060BB8;
+    s32 i;
+
+    for (i = 9; i >= 0; p++, i--) {
+        if (p->unk6 == 5 && p->unk18 == arg0) {
+            return p;
+        }
+    }
+    return NULL;
+}
 
 void func_80015468(Unk15468 *arg0, s32 idx) {
     if (arg0->items[idx].unk0 != 0) {

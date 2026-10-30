@@ -64,6 +64,16 @@ typedef struct {
     u8 unk2[0x2A];
 } Unk2C;
 
+/* A 64 KB page of an NSF file. */
+typedef struct {
+    u16 magic; /* 0x1234 */
+    u16 type;
+    u32 id;
+    s32 entry_count; /* 0x8 */
+    s32 unkC;
+    Entry *entries[1]; /* 0x10: entry_count + 1 offsets, then pointers */
+} Page;
+
 extern PageStruct D_80060BB8[10];
 extern PageStruct D_80060D70[];
 
@@ -248,7 +258,36 @@ s32 NSCountEntries(NsState *nss, s32 type) {
     return count;
 }
 
+#ifdef NON_MATCHING
+static inline s32 PageEntryOffset(Page *page, s32 idx) {
+    s32 value = (s32)page->entries[idx];
+
+    if (value < 0) {
+        return value - (s32)page;
+    }
+    return value;
+}
+#endif
+
+#ifdef NON_MATCHING
+/* Equivalent; the original's case blocks are laid out in another order. */
+s32 func_8001235C(Page *page) {
+    switch (page->type) {
+    case 0:
+    case 3:
+    case 4:
+    case 5:
+        return PageEntryOffset(page, page->entry_count);
+    case 1:
+        return 0x10000;
+    case 0x100:
+        return PageEntryOffset(page, page->unkC);
+    }
+    return -0xE;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_8001235C);
+#endif
 
 s32 NSEntryItemSize(Entry *entry, s32 idx) {
     if (entry->item_count != 0) {
@@ -259,9 +298,54 @@ s32 NSEntryItemSize(Entry *entry, s32 idx) {
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_8001242C);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012588);
+#ifdef NON_MATCHING
+/* Equivalent; the original stores the entry pointer from the register it is computed in. */
+s32 NSPageTranslateOffsets(Page *page) {
+    s32 count = page->entry_count;
+    Entry **entries = page->entries;
+    s32 i;
+    s32 ii;
+    Entry *entry;
+    u8 **items;
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012634);
+    if (page->type == 1) {
+        return -0xFF;
+    }
+    if (page->magic != 0x1234) {
+        return -0x12;
+    }
+    for (i = count - 1; i >= 0; i--) {
+        entry = entries[i] = (Entry *)((u32)page + (u32)entries[i]);
+        items = entry->items;
+        for (ii = entry->item_count; ii >= 0; ii--) {
+            items[ii] = (u8 *)((u32)entry + (u32)items[ii]);
+        }
+    }
+    entries[count] = (Entry *)((u32)page + (u32)entries[count]);
+    return -0xFF;
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/ns", NSPageTranslateOffsets);
+#endif
+
+u32 NSChecksum(u32 *buf, s32 size) {
+    u32 checksum = 0x12345678;
+    s32 i;
+    u32 word;
+
+    for (i = 0; i < size / 4; i++) {
+        word = *buf++;
+        checksum += word & 0xFF;
+        checksum = (checksum << 3) | (checksum >> 29);
+        checksum += (word >> 8) & 0xFF;
+        checksum = (checksum << 3) | (checksum >> 29);
+        checksum += (word >> 16) & 0xFF;
+        checksum = (checksum << 3) | (checksum >> 29);
+        checksum += word >> 24;
+        checksum = (checksum << 3) | (checksum >> 29);
+    }
+    return checksum;
+}
 
 INCLUDE_RODATA("asm/us/nonmatchings/ns", D_80010068);
 

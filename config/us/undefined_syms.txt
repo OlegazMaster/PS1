@@ -1,0 +1,1 @@
+/* Symbols outside of the executable (hardware registers, BIOS), linker script syntax. */

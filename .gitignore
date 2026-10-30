@@ -1,0 +1,25 @@
+# Файлы игры: только ваша собственная копия, никогда не коммитим.
+/disc/*
+!/disc/README.md
+
+# Всё, что генерируется из исполняемого файла игры или собирается.
+/asm/
+/assets/
+/build/
+/expected/
+/.splache
+/ctx.c
+/ctx.m2c
+*.m2c
+
+# Файлы, которые splat генерирует при каждой нарезке.
+/include/include_asm.h
+/include/macro.inc
+/include/labels.inc
+/include/gte_macros.inc
+
+# Тулчейн, скачиваемый tools/setup.sh.
+/tools/toolchain/
+/.venv/
+__pycache__/
+*.pyc

@@ -105,10 +105,14 @@ def scan(root: Path, version: str) -> dict:
             # asm/<version>/matchings/<name>/ (already in C).
             still_asm = included_functions(root / source)
             name = Path(source).relative_to("src").with_suffix("")
+            # Files left over from renamed functions are ignored: a function
+            # counts from nonmatchings only while INCLUDE_ASM still uses it.
             functions = {}
-            for kind in ("nonmatchings", "matchings"):
-                for asm_file in sorted((asm_dir / kind / name).glob("*.s")):
-                    functions.update(function_sizes(asm_file))
+            for asm_file in sorted((asm_dir / "matchings" / name).glob("*.s")):
+                functions.update(function_sizes(asm_file))
+            for asm_file in sorted((asm_dir / "nonmatchings" / name).glob("*.s")):
+                functions.update({f: size for f, size in function_sizes(asm_file).items()
+                                  if f in still_asm})
             for function, size in functions.items():
                 if size:
                     stats.add(function, size, function not in still_asm)

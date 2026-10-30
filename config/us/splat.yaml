@@ -57,16 +57,19 @@ segments:
     # .sbss and .bss, cleared by the PSY-Q startup code (__SN_ENTRY_POINT).
     bss_size: 0xE040
     subsegments:
-      - [0x800, rodata, "800"]
+      - [0x800, .rodata, ns]
+      - [0xA30, rodata, "A30"]
       - [0x181C, asm, heap]       # memory allocator: InitHeap, malloc, free, ...
       - [0x1E28, c, main]
       - [0x2768, asm, "2768"]     # render setup + empty stubs
-      - [0x27D0, asm, "27D0"]     # rest of the game C code, to be split into files
+      - [0x27D0, c, ns]           # NSF/NSD paging ("ns.c" in c1)
+      - [0x5CAC, asm, "5CAC"]     # rest of the game C code, to be split into files
       - [0x2A63C, asm, nd_asm]    # Naughty Dog's hand-written assembly (uses the GTE)
       - [0x35F50, asm, psyq]      # PSY-Q libraries (libcd, libgpu, libspu, libapi, ...)
       - [0x4C440, data, "4C440"]
       - [0x51078, .sdata, main]   # $gp = 0x80060878
-      - [0x51094, sdata, "51094"]
+      - [0x51094, .sdata, ns]
+      - [0x510D8, sdata, "510D8"]
       - { start: 0x51238, type: sbss, vram: 0x80060A38, name: heap_sbss }
       - { type: .sbss, vram: 0x80060A58, name: main }
       - { type: sbss, vram: 0x80060A60, name: sbss_80060A60 } # .sbss and .bss of the other files

@@ -18,9 +18,9 @@ SHELL := /bin/bash
 
 # ---- Toolchain ---------------------------------------------------------------
 
-# Compiler that produced the original executable: GCC 2.7.2 reproduces main()
-# exactly, 2.8.1 schedules it differently.
-COMPILER      ?= gcc-2.7.2-psx
+# Compiler that produced the original executable: only GCC 2.8.1 reproduces
+# ns.c (it splits symbol addresses into registers; 2.7.2 does not).
+COMPILER      ?= gcc-2.8.1-psx
 ASPSX_VERSION ?= 2.56
 # The game code reads small variables through $gp (-G8); the PSY-Q libraries do not.
 GP_SIZE       ?= 8
@@ -32,7 +32,7 @@ AS        := $(CROSS)as
 LD        := $(CROSS)ld
 OBJCOPY   := $(CROSS)objcopy
 CPP       := cpp
-CC1       := $(TOOLCHAIN)/$(COMPILER)/cc1
+CC1        = $(TOOLCHAIN)/$(COMPILER)/cc1
 MASPSX    := $(PYTHON) $(TOOLCHAIN)/maspsx/maspsx.py
 SPLAT     := $(PYTHON) -m splat split
 M2C       := $(PYTHON) $(TOOLCHAIN)/m2c/m2c.py

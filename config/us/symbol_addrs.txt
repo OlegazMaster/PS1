@@ -84,3 +84,18 @@ savestate = 0x80065DD8;
 game = 0x80068E98;
 // A counter stored inside Naughty Dog's assembly module
 ticks_elapsed = 0x8003AE8C; // size:0x4
+
+// ns.c (names follow c1)
+NSEIDToString = 0x80011FD0; // type:func
+NSEIDValToString = 0x80012054; // type:func
+NSAlphaNumChar = 0x80012224; // type:func
+NSAlphaNumIndex = 0x8001223C; // type:func
+NSEIDType = 0x800122A0; // type:func
+NSCountEntries = 0x800122E4; // type:func
+NSInit = 0x80014BC8; // type:func
+NSKill = 0x80015110; // type:func
+sprintf = 0x80048120; // type:func
+alpha_map = 0x8005BC58;
+eid_str_buf = 0x80060B70; // size:0x10
+eid_str_buf2 = 0x80060B80; // size:0x10
+tpage_rect = 0x800608B8; // size:0x8

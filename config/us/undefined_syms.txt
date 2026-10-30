@@ -1,1 +1,3 @@
 /* Symbols outside of the executable (hardware registers, BIOS), linker script syntax. */
+/* Field of tpage_rect (src/ns.c) that ns.c assembly reaches directly. */
+D_800608BA = tpage_rect + 2;

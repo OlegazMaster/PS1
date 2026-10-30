@@ -182,8 +182,8 @@ void func_80015658(void);
 void func_80011FB8(void);
 void func_80011FC0(void);
 void func_80012CBC(s32);
-void func_80014BC8(NsState *, s32);
-void func_80015110(NsState *);
+void NSInit(NsState *, s32);
+void NSKill(NsState *);
 void func_80016634(s32);
 void func_80018A54(void);
 s32 func_8001A42C(void *, s32, s32, s32, s32, s32);
@@ -219,17 +219,19 @@ s32 main(void) {
 }
 
 #ifdef NON_MATCHING
-/* Equivalent to the original, but GCC allocates registers differently: the
- * original keeps the addresses of pads, game, context and D_800676B0 in saved
- * registers and has a 0xA8-byte unused stack buffer. */
+/* Equivalent to the original and close to matching (a few register choices
+ * and the order of some loads still differ). */
 void CoreLoop(s32 lid) {
+    u8 unused[0xA8];
     s32 saved[8];
     s32 arg;
+    s32 new_lid;
     s32 bonus_return2;
+    s32 draw;
     s32 i;
 
     func_8002FBD0();
-    func_80014BC8(&ns, lid);
+    NSInit(&ns, lid);
     func_8002FA1C();
     do {
         if (((pads.tapped & 0x800) || (paused == 1 && game.pause_obj == 0) ||
@@ -275,27 +277,27 @@ void CoreLoop(s32 lid) {
             game.unk26C = 0;
         }
         if (next_lid != -1) {
-            lid = next_lid;
+            new_lid = next_lid;
             func_8001E34C(0, 0x2900, 0, 0, 0);
             if (next_lid == -2) {
-                lid = savestate.lid;
+                new_lid = savestate.lid;
                 bonus_return2 = 1;
                 bonus_return = 1;
             } else {
                 bonus_return = 0;
             }
             ns.draw_skip_counter = 2;
-            func_80015110(&ns);
+            NSKill(&ns);
             paused = 0;
             D_80060A94 = 0;
-            if (lid == 2 || lid == 0x3B || lid == 0x3C || lid == 0x3A) {
+            if (new_lid == 2 || new_lid == 0x3B || new_lid == 0x3C || new_lid == 0x3A) {
                 game.unk88 = game.game_state;
                 game.unk344 = game.unk74;
             }
-            if (lid != 0x3A) {
+            if (new_lid != 0x3A) {
                 game.unk35C = -1;
             }
-            func_80014BC8(&ns, lid);
+            NSInit(&ns, new_lid);
             func_8002FA1C();
             if (bonus_return2) {
                 next_lid = -1;
@@ -316,7 +318,8 @@ void CoreLoop(s32 lid) {
             }
             func_8001D16C(!paused);
         }
-        if ((game.display_flags & 1) && *D_80065C90.unkCC->unk10 != 0 && D_80065C90.unk144 != 0) {
+        draw = (game.display_flags & 1) && *D_80065C90.unkCC->unk10 != 0 && D_80065C90.unk144 != 0;
+        if (draw) {
             u32 *dst;
             s32 *src;
             s32 count;
@@ -330,7 +333,8 @@ void CoreLoop(s32 lid) {
             count = *src;
             dst = (u32 *)0x1F800280;
             entry = (Unk30 *)(src + 2);
-            while (count-- != 0) {
+            while (count != 0) {
+                count--;
                 *dst++ = ((entry->unk4 << 16) & 0xFFFE0000) | entry->unk0;
                 *dst++ = entry->unk8;
                 *dst++ = (s32)(entry->unk10 + entry->unkC[5]);
@@ -418,7 +422,7 @@ void CoreLoop(s32 lid) {
     game.display_flags = 0;
     func_80016634(0);
     func_80016634(0);
-    func_80015110(&ns);
+    NSKill(&ns);
 }
 #else
 INCLUDE_ASM("asm/us/nonmatchings/main", CoreLoop);

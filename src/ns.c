@@ -27,7 +27,9 @@ typedef struct {
     NsdPte **pte_buckets; /* 0x8: 256 hash buckets of the NSD */
     u8 unkC[0xC];
     Nsd *nsd; /* 0x18 */
-    u8 unk1C[0xA20];
+    u8 unk1C[0xA0C];
+    s32 page_count; /* 0xA28 */
+    u8 unkA2C[0x10];
     struct PageStruct **page_map; /* 0xA3C */
 } NsState;
 
@@ -79,6 +81,10 @@ extern char eid_str_buf[];
 extern char eid_str_buf2[];
 
 int sprintf(char *buf, const char *fmt, ...);
+void NSPageDelete(PageStruct *ps);
+NsdPte *NSProbe(u32 eid);
+PageStruct *NSEntryPageStruct(void *en_ref);
+void *func_800140C0(u32 pgid, s32 count);
 
 
 char *NSEIDToString(u32 eid) {
@@ -331,9 +337,15 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013C54);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013D04);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013E64);
+void func_80013E64(PageStruct *ps) {
+    if (ps->unkF > 0) {
+        if (--ps->unkF <= 0 && ps->type == 0) {
+            NSPageDelete(ps);
+            ns.page_count--;
+        }
+    }
+}
 
-void func_80013E64(PageStruct *ps);
 
 void NSPageDecRef(PageStruct *ps) {
     if (ps->ref_count != 0) {
@@ -359,8 +371,6 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_800140C0);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", NSEntryPageStruct);
 
-PageStruct *NSEntryPageStruct(void *en_ref);
-
 void *NSEntryPage(void *en_ref) {
     PageStruct *ps = NSEntryPageStruct(en_ref);
 
@@ -375,9 +385,38 @@ void *NSEntryPage(void *en_ref) {
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_800142B4);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_8001439C);
+void *func_8001439C(NsdPte *pte, s32 count) {
+    u32 value = pte->value;
+    PageStruct *ps;
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_8001440C);
+    if (!(value & 1)) {
+        if (count == 0) {
+            return pte;
+        }
+        ps = NSEntryPageStruct((void *)value);
+        if (ps != NULL) {
+            value = ps->pgid;
+        } else {
+            return (void *)1;
+        }
+    } else if (count == 0) {
+        return NULL;
+    }
+    return func_800140C0(value, count);
+}
+
+void *func_8001440C(u32 *ref, s32 count) {
+    u32 value = *ref;
+    NsdPte *pte;
+
+    if (value & 1) {
+        pte = NSProbe(value);
+        *ref = (u32)pte;
+    } else {
+        pte = (NsdPte *)value;
+    }
+    return func_8001439C(pte, count);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014468);
 

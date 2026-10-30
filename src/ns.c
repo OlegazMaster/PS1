@@ -50,7 +50,8 @@ typedef struct PageStruct {
 } PageStruct;
 
 typedef struct {
-    u8 unk0[0x8];
+    s32 inited;
+    u8 unk4[0x4];
     NsdPte **pte_buckets; /* 0x8: 256 hash buckets of the NSD */
     NsdPte *ptes; /* 0xC */
     u8 unk10[0x8];
@@ -64,7 +65,9 @@ typedef struct {
     PageStruct virtual_pages[37]; /* 0x3CC */
     s32 page_count; /* 0xA28 */
     s32 unkA2C;
-    u8 unkA30[0xC];
+    s32 unkA30;
+    s32 unkA34;
+    s32 unkA38;
     PageStruct **page_map; /* 0xA3C */
     s32 unkA40;
 } NsState;
@@ -74,10 +77,6 @@ extern s32 ticks_elapsed;
 
 extern u8 D_8005F408;
 
-typedef struct {
-    s16 unk0;
-    u8 unk2[0x2A];
-} Unk2C;
 
 /* A 64 KB page of an NSF file. */
 typedef struct {
@@ -98,11 +97,6 @@ typedef struct {
 } Unk8006C4D8;
 
 extern Unk8006C4D8 D_8006C4D8[];
-
-typedef struct {
-    u8 unk0[0x30];
-    Unk2C items[1];
-} Unk15468;
 
 extern char alpha_map[];
 extern char eid_str_buf[];
@@ -857,7 +851,46 @@ NsdPte *NSProbeSafe(u32 eid) {
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", NSInit);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", NSKill);
+typedef struct {
+    u8 unk0[0x18];
+    void (*kill)(void);
+} NsSubsystem;
+
+extern NsSubsystem subsys[22];
+void free(void *ptr);
+void func_800519C4(s32);
+void func_800351EC(void);
+void func_80033238(void);
+void NSKillPage(NsState *nss, s32 idx);
+
+s32 NSKill(NsState *nss) {
+    s32 i;
+
+    if (nss->inited != 1) {
+        return -0xFF;
+    }
+    if (use_cd && ns.unkA2C != 0) {
+        func_80013000(1);
+    }
+    if (ns.unkA34 != 0) {
+        func_800519C4(1);
+    }
+    func_800351EC();
+    func_80033238();
+    for (i = 0; i < 22; i++) {
+        if (subsys[i].kill != NULL) {
+            subsys[i].kill();
+        }
+    }
+    for (i = 0; i < nss->physical_page_count; i++) {
+        NSKillPage(nss, i);
+    }
+    free(nss->physical_pages[0].page);
+    free(nss->page_map);
+    free(nss->nsd);
+    nss->inited = 0;
+    return -0xFF;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80015230);
 
@@ -873,9 +906,9 @@ PageStruct *func_80015414(s32 arg0) {
     return NULL;
 }
 
-void func_80015468(Unk15468 *arg0, s32 idx) {
-    if (arg0->items[idx].unk0 != 0) {
-        arg0->items[idx].unk0 = 0;
+void NSKillPage(NsState *nss, s32 idx) {
+    if (nss->physical_pages[idx].state != 0) {
+        nss->physical_pages[idx].state = 0;
     }
 }
 

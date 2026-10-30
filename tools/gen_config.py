@@ -83,8 +83,8 @@ options:
   o_as_suffix: False
   use_legacy_include_asm: False
   migrate_rodata_to_functions: True
-  section_order: [".rodata", ".text", ".data", ".bss"]
-  subalign: 2
+  section_order: [".rodata", ".text", ".data", ".sdata", ".sbss", ".bss"]
+  subalign: 4
   # The PSY-Q linker does not align sections: keep splat from doing it.
   ld_align_section_vram_end: False
   ld_align_segment_vram_end: False

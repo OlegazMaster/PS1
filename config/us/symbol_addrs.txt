@@ -4,6 +4,16 @@ __SN_ENTRY_POINT = 0x800489F8; // type:func
 // Startup and memory (PSY-Q startup calls InitHeap(start, size), then main)
 InitHeap = 0x800112B8; // type:func
 main = 0x80011628; // type:func
+CoreLoop = 0x8001166C; // type:func
+
+// main.c data (names follow the Crash 1 port "c1")
+paused = 0x8006087C; // size:0x4
+_stacksize = 0x80060880; // size:0x4
+_ramsize = 0x80060884; // size:0x4
+pause_status = 0x80060888; // size:0x4
+pause_stamp = 0x80060A58; // size:0x4
+pause_draw_stamp = 0x80060A5C; // size:0x4
+use_cd = 0x800608A4; // size:0x4
 __main = 0x80048AA0; // type:func
 
 // libcd

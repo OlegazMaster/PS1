@@ -799,7 +799,34 @@ void *func_8001440C(u32 *ref, s32 count) {
     return func_8001439C(pte, count);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014468);
+void func_80013EFC(PageStruct *ps);
+
+void func_80014468(void) {
+    PageStruct *ps;
+    s32 i;
+
+    for (i = 0, ps = ns.virtual_pages; i < ns.virtual_page_count; ps++, i++) {
+        if (ps->state != 1) {
+            func_80013EFC(ps);
+        }
+    }
+    ps = ns.physical_pages;
+    for (i = ns.physical_page_count - 1; i >= 0; i--, ps++) {
+        if (ps->state != 1) {
+            func_80013EFC(ps);
+        }
+    }
+    for (ps = D_80060D70, i = 15; i >= 0; i--, ps++) {
+        if (ps->state == 20 || ps->state == 21) {
+            func_80013EFC(ps);
+        }
+    }
+    for (ps = D_80060BB8, i = 9; i >= 0; i--, ps++) {
+        if (ps->state == 20 || ps->state == 21) {
+            func_80013EFC(ps);
+        }
+    }
+}
 
 #ifdef NON_MATCHING
 /* Equivalent; the original walks the virtual pages with a reversed counter. */

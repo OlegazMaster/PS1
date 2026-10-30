@@ -5,6 +5,8 @@
 typedef struct {
     u8 unk0[0x8];
     s32 type; /* 0x8 */
+    s32 item_count; /* 0xC */
+    u8 *items[1]; /* 0x10: item_count + 1 offsets */
 } Entry;
 
 /* An NSD page table entry: either an entry pointer or an EID (low bits set). */
@@ -21,18 +23,25 @@ typedef struct {
 } Nsd;
 
 typedef struct {
-    u8 unk0[0x18];
+    u8 unk0[0x8];
+    NsdPte **pte_buckets; /* 0x8: 256 hash buckets of the NSD */
+    u8 unkC[0xC];
     Nsd *nsd; /* 0x18 */
+    u8 unk1C[0xA20];
+    struct PageStruct **page_map; /* 0xA3C */
 } NsState;
+
+extern NsState ns;
 
 typedef struct {
     s16 x, y, w, h;
 } Rect16;
 
 typedef struct PageStruct {
-    u8 unk0[0x4];
+    void *page; /* 0x0 */
     s16 state; /* 0x4 */
-    u8 unk6[0x8];
+    s16 type; /* 0x6 */
+    u8 unk8[0x6];
     s8 ref_count; /* 0xE */
     s8 unkF;
     u8 unk10[0x4];
@@ -43,8 +52,17 @@ typedef struct PageStruct {
     struct PageStruct *unk24;
 } PageStruct;
 
-extern PageStruct **D_80061A6C; /* ns.page_map */
 extern u8 D_8005F408;
+
+typedef struct {
+    s16 unk0;
+    u8 unk2[0x2A];
+} Unk2C;
+
+typedef struct {
+    u8 unk0[0x30];
+    Unk2C items[1];
+} Unk15468;
 
 extern char alpha_map[];
 extern char eid_str_buf[];
@@ -212,7 +230,12 @@ s32 NSCountEntries(NsState *nss, s32 type) {
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_8001235C);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_800123F4);
+s32 NSEntryItemSize(Entry *entry, s32 idx) {
+    if (entry->item_count != 0) {
+        return entry->items[idx + 1] - entry->items[idx];
+    }
+    return 0;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_8001242C);
 
@@ -280,17 +303,12 @@ void NSPageDecRef(PageStruct *ps) {
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013EFC);
 
-#ifdef NON_MATCHING
-/* Equivalent; the original stores state before loading pgid. */
 void NSPageDelete(PageStruct *ps) {
     ps->state = 1;
     ps->unkF = 0;
     ps->ref_count = 0;
-    D_80061A6C[ps->pgid >> 1] = (PageStruct *)-0x12;
+    ns.page_map[ps->pgid >> 1] = (PageStruct *)-0x12;
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/ns", NSPageDelete);
-#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013FA8);
 
@@ -300,7 +318,19 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_800140C0);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_8001418C);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014268);
+PageStruct *NSEntryPageStruct(void *en_ref);
+
+void *NSEntryPage(void *en_ref) {
+    PageStruct *ps = NSEntryPageStruct(en_ref);
+
+    if (ps == NULL) {
+        return NULL;
+    }
+    if (ps->type != 1) {
+        return NULL;
+    }
+    return ps->page;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_800142B4);
 
@@ -318,7 +348,14 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014788);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_800148F8);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014B04);
+NsdPte *NSProbe(u32 eid) {
+    NsdPte *pte = ns.pte_buckets[(eid >> 15) & 0xFF];
+
+    while (pte->eid != eid) {
+        pte++;
+    }
+    return pte;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80014B50);
 
@@ -330,7 +367,11 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_80015230);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80015414);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80015468);
+void func_80015468(Unk15468 *arg0, s32 idx) {
+    if (arg0->items[idx].unk0 != 0) {
+        arg0->items[idx].unk0 = 0;
+    }
+}
 
 u8 func_8001549C(void) {
     return D_8005F408;

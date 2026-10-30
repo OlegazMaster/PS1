@@ -28,7 +28,9 @@ typedef struct {
     s32 game_state; /* 0xA4 */
     u8 unkA8[0xE0];
     s32 unk188;
-    u8 unk18C[0x78];
+    u8 unk18C[0x10];
+    s32 unk19C;
+    u8 unk1A0[0x64];
     s32 unk204;
     s32 unk208;
     u8 unk20C[0x20];
@@ -40,6 +42,8 @@ typedef struct {
     Object *unk348;
     u8 unk34C[0x10];
     s32 unk35C;
+    u8 unk360[0x4];
+    s32 unk364;
 } GameState;
 
 typedef struct {
@@ -105,7 +109,9 @@ typedef struct {
 } UnkCC;
 
 typedef struct {
-    u8 unk0[0xCC];
+    u8 unk0[0x20];
+    u16 unk20[9];
+    u8 unk32[0x9A];
     UnkCC *unkCC;
     u8 unkD0[0x74];
     u32 unk144;
@@ -163,8 +169,6 @@ extern s32 D_80060A94;
 extern s32 D_80060A98;
 extern s32 D_80060A9C;
 extern s32 D_80060AA4;
-extern s32 D_800691FC;
-extern s32 D_80069034;
 extern u8 D_80041550[];
 extern Pad pads;
 extern NsState ns;
@@ -348,7 +352,7 @@ void CoreLoop(s32 lid) {
             if (D_800676B0.unk28 != D_80041550) {
                 func_8003AC44(context.c1_p->ot, 0x800);
             }
-            func_80040ED8(D_80060AA4, context.c1_p, &D_800676B0, D_80069034);
+            func_80040ED8(D_80060AA4, context.c1_p, &D_800676B0, game.unk19C);
             context.c1_p->unkC = 1;
         } else {
             func_8004F674(D_80065CB0);
@@ -365,11 +369,11 @@ void CoreLoop(s32 lid) {
                 func_80043310(D_800676B0.unk98, context.c1_p, &D_800676B0);
             }
             if (D_800676B0.unk378 & 0x1000000) {
-                func_80043FFC(D_80069034, context.c1_p, &D_800676B0);
+                func_80043FFC(game.unk19C, context.c1_p, &D_800676B0);
                 if (ns.ldat->lid != 0xE && ns.ldat->lid != 0x1C) {
-                    func_800452A0(D_80069034, context.c1_p, &D_800676B0);
+                    func_800452A0(game.unk19C, context.c1_p, &D_800676B0);
                     if ((*(u32 *)((u8 *)D_80060A90 + 0x100) >> 28) == 0xA) {
-                        func_8005D370(D_80069034, context.c1_p, &D_800676B0);
+                        func_8005D370(game.unk19C, context.c1_p, &D_800676B0);
                     }
                 }
             }
@@ -385,7 +389,7 @@ void CoreLoop(s32 lid) {
             saved[i] = ((s32 *)0x1F800040)[i];
         }
         func_8003F3AC(context.c1_p->unk2090, context.c1_p, &D_800676B0);
-        if (D_800691FC == -1) {
+        if (game.unk364 == -1) {
             if (game.unk22C != NULL) {
                 func_8001CD80(game.unk22C, game.unk22C->unk44, D_80060A98, 0);
             }

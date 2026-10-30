@@ -32,7 +32,8 @@ typedef struct PageStruct {
     void *page; /* 0x0 */
     s16 state; /* 0x4 */
     s16 type; /* 0x6 */
-    u8 unk8[0x6];
+    u8 unk8[0x4];
+    s16 unkC;
     s8 ref_count; /* 0xE */
     s8 unkF;
     u8 unk10[0x4];
@@ -103,7 +104,7 @@ extern char eid_str_buf2[];
 int sprintf(char *buf, const char *fmt, ...);
 void NSPageDelete(PageStruct *ps);
 NsdPte *NSProbe(u32 eid);
-PageStruct *NSEntryPageStruct(void *en_ref);
+PageStruct *NSEntryPageStruct(u32 ref);
 void *func_800140C0(u32 pgid, s32 count);
 PageStruct *NSPageCreateVirtual(s32 pgid, u32 eid, s32 flag, s32 count);
 
@@ -445,7 +446,25 @@ void func_80013B00(s32 idx, s32 flag) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80013B8C);
+s32 func_80013B8C(s32 type, s32 arg1) {
+    s32 i;
+
+    for (i = 9; i >= 0; i--) {
+        if (D_80060BB8[i].state == 1 && D_80060BB8[i].type == type &&
+            (arg1 == -1 || arg1 == D_80060BB8[i].unkC)) {
+            return i;
+        }
+    }
+    if (type == 5) {
+        for (i = 9; i >= 0; i--) {
+            if ((D_80060BB8[i].state == 20 || D_80060BB8[i].state == 21) &&
+                D_80060BB8[i].type == type && D_80060BB8[i].unkF == 0) {
+                return i;
+            }
+        }
+    }
+    return -0xC;
+}
 
 #ifdef NON_MATCHING
 /* Equivalent; GCC picks other registers for the page pointer and counter. */
@@ -548,12 +567,49 @@ retry:
     return ps->unkF;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_800140C0);
+void *func_800140C0(u32 pgid, s32 count) {
+    PageStruct *ps = ns.page_map[(s32)pgid >> 1];
+    s32 i;
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", NSEntryPageStruct);
+    if ((s32)ps >= -0xFE) {
+        return NULL;
+    }
+    if (ps == (PageStruct *)-0xFF || ps->type == 3 || ps->type == 5) {
+        return (void *)1;
+    }
+    if (count < 0) {
+        NSPageDecRef(ps);
+    } else {
+        for (i = 0; i < count; i++) {
+            func_80013E64(ps);
+        }
+    }
+    return (void *)(ps->unkF + 1);
+}
+
+PageStruct *NSEntryPageStruct(u32 ref) {
+    s32 i;
+    s32 idx;
+
+    if (ref & 2) {
+        if ((ref & 0xC0000002) == 0x80000002) {
+            for (i = 15; i >= 0; i--) {
+                if ((D_80060D70[i].state == 20 || D_80060D70[i].state == 21) && ref == D_80060D70[i].unk1C) {
+                    return &D_80060D70[i];
+                }
+            }
+        }
+        return NULL;
+    }
+    idx = (s32)(ref - (u32)ns.physical_pages[0].page) / 0x10000;
+    if (idx >= 0 && idx < ns.physical_page_count) {
+        return &ns.physical_pages[idx];
+    }
+    return NULL;
+}
 
 void *NSEntryPage(void *en_ref) {
-    PageStruct *ps = NSEntryPageStruct(en_ref);
+    PageStruct *ps = NSEntryPageStruct((u32)en_ref);
 
     if (ps == NULL) {
         return NULL;
@@ -574,7 +630,7 @@ void *func_8001439C(NsdPte *pte, s32 count) {
         if (count == 0) {
             return pte;
         }
-        ps = NSEntryPageStruct((void *)value);
+        ps = NSEntryPageStruct(value);
         if (ps != NULL) {
             value = ps->pgid;
         } else {

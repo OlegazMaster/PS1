@@ -233,7 +233,70 @@ INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001B7A0);
 
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001C3F8);
 
+s32 func_8001C3F8(GoolObject *obj, char *str, s32 x, u32 *font, Entry *tex, s32 scale, s32 flags);
+s32 func_8003C3D0(Transform *xform, Transform *cam, s32 flag, s32 scale, u16 *a, s32 h, s32 b, s32 flag2);
+int sprintf(char *buf, const char *fmt, ...);
+typedef struct {
+    u8 unk0[0x8];
+    s32 font; /* 0x8: default font */
+    char strings[1]; /* 0xC: null-terminated strings */
+} TextData;
+
+
+#ifdef NON_MATCHING
+/* Prints string idx of the text data str with the arguments on the GOOL
+ * stack of obj; align < 0 right-aligns, 0 centers, > 0 left-aligns.
+ * Equivalent; the original copies between the buffer pointer registers in
+ * the other direction. */
+void func_8001C824(GoolObject *obj, char *str, s32 idx, s32 flags, s32 align) {
+    TextData *text;
+    s32 scale;
+    s32 i;
+    u32 *font;
+    Entry *tex;
+    char *q;
+    char *fmt;
+    s32 x;
+    char buf[200];
+
+    scale = abs(obj->xform.scale[0]) / 27279;
+    if (!func_8003C3D0(&obj->xform, &D_80065C90.unk60, (u32)((u8)obj->unk120 - 6) < 2, scale, D_80065C90.unk20, D_80065C90.unkC4, 0x3C00, !((obj->status_b >> 18) & 1))) {
+        return;
+    }
+    text = (TextData *)str;
+    str = text->strings;
+    for (i = 0; i < idx; str++) {
+        if (*str == 0) {
+            i++;
+        }
+    }
+    font = (u32 *)obj->global->items[5] + (((u32)obj->invincibility_state >> 8) ? ((u32)obj->invincibility_state >> 8) : text->font);
+    tex = (Entry *)NSOpen(font + 1, 1, 0);
+    fmt = str;
+    str = buf;
+    sprintf(str, fmt, obj->sp[-2], obj->sp[-3], obj->sp[-4], obj->sp[-5]);
+    for (q = str; *q; q++) {
+    }
+    if (q != str) {
+        for (q--; q != str && *q == ' '; q--) {
+        }
+        q[1] = 0;
+    }
+    if (align > 0) {
+        x = 0;
+    } else {
+        x = func_8001C3F8(obj, str, 0, font, tex, scale, 0);
+        if (align == 0) {
+            x = -x / 2;
+        } else {
+            x = -x;
+        }
+    }
+    func_8001C3F8(obj, str, x, font, tex, scale, flags);
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001C824);
+#endif
 
 void func_8001CA60(GoolObject *obj, s32 unused) {
     obj->colors.c = 0;

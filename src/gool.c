@@ -522,7 +522,57 @@ INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AE64);
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001B0BC);
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001B328);
+s32 func_8003191C(s32 *box_a, s32 *box_b); /* boxes overlap */
+/* Makes obj and other collide (unless obj already collides with a nearer
+ * object) and marks them when their hotspot boxes overlap. */
+
+s32 func_8001B328(GoolObject *obj, s32 *box, GoolObject *other, s32 *other_box) {
+    GoolObject *prev = obj->collider;
+    s32 dist;
+    s32 b[6];
+    s32 b2[6];
+
+    if (prev != NULL && prev != other) {
+        if (other->state_flags & 0x200) {
+            other->collider = obj;
+            return -0x1C;
+        }
+        dist = func_80031A54(obj->xform.trans, prev->xform.trans);
+        if ((s32)func_80031A54(obj->xform.trans, other->xform.trans) >= dist && !(prev->state_flags & 0x200)) {
+            return -0x1C;
+        }
+    }
+    obj->collider = other;
+    other->collider = obj;
+    if (box != NULL) {
+        if (other_box == NULL) {
+            return -0xFF;
+        }
+        if (obj->hotspot_size != 0) {
+            b[0] = box[0] + obj->hotspot_size;
+            b[1] = box[1];
+            b[2] = box[2] + obj->hotspot_size;
+            b[3] = box[3] - obj->hotspot_size;
+            b[4] = box[4];
+            b[5] = box[5] - obj->hotspot_size;
+            if (func_8003191C(b, other_box)) {
+                obj->status_a |= 0x1000;
+            }
+        }
+        if (other->hotspot_size != 0) {
+            b2[0] = other_box[0] + other->hotspot_size;
+            b2[1] = other_box[1];
+            b2[2] = other_box[2] + other->hotspot_size;
+            b2[3] = other_box[3] - other->hotspot_size;
+            b2[4] = other_box[4];
+            b2[5] = other_box[5] - other->hotspot_size;
+            if (func_8003191C(b2, box)) {
+                other->status_a |= 0x1000;
+            }
+        }
+    }
+    return -0xFF;
+}
 
 typedef struct {
     u8 unk0[0x2];

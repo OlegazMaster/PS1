@@ -36,7 +36,8 @@ typedef struct {
     u8 unk1F8[0xC];
     s32 unk204;
     s32 unk208;
-    u8 unk20C[0x14];
+    u8 unk20C[0x10];
+    s32 unk21C;
     s32 unk220;
     s32 unk224;
     u8 unk228[0x4];
@@ -50,6 +51,8 @@ typedef struct {
     s32 unk35C;
     u8 unk360[0x4];
     s32 unk364;
+    u8 unk368[0x4];
+    s32 unk36C;
 } GameState;
 
 extern GameState game;

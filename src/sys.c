@@ -2,6 +2,7 @@
 #include "gfx.h"
 #include "game.h"
 #include "pad.h"
+#include "ns.h"
 
 /* System setup and teardown: CD, events, heap, overlays, video, memory card. */
 
@@ -49,10 +50,109 @@ void func_8007170C(void);
 s32 func_8005B730(void);
 void func_800165F8(DrawContext *dc);
 void GpuResetPrims(DrawContext *dc);
+void GpuInit(void);
 
-INCLUDE_ASM("asm/us/nonmatchings/sys", func_800154AC);
+extern s32 use_cd;
+extern u8 scratchpad[]; /* the 1 KB of fast RAM at 0x1F800000 */
+extern u32 D_80060B90[];
+extern PageStruct D_80060D70[16];
+void func_8004BFBC(s32);
+void func_8004F37C(void);
+s32 CdInit(void);
+void func_8004592C(s32);
+void func_80032144(void);
+void func_800322D0(void);
+void func_80017AE8(void);
+void PadInit(s32 count);
+void VSyncCallback(void (*func)(void));
+void func_80017AD0(void);
+void func_8003AE70(void);
+void EnterCriticalSection(void);
+void ExitCriticalSection(void);
+void StopRCnt(u32 spec);
+void StartRCnt(u32 spec);
+void SetRCnt(u32 spec, u16 target, s32 mode);
+s32 OpenEvent(u32 desc, s32 spec, s32 mode, void (*func)(void));
+s32 EnableEvent(s32 event);
+s32 func_8001549C(void); /* returns u8 in ns.c; declared as int here, as in the original */
 
-INCLUDE_ASM("asm/us/nonmatchings/sys", func_80015658);
+#ifdef NON_MATCHING
+/* Starts the system: scratchpad, CD, video, sound, pads, the vsync callback
+ * and the root counter event. Equivalent; the original strength-reduces the
+ * scratchpad clearing loop to a pointer and loads the EID constant before
+ * the counters of the two fill loops. */
+s32 SysInit(void) {
+    u8 *p;
+    s32 i;
+
+    p = (u8 *)0x1F800000;
+    for (i = 0x3FF; i >= 0; i--) {
+        p[i] = 0;
+    }
+    func_8004BFBC(0);
+    func_8004F37C();
+    if (use_cd) {
+        ResetCallback();
+        CdInit();
+        func_8004592C(1);
+    }
+    GpuInit();
+    func_80032144();
+    ns.draw_skip_counter = 0;
+    for (i = 3; i >= 0; i--) {
+        D_80060B90[i] = 0x6396347F;
+    }
+    for (i = 15; i >= 0; i--) {
+        D_80060D70[i].eid = 0x6396347F;
+    }
+    func_80017AE8();
+    PadInit(2);
+    VSyncCallback(func_80017AD0);
+    EnterCriticalSection();
+    StopRCnt(0xF2000002);
+    D_80060A8C = OpenEvent(0xF2000002, 2, 0x1000, func_8003AE70);
+    EnableEvent(D_80060A8C);
+    SetRCnt(0xF2000002, 0x1010, 0x1000);
+    StartRCnt(0xF2000002);
+    ExitCriticalSection();
+    if (use_cd) {
+        func_800322D0();
+    }
+    game.unk36C = func_8001549C();
+    if (game.unk36C < 3) {
+        game.unk21C = 0x1000;
+    } else {
+        game.unk21C = 0x1016;
+    }
+    game.unk364 = -1;
+    return -0xFF;
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/sys", SysInit);
+#endif
+
+s32 CdControlB(s32 com, u8 *param, u8 *result);
+void func_8004B590(void);
+s32 func_80017C88(void);
+void func_80048E88(void);
+s32 DisableEvent(s32 event);
+s32 CloseEvent(s32 event);
+
+s32 SysKill(void) {
+    if (use_cd) {
+        CdControlB(8, NULL, NULL);
+        func_8004B590();
+    }
+    func_80017C88();
+    func_80048E88();
+    VSyncCallback(NULL);
+    EnterCriticalSection();
+    StopRCnt(0xF2000002);
+    DisableEvent(D_80060A8C);
+    CloseEvent(D_80060A8C);
+    ExitCriticalSection();
+    return -0xFF;
+}
 
 void PadInitDirect(u8 *buf1, u8 *buf2);
 void PadStartCom(void);
@@ -492,7 +592,11 @@ INCLUDE_ASM("asm/us/nonmatchings/sys", func_80017834);
 void func_80017AC8(void) {
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/sys", func_80017AD0);
+/* VSync callback: counts vertical blanks. */
+
+void func_80017AD0(void) {
+    D_800608E8++;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80017AE8);
 

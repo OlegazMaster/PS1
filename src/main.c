@@ -94,9 +94,9 @@ extern u16 D_80065CB0[];
 extern Unk80065D5C *D_80065D5C;
 extern SaveState savestate;
 
-void func_800154AC(void);
+void SysInit(void);
 void CoreLoop(s32 lid);
-void func_80015658(void);
+void SysKill(void);
 void func_80011FB8(void);
 void func_80011FC0(void);
 void NSUpdate(s32);
@@ -130,9 +130,9 @@ int printf(const char *fmt, ...);
 /* GCC inserts the call to __main() (global constructors) by itself. */
 s32 main(void) {
     use_cd = 1;
-    func_800154AC();
+    SysInit();
     CoreLoop(60);
-    func_80015658();
+    SysKill();
     return 0;
 }
 

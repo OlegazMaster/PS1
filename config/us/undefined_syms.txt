@@ -3,3 +3,4 @@
 D_800608BA = tpage_rect + 2;
 /* __main loads %hi of this address; the jump table itself is now in ns.c. */
 jtbl_80010000 = 0x80010000;
+scratchpad = 0x1F800000;

@@ -189,3 +189,5 @@ GoolObjectSearchTree = 0x80019844; // type:func
 GoolObjectKill = 0x8001A844; // type:func
 GoolObjectHandleTraverseTreePreorder = 0x80019900; // type:func
 GoolObjectHandleTraverseTreePostorder = 0x8001997C; // type:func
+GoolObjectHasPidFlags = 0x80019AAC; // type:func
+GoolObjectTestStateFlags = 0x80019CC0; // type:func

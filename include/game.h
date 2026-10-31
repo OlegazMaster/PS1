@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "gfx.h"
+#include "gool.h"
 
 typedef struct {
     u8 unk0[0x44];
@@ -11,8 +12,9 @@ typedef struct {
 
 /* Global game state. Only the fields used so far are named, at their offsets. */
 typedef struct {
-    u8 unk0[0x40];
-    u8 handles[0x30]; /* 0x40 */
+    u8 unk0[0x8];
+    GoolHandle handles[8]; /* 0x8: heads of the object lists */
+    u8 unk48[0x28];
     u32 unk70;
     s32 unk74;
     u8 unk78[0xC];

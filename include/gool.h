@@ -20,12 +20,21 @@ typedef struct GoolObject {
     struct GoolObject *children; /* 0x4C */
     u8 unk50[0x5C];
     u32 unkAC;
-    u8 unkB0[0xC];
+    u8 unkB0[0x8];
+    s32 pid_flags; /* 0xB8 */
     u32 *sp; /* 0xBC: top of the object's GOOL stack */
     u8 unkC0[0x28];
     s32 unkE8;
     u32 unkEC;
+    u8 unkF0[0x10];
+    u32 state_flags; /* 0x100 */
 } GoolObject;
+
+/* The head of an object list; shares type and children with GoolObject. */
+typedef struct {
+    s32 type; /* 2 */
+    GoolObject *children;
+} GoolHandle;
 
 #define ERROR_INVALID_RETURN -25
 
@@ -37,5 +46,8 @@ typedef struct GoolObject {
 typedef s32 (*GoolTraverseFunc)(GoolObject *obj, s32 arg);
 
 s32 GoolObjectKill(GoolObject *obj, s32 sig);
+GoolObject *GoolObjectHasPidFlags(GoolObject *obj, s32 pid_flags);
+GoolObject *GoolObjectTestStateFlags(GoolObject *obj, u32 flags);
+s32 GoolObjectSearchTree(GoolObject *obj, GoolTraverseFunc func, s32 arg);
 
 #endif /* GOOL_H */

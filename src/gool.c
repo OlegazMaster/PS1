@@ -1,5 +1,6 @@
 #include "common.h"
 #include "gool.h"
+#include "game.h"
 
 /* GOOL objects: allocation, the object tree, messages (names follow c1). */
 
@@ -127,13 +128,41 @@ s32 GoolObjectHandleTraverseTreePostorder(GoolObject *obj, GoolTraverseFunc func
     return -0xFF;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019A38);
+/* Calls func for each of the 8 object lists. */
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019AAC);
+void func_80019A38(s32 (*func)(GoolObject *, GoolTraverseFunc, s32), GoolTraverseFunc arg1, s32 arg2) {
+    s32 i;
+
+    for (i = 0; i < 8; i++) {
+        func((GoolObject *)&game.handles[i], arg1, arg2);
+    }
+}
+
+#ifdef NON_MATCHING
+/* Equivalent; the original copies obj to the result register first. */
+GoolObject *GoolObjectHasPidFlags(GoolObject *obj, s32 pid_flags) {
+    if (obj->pid_flags != pid_flags) {
+        obj = NULL;
+    }
+    return obj;
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectHasPidFlags);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019ACC);
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019CC0);
+#ifdef NON_MATCHING
+/* Equivalent; the original copies obj to the result register first. */
+GoolObject *GoolObjectTestStateFlags(GoolObject *obj, u32 flags) {
+    if (!(obj->state_flags & flags)) {
+        obj = NULL;
+    }
+    return obj;
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectTestStateFlags);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019CE4);
 
@@ -145,15 +174,30 @@ INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectKill);
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001A9A8);
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AA78);
+void func_8001AA78(GoolObject *obj) {
+    GoolObjectKill(obj, 1);
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AA98);
+void func_8001A9A8(GoolObject *obj, s32 arg);
+
+void func_8001AA98(s32 arg) {
+    func_80019A38(GoolObjectHandleTraverseTreePostorder, (GoolTraverseFunc)func_8001A9A8, arg);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AAC8);
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AB64);
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001ABF8);
+/* Finds the object with pid_flags among the lists 3 and 4. */
+GoolObject *func_8001ABF8(s32 pid_flags) {
+    GoolObject *res;
+    s32 i = 3;
+
+    do {
+        res = (GoolObject *)GoolObjectSearchTree((GoolObject *)&game.handles[i++], (GoolTraverseFunc)GoolObjectHasPidFlags, pid_flags);
+    } while (res == NULL && i < 5);
+    return res;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AC74);
 

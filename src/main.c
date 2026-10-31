@@ -146,7 +146,7 @@ void CoreLoop(s32 lid) {
              paused != 0)) {
             if (paused = !paused) {
                 if (game.pause_obj == 0) {
-                    game.pause_obj = func_8001A42C(game.handles, 4, 4, 0, 0, 1);
+                    game.pause_obj = func_8001A42C(&game.handles[7], 4, 4, 0, 0, 1);
                     if (game.pause_obj >= -0xFE) {
                         paused = 0;
                         game.pause_obj = 0;

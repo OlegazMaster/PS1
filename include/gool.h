@@ -14,7 +14,9 @@ typedef struct ObjectLink {
 typedef struct GoolObject {
     s32 type; /* 0: free, 2: handle */
     struct GoolObject *handle_children; /* 0x4: children of a handle */
-    u8 unk8[0x3C];
+    u8 unk8[0x10];
+    struct Entry *zone; /* 0x18 */
+    u8 unk1C[0x28];
     struct GoolObject *parent; /* 0x44 */
     struct GoolObject *sibling; /* 0x48 */
     struct GoolObject *children; /* 0x4C */
@@ -46,6 +48,8 @@ typedef struct {
 typedef s32 (*GoolTraverseFunc)(GoolObject *obj, s32 arg);
 
 s32 GoolObjectKill(GoolObject *obj, s32 sig);
+s32 GoolZoneObjectTerminate(GoolObject *obj, struct Entry *zone);
+s32 GoolSendEvent(GoolObject *sender, GoolObject *recipient, u32 event, s32 argc, u32 *argv);
 GoolObject *GoolObjectHasPidFlags(GoolObject *obj, s32 pid_flags);
 GoolObject *GoolObjectTestStateFlags(GoolObject *obj, u32 flags);
 s32 GoolObjectSearchTree(GoolObject *obj, GoolTraverseFunc func, s32 arg);

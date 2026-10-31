@@ -1,10 +1,13 @@
 #include "common.h"
 #include "gool.h"
 #include "game.h"
+#include "ns.h"
 
 /* GOOL objects: allocation, the object tree, messages (names follow c1). */
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019624);
+s32 func_80019624(void) {
+    return -0xFF;
+}
 
 
 #ifdef NON_MATCHING
@@ -130,7 +133,7 @@ s32 GoolObjectHandleTraverseTreePostorder(GoolObject *obj, GoolTraverseFunc func
 
 /* Calls func for each of the 8 object lists. */
 
-void func_80019A38(s32 (*func)(GoolObject *, GoolTraverseFunc, s32), GoolTraverseFunc arg1, s32 arg2) {
+void GoolForEachHandle(s32 (*func)(GoolObject *, GoolTraverseFunc, s32), GoolTraverseFunc arg1, s32 arg2) {
     s32 i;
 
     for (i = 0; i < 8; i++) {
@@ -162,16 +165,33 @@ INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001A5C8);
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectKill);
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001A9A8);
+extern Entry *D_80065D60;
 
-void func_8001AA78(GoolObject *obj) {
+#ifdef NON_MATCHING
+/* Kills an object of zone when the zone goes away (c1). Equivalent; the
+ * original compares obj->zone first and loads the -1 later. */
+s32 GoolZoneObjectTerminate(GoolObject *obj, Entry *zone) {
+    if (obj->pid_flags != 0 || obj->type == 0 || zone != obj->zone || (obj->unkAC & 0x1000000)
+        || (obj->state_flags & 0x10000)) {
+        return -0xFF;
+    }
+    GoolSendEvent(NULL, obj, 0x1A00, 0, NULL);
+    if (obj->zone == zone || (s32)D_80065D60 == -1) {
+        return GoolObjectKill(obj, 0);
+    }
+    return -0xFF;
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/gool", GoolZoneObjectTerminate);
+#endif
+
+void GoolObjectTerminate(GoolObject *obj) {
     GoolObjectKill(obj, 1);
 }
 
-void func_8001A9A8(GoolObject *obj, s32 arg);
 
-void func_8001AA98(s32 arg) {
-    func_80019A38(GoolObjectHandleTraverseTreePostorder, (GoolTraverseFunc)func_8001A9A8, arg);
+void GoolZoneObjectsTerminate(s32 arg) {
+    GoolForEachHandle(GoolObjectHandleTraverseTreePostorder, (GoolTraverseFunc)GoolZoneObjectTerminate, arg);
 }
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AAC8);

@@ -95,7 +95,6 @@ s32 func_8001A42C(void *, s32, s32, s32, s32, s32);
 void func_8001C824(GoolObject *, s32, u32, void *, s32);
 void func_8001CD80(Object *, s32, s32, s32);
 void func_8001D16C(s32);
-void func_8001DB38(s32, s32, s32, s32, s32 *);
 void func_8001E34C(s32, s32, s32, s32, s32);
 void func_80028A78(void);
 void func_8002FA1C(void);
@@ -160,7 +159,7 @@ void CoreLoop(s32 lid) {
                 func_80018A54();
             } else if (game.pause_obj != 0) {
                 arg = 1;
-                func_8001DB38(0, game.pause_obj, 0xC00, 1, &arg);
+                GoolSendEvent(NULL, (GoolObject *)game.pause_obj, 0xC00, 1, (u32 *)&arg);
                 paused = 1;
             } else {
                 pause_status = -1;

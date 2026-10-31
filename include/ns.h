@@ -5,7 +5,7 @@
 
 /* NSF/NSD paging: level data streamed from the disc (names follow c1). */
 
-typedef struct {
+typedef struct Entry {
     u32 unk0;
     u32 eid; /* 0x4 */
     s32 type; /* 0x8 */

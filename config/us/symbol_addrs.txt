@@ -137,3 +137,5 @@ tpage_rect = 0x800608B8; // size:0x8
 NSUpdate = 0x80012CBC; // type:func
 NSPageUpdate = 0x800132F8; // type:func
 NSPageTranslate = 0x800131CC; // type:func
+NSPageUpdateEntries = 0x800126D0; // type:func
+LoadImage = 0x8004C8AC; // type:func

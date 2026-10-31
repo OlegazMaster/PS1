@@ -85,7 +85,7 @@ typedef struct {
     u16 magic; /* 0x1234 */
     u16 type;
     u32 id;
-    s32 entry_count; /* 0x8 */
+    u32 entry_count; /* 0x8 */
     s32 unkC;
     Entry *entries[1]; /* 0x10: entry_count + 1 offsets, then pointers */
 } Page;
@@ -102,7 +102,8 @@ extern Unk8006C4D8 D_8006C4D8[];
 
 /* Per entry type: callbacks run when levels and pages are loaded and freed. */
 typedef struct {
-    u8 unk0[0x14];
+    u8 unk0[0x10];
+    void (*on_load)(Entry *entry);
     void (*on_free)(Entry *entry);
     void (*kill)(void);
 } NsSubsystem;
@@ -432,7 +433,98 @@ static inline void NSPrintRetryLoading(PageStruct *ps) {
 
 INCLUDE_RODATA("asm/us/nonmatchings/ns", D_800100A8);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_800126D0);
+extern u32 D_80060B90[];
+s32 NSTexturePageAllocate(u32 eid);
+s32 NSPageFree(PageStruct *ps);
+void LoadImage(Rect16 *rect, void *data);
+void func_800181E0(u32 eid, s32 arg1);
+
+/* Makes the entries of a freshly loaded page usable: links them into the NSD
+ * table, uploads texture pages to VRAM and binds audio pages to sound RAM. */
+s32 NSPageUpdateEntries(s32 idx) {
+    PageStruct *ps;
+    PageStruct *tps;
+    PageStruct *aps;
+    Entry *entry;
+    NsdPte *pte;
+    s32 i;
+    u8 *item;
+
+    ps = &ns.physical_pages[idx];
+    if (ns.cur_ps == ps) {
+        ns.cur_ps = NULL;
+    }
+    ps->state = 30;
+    switch (((Page *)ps->page)->type) {
+    case 0:
+    case 5:
+        pte = ns.pte_buckets[(((Page *)ps->page)->entries[0]->eid >> 15) & 0xFF];
+        for (i = 0; i < ((Page *)ps->page)->entry_count; i++) {
+            entry = ((Page *)ps->page)->entries[i];
+            while (pte->eid != entry->eid) {
+                pte++;
+            }
+            pte->value = (u32)entry;
+            ps->unkF++;
+            if (subsys[entry->type].on_load != NULL) {
+                subsys[entry->type].on_load(entry);
+            }
+            ps->unkF--;
+        }
+        break;
+    case 1:
+        i = NSTexturePageAllocate(ps->eid);
+        if (i == -0xC) {
+            NSPageFree(ps);
+            return 30;
+        }
+        tps = &D_80060D70[i];
+        tpage_rect.x = (i % 4) * 256;
+        tpage_rect.y = (i / 4) * 128;
+        LoadImage(&tpage_rect, ps->page);
+        tps->state = 20;
+        tps->eid = ((Page *)ps->page)->id;
+        tps->pgid = ps->pgid;
+        tps->unk20 = (s32 *)NSProbe(tps->eid);
+        tps->unkF = ps->unkF;
+        tps->ref_count = ps->ref_count;
+        *tps->unk20 = tps->unk1C;
+        ps->state = 1;
+        ps->unkF = 0;
+        ns.page_map[ps->pgid >> 1] = tps;
+        func_800181E0(((Page *)ps->page)->id, 1);
+        return i << 1;
+    case 3:
+    case 4:
+        pte = ns.pte_buckets[(((Page *)ps->page)->entries[0]->eid >> 15) & 0xFF];
+        aps = ps->unk24;
+        for (i = 0; i < ((Page *)ps->page)->entry_count; i++) {
+            entry = ((Page *)ps->page)->entries[i];
+            item = entry->items[0];
+            while (pte->eid != entry->eid) {
+                pte++;
+            }
+            if (i == 0) {
+                if (((Page *)ps->page)->type == 4) {
+                    D_80060B90[aps->unkC] = pte->eid;
+                } else {
+                    D_80060B90[aps->unkC] = 0x6396347F;
+                }
+            }
+            pte->value = ((item - (u8 *)ps->page + aps->unk1C) << 2) | 0xC0000002;
+            if (subsys[entry->type].on_load != NULL) {
+                subsys[entry->type].on_load(entry);
+            }
+        }
+        aps->state = 20;
+        ps->state = 1;
+        ps->unkF = 0;
+        ns.page_map[ps->pgid >> 1] = aps;
+        return aps->unk1C;
+    }
+    ps->state = 20;
+    return (s32)ps->page;
+}
 
 s32 NSPageFree(PageStruct *ps) {
     Page *page;
@@ -689,7 +781,7 @@ s32 func_800519C4(s32);
 s32 func_80013B8C(s32 type, s32 arg1);
 void func_80051934(s32);
 void func_800518D4(void *, s32);
-void func_800126D0(s32);
+
 
 /* Advances a page through its states: CD read, decompression, upload of audio
  * pages to sound RAM. Returns when the page has to wait. */
@@ -771,7 +863,7 @@ loop:
             ps->state = 10;
             break;
         default:
-            func_800126D0(ps->unkC);
+            NSPageUpdateEntries(ps->unkC);
             ns.page_count--;
             return;
         }
@@ -835,7 +927,7 @@ loop:
             ps->state = 20;
             ps->unk24->state = 20;
         } else {
-            func_800126D0(ps->unkC);
+            NSPageUpdateEntries(ps->unkC);
         }
         ns.cur_audio_ps = NULL;
         ns.page_count--;
@@ -852,7 +944,6 @@ loop:
 char D_800608D0[] = "!mem\n";
 #endif
 
-s32 NSPageFree(PageStruct *ps);
 
 /* Finds the longest run of free (or evictable, preferring the oldest) physical pages. */
 #ifdef NON_MATCHING
@@ -916,7 +1007,7 @@ s32 NSPageAllocate(s32 *count, s32 flag) {
 INCLUDE_ASM("asm/us/nonmatchings/ns", NSPageAllocate);
 #endif
 
-s32 NSTexturePageAllocate(void) {
+s32 NSTexturePageAllocate(u32 eid) {
     s32 i;
 
     for (i = 15; i >= 0; i--) {
@@ -938,7 +1029,6 @@ s32 NSTexturePageAllocate(void) {
     return -0xC;
 }
 
-void func_800181E0(u32 eid, s32 arg1);
 
 #ifdef NON_MATCHING
 /* Equivalent; the original loads the array address before scaling the index. */

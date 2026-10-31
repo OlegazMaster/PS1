@@ -36,9 +36,9 @@ typedef struct GoolObject {
     void *unk8;
     struct Entry *global; /* 0xC: the GOOL executable of the object */
     struct Entry *unk10;
-    u8 unk14[0x4];
+    struct Entry *external; /* 0x14: GOOL executable of the current state */
     struct Entry *zone; /* 0x18 */
-    u8 unk1C[0x4];
+    u32 state; /* 0x1C */
     ObjColors colors; /* 0x20 */
     struct GoolObject *self; /* 0x40 */
     struct GoolObject *parent; /* 0x44 */
@@ -60,11 +60,14 @@ typedef struct GoolObject {
     u32 *sp; /* 0xBC: top of the object's GOOL stack */
     u32 *pc; /* 0xC0: GOOL program counter */
     u32 *fp; /* 0xC4: GOOL frame pointer */
-    u8 unkC8[0x8];
+    u32 *tpc; /* 0xC8: code run each frame in the state */
+    u32 *epc; /* 0xCC: event handler of the state */
     s32 once_p; /* 0xD0 */
     s32 unkD4; /* 0xD4: result of the last broadcast */
     s32 ack; /* 0xD8 */
-    u8 unkDC[0xC];
+    u8 unkDC[0x4];
+    u32 state_stamp; /* 0xE0: frame the state was entered */
+    u8 unkE4[0x4];
     s32 unkE8; /* anim_seq */
     u32 unkEC; /* anim_frame */
     s32 unkF0;
@@ -101,6 +104,17 @@ typedef struct {
     (*(ISHANDLE(obj) ? &((GoolHandle *)(obj))->children : &(obj)->children) = (child))
 
 typedef s32 (*GoolTraverseFunc)(GoolObject *obj, s32 arg);
+
+/* A state of a GOOL executable (c1: gool_state). Code offsets are in words;
+ * 0x3FFF means none and bit 0x4000 selects the external executable. */
+typedef struct {
+    u32 flags; /* -> state_flags */
+    u32 status_c; /* 0x4 */
+    u16 extern_idx; /* 0x8 */
+    u16 epc; /* 0xA */
+    u16 tpc; /* 0xC */
+    u16 cpc; /* 0xE */
+} GoolState;
 
 s32 GoolObjectKill(GoolObject *obj, s32 sig);
 s32 GoolZoneObjectTerminate(GoolObject *obj, struct Entry *zone);

@@ -11,9 +11,88 @@ extern u8 D_8005C488[];
 /* .sdata */
 u8 *D_80060924 = D_8005C488;
 
+/* An event sent to many objects (see func_8001DDF4). */
+typedef struct {
+    GoolObject *sender;
+    u32 event; /* 0x4 */
+    u32 *argv; /* 0x8 */
+    s32 argc; /* 0xC */
+    s32 unk10;
+    s32 count; /* 0x14 */
+    s32 filter; /* 0x18 */
+} GoolBroadcast;
+s32 func_8001DDF4(GoolObject *obj, GoolBroadcast *msg);
+s32 func_8001D588(GoolObject *obj, s32 argc, u32 flags);
+s32 func_80038E28(GoolObject *obj, u32 flags, void *a); /* GoolObjectInterpret */
+
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001D16C);
 
+typedef struct {
+    u8 unk0[0xC];
+    s32 stack_size; /* 0xC: initial stack depth in words */
+} GoolHeader;
+
+/* Code offset pc of a state as a pointer (see GoolState). */
+#define GoolStatePc(obj, pc) \
+    ((pc) != 0x3FFF ? (((pc) & 0x4000) ? (u32 *)(obj)->external->items[1] + ((pc) & 0x3FFF) \
+                                       : (u32 *)(obj)->global->items[1] + ((pc) & 0x3FFF)) \
+                    : NULL)
+
+#ifdef NON_MATCHING
+/* Changes the state of obj; argc arguments from argv are passed to the
+ * new state (c1: GoolObjectChangeState). Equivalent; the original keeps i
+ * in a1 and so schedules the status_a update after the stack pointer. */
+s32 GoolObjectChangeState(GoolObject *obj, u32 state, s32 argc, u32 *argv) {
+    u32 *once_p = (u32 *)obj->once_p;
+    GoolState *s;
+    s32 i;
+
+    if (state == 0xFF) {
+        return -0xE;
+    }
+    obj->state = state;
+    s = &((GoolState *)obj->global->items[4])[state];
+    obj->status_c = s->status_c;
+    obj->external = (Entry *)NSOpen((u32 *)obj->unk10->items[2] + s->extern_idx, 1, 0);
+    obj->pc = GoolStatePc(obj, s->cpc);
+    obj->epc = GoolStatePc(obj, s->epc);
+    obj->tpc = GoolStatePc(obj, s->tpc);
+    obj->once_p = 0;
+    obj->fp = (u32 *)&obj->self;
+    obj->sp = (u32 *)((u8 *)obj + (((GoolHeader *)obj->global->items[0])->stack_size * 4 + 0x40));
+    obj->status_a |= 0x20020;
+    obj->state_flags = s->flags;
+    for (i = 0; i < argc; i++) {
+        *obj->sp++ = argv[i];
+    }
+    func_8001D588(obj, argc, 0xFFFF);
+    if (once_p != NULL) {
+        func_8001D588(obj, 0, 0xFFFF);
+        obj->pc = once_p;
+        i = func_80038E28(obj, 0x13, NULL);
+        if (i > -0xFF) {
+            return i;
+        }
+    } else {
+        *obj->sp++ = 0;
+    }
+    obj->state_stamp = game.frames;
+    if (obj->tpc != NULL) {
+        if (obj != game.unk50) {
+            return -0xFF;
+        }
+        func_8001D588(obj, 0, 0xFFFF);
+        obj->pc = obj->tpc;
+        i = func_80038E28(obj, 3, NULL);
+        if (i > -0xFF) {
+            return i;
+        }
+    }
+    return -0xFF;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/interp", GoolObjectChangeState);
+#endif
 
 /* Pushes a frame for a call with argc arguments on the GOOL stack of obj:
  * the flags, the return address and the offsets of the arguments and of
@@ -60,17 +139,6 @@ INCLUDE_ASM("asm/us/nonmatchings/interp", GoolSendEvent);
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001DDF4);
 
-/* An event sent to many objects (see func_8001DDF4). */
-typedef struct {
-    GoolObject *sender;
-    u32 event; /* 0x4 */
-    u32 *argv; /* 0x8 */
-    s32 argc; /* 0xC */
-    s32 unk10;
-    s32 count; /* 0x14 */
-    s32 filter; /* 0x18 */
-} GoolBroadcast;
-s32 func_8001DDF4(GoolObject *obj, GoolBroadcast *msg);
 /* Sends event to all objects that pass filter. */
 
 s32 func_8001E34C(GoolObject *sender, u32 event, s32 argc, u32 *argv, s32 filter) {
@@ -109,7 +177,6 @@ s32 func_8001E3BC(GoolObject *sender, GoolObject *recipient, u32 event, s32 argc
     return -0xFF;
 }
 
-s32 func_80038E28(GoolObject *obj, u32 flags, void *a); /* GoolObjectInterpret */
 /* Calls the GOOL subroutine at offset pc of the code of obj with argc
  * arguments from argv. */
 

@@ -1,5 +1,6 @@
 #include "common.h"
 #include "gool.h"
+#include "gfx.h"
 #include "game.h"
 #include "ns.h"
 
@@ -198,9 +199,53 @@ void GoolZoneObjectsTerminate(s32 arg) {
     GoolForEachHandle(GoolObjectHandleTraverseTreePostorder, (GoolTraverseFunc)GoolZoneObjectTerminate, arg);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AAC8);
+typedef struct {
+    u8 unk0[0x190];
+    s32 neighbor_count; /* 0x190 */
+    u32 neighbors[1]; /* 0x194: references to the neighbor zones */
+} ZoneHeader;
+extern Entry *cur_zone;
+void *func_8001440C(u32 *ref, s32 count);
+u32 NSOpen(u32 *en_ref, s32 flag, s32 count);
+/* Kills the objects of the zones next to the current one (c1:
+ * GoolZoneNeighborObjectsTerminate). */
 
+void GoolZoneNeighborObjectsTerminate(void) {
+    ZoneHeader *header;
+    s32 i;
+
+    if (cur_zone != NULL) {
+        header = (ZoneHeader *)cur_zone->items[0];
+        for (i = 0; i < header->neighbor_count; i++) {
+            if (func_8001440C(&header->neighbors[i], 0) != NULL) {
+                GoolZoneObjectsTerminate(NSOpen(&header->neighbors[i], 1, 0));
+            }
+        }
+    }
+}
+
+extern s16 D_8005D120[];
+extern s16 D_8005D268[];
+void func_8003A928(s16 *src, void *dst, s32 count);
+#ifdef NON_MATCHING
+/* Parameters for Naughty Dog's assembly, in the scratchpad. Equivalent; the
+ * original addresses game.unk19C directly and derives &game.unk60 from it. */
+
+void func_8001AB64(void) {
+    u32 ticks = context.c1_p->ticks_per_frame;
+
+    *(s32 *)0x1F800050 = game.unk19C;
+    if (ticks >= 0x67) {
+        ticks = 0x66;
+    }
+    *(u32 *)0x1F800054 = ticks;
+    *(s32 **)0x1F800058 = game.unk60;
+    func_8003A928(D_8005D120, (void *)0x1F800060, D_8005D268 - D_8005D120);
+    *(s32 *)0x1F80005C = 0x1F800060;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AB64);
+#endif
 
 /* Finds the object with pid_flags among the lists 3 and 4. */
 GoolObject *func_8001ABF8(s32 pid_flags) {

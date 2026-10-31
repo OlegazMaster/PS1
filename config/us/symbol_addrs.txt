@@ -196,3 +196,5 @@ GoolObjectTerminate = 0x8001AA78; // type:func
 GoolZoneObjectsTerminate = 0x8001AA98; // type:func
 GoolSendEvent = 0x8001DB38; // type:func
 GoolForEachHandle = 0x80019A38; // type:func
+cur_zone = 0x80065D5C; // size:0x4
+GoolZoneNeighborObjectsTerminate = 0x8001AAC8; // type:func

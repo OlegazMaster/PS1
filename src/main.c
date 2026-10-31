@@ -24,11 +24,6 @@ typedef struct {
 
 
 typedef struct {
-    u8 unk0[0x10];
-    s32 *unk10;
-} Unk80065D5C;
-
-typedef struct {
     u16 unk0;
     u8 unk2[0x2];
     s32 unk4;
@@ -78,7 +73,7 @@ extern s32 D_80060AA4;
 extern u8 D_80041550[];
 extern RenderState D_800676B0;
 extern u16 D_80065CB0[];
-extern Unk80065D5C *D_80065D5C;
+extern Entry *cur_zone;
 extern SaveState savestate;
 
 void SysInit(void);
@@ -233,7 +228,7 @@ void CoreLoop(s32 lid) {
             for (i = 0; i < 9; i++) {
                 D_80065CB0[i] &= ~3;
             }
-            src = D_80065D5C->unk10;
+            src = (s32 *)cur_zone->items[0];
             count = *src;
             dst = (u32 *)0x1F800280;
             entry = (Unk30 *)(src + 2);

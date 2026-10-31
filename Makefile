@@ -121,6 +121,9 @@ extract: $(CONFIG)
 	@# GNU as gives .bss a 16-byte alignment, so ld would move the NOLOAD bss
 	@# section; the PSY-Q linker put it right after the data.
 	sed -i -E 's/^(\s*\.\w+_bss) \(NOLOAD\) :/\1 . (NOLOAD) :/' $(LD_SCRIPT)
+	@# The C objects include the asm of their functions (INCLUDE_ASM), which the
+	@# dependency files do not track: rebuild them from the new asm.
+	rm -rf $(BUILD)/src
 
 $(CONFIG):
 	@echo "$(CONFIG) не найден: положите $(EXE_NAME) в disc/ и выполните 'make init'"

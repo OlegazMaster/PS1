@@ -63,7 +63,63 @@ s32 func_80018304(Entry *entry) {
 
 INCLUDE_ASM("asm/us/nonmatchings/gfx", func_8001832C);
 
+typedef struct {
+    u8 unk0[0xC];
+    char text[1]; /* 0xC: NUL-separated strings */
+} TextBlock;
+#ifdef NON_MATCHING
+/* Writes len characters of src over string (idx >> 8) of a text block,
+ * mapping the characters the font lacks, and pads it with spaces.
+ * Equivalent; the original masks the character to 8 bits before every test. */
+
+void func_800185C8(TextBlock *block, s32 idx, char *src, s32 len) {
+    s32 pos = 0;
+    s32 i = 0;
+    char c;
+
+    for (idx >>= 8; i < idx; i++) {
+        while (block->text[pos] != 0) {
+            pos++;
+        }
+        pos++;
+    }
+    i = 0;
+    while (len != 0) {
+        c = src[i];
+        if (c == 0) {
+            break;
+        }
+        if (c < 0x20) {
+            c = ' ';
+        }
+        if (c == '{') {
+            c = '(';
+        }
+        if (c == '}') {
+            c = ')';
+        }
+        if (c == '~') {
+            c = '{';
+        }
+        if (c == '%') {
+            c = '}';
+        }
+        if (c == '&') {
+            c = '_';
+        }
+        block->text[pos + i] = c;
+        len--;
+        i++;
+    }
+    while (len != 0) {
+        block->text[pos + i] = ' ';
+        len--;
+        i++;
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/gfx", func_800185C8);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/gfx", func_800186D8);
 

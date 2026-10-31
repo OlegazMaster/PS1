@@ -797,3 +797,30 @@ s32 func_80017CA8(GoolObject *obj, u32 msg, s32 arg) {
 #else
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80017CA8);
 #endif
+
+/* Advances the primitive memory of the current buffer by size bytes. */
+
+/* Takes size bytes of primitive memory from the current buffer. */
+
+void *func_80017F98(s32 size) {
+    u8 *p = context.cur->prims_tail;
+
+    context.cur->prims_tail = p + size;
+    return p;
+}
+
+/* Takes size bytes from the second list of the current buffer and links them
+ * in front of it. */
+
+void *func_80017FB8(s32 size) {
+    void **p = context.cur->unk2098;
+
+    context.cur->unk2098 = (u8 *)p + size;
+    *p = (void *)context.cur->unk2090;
+    context.cur->unk2090 = (s32)p;
+    return p;
+}
+
+void **GpuGetPrimsTail(void) {
+    return &context.cur->prims_tail;
+}

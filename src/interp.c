@@ -805,7 +805,58 @@ s32 func_8001FD08(s32 cur, s32 target, s32 step) {
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FD58);
 
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FE98);
+void func_8004F544(MATRIX *m, s32 *scale); /* ScaleMatrix */
+/* Builds m from the angles rot (y, x, then y relative to z) and the scale
+ * (if not NULL). */
+
+void func_8001FE98(MATRIX *m, s32 *rot, s32 *scale) {
+    MATRIX r;
+    s32 s;
+    s32 c;
+    s32 s2;
+    s32 c2;
+    s32 s3;
+    s32 c3;
+
+    s = func_8003C2F0(rot[2] & 0xFFF);
+    c = func_8003C364(rot[2] & 0xFFF);
+    m->m[0][0] = c;
+    m->m[0][1] = 0;
+    m->m[0][2] = s;
+    m->m[1][0] = 0;
+    m->m[1][1] = 0x1000;
+    m->m[1][2] = 0;
+    m->m[2][0] = -s;
+    m->m[2][1] = 0;
+    m->m[2][2] = c;
+    s2 = func_8003C2F0(rot[0]);
+    c2 = func_8003C364(rot[0]);
+    r.m[0][0] = 0x1000;
+    r.m[0][1] = 0;
+    r.m[0][2] = 0;
+    r.m[1][0] = 0;
+    r.m[1][1] = c2;
+    r.m[1][2] = -s2;
+    r.m[2][0] = 0;
+    r.m[2][1] = s2;
+    r.m[2][2] = c2;
+    MulMatrix(m, &r);
+    s3 = func_8003C2F0(-((rot[2] - rot[1]) & 0xFFF));
+    c3 = func_8003C364(-((rot[2] - rot[1]) & 0xFFF));
+    r.m[0][0] = c3;
+    r.m[0][1] = 0;
+    r.m[0][2] = s3;
+    r.m[1][0] = 0;
+    r.m[1][1] = 0x1000;
+    r.m[1][2] = 0;
+    r.m[2][0] = -s3;
+    r.m[2][1] = 0;
+    r.m[2][2] = c3;
+    MulMatrix(m, &r);
+    if (scale != NULL) {
+        func_8004F544(m, scale);
+    }
+}
 
 void func_8001FE98(MATRIX *m, s32 *a, s32 *b); /* builds a matrix */
 /* Transforms the point in (in 1/16 units) by the matrix built from a and b

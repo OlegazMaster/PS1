@@ -9,7 +9,17 @@
 void func_8001832C(s32 type, void *a, void *b, RECT *rect);
 void func_800186D8(s32 load, RECT *rect, u8 *buf, u8 *data, s32 async);
 s32 StoreImage(RECT *rect, u32 *data);
-s32 func_80018088(Entry *entry, s32 flag, u32 eid, s32 count, void *infos, s32 ref_count, u32 *refs);
+/* Texture coordinates of a polygon: u, v, then CLUT or tpage, for 3 corners. */
+typedef struct {
+    u8 u0, v0;
+    u16 clut;
+    u8 u1, v1;
+    u16 tpage; /* bits 10-12: texture page reference, 0x200: loaded */
+    u8 u2, v2;
+    u8 u3, v3;
+} TexInfo;
+u32 func_80019090(TexInfo *info, u32 *refs);
+s32 func_80018088(Entry *entry, s32 flag, u32 eid, s32 count, TexInfo *infos, s32 ref_count, u32 *refs);
 
 s32 func_80018008(Entry *entry, s32 flag, u32 eid) {
     u8 *hdr = entry->items[0];
@@ -23,7 +33,39 @@ s32 func_80018048(Entry *entry, s32 flag, u32 eid) {
     return func_80018088(entry, flag, eid, *(s32 *)(hdr + 0x34), entry->items[3], *(s32 *)(hdr + 0x40), (u32 *)(hdr + 0xC));
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/gfx", func_80018088);
+/* Updates the polygons infos[0..count) that use the texture page eid among
+ * refs (all of them for eid 0x6396347F): after it was loaded (flag set) or
+ * dropped. */
+
+s32 func_80018088(Entry *entry, s32 flag, u32 eid, s32 count, TexInfo *infos, s32 ref_count, u32 *refs) {
+    s32 idx = -1;
+    s32 i;
+
+    if (eid != 0x6396347F) {
+        for (i = ref_count - 1; i >= 0; i--) {
+            if ((refs[i] & 1) ? eid == refs[i] : eid == ((Entry *)refs[i])->eid) {
+                idx = i;
+                goto found;
+            }
+        }
+        return -0xFF;
+    }
+found:
+    if (flag) {
+        for (i = count - 1; i >= 0; i--, infos++) {
+            if (idx == -1 || idx == ((infos->tpage >> 10) & 7)) {
+                func_80019090(infos, refs);
+            }
+        }
+    } else {
+        for (i = count - 1; i >= 0; i--, infos++) {
+            if (idx == -1 || idx == ((infos->tpage >> 10) & 7)) {
+                infos->tpage &= ~0x200;
+            }
+        }
+    }
+    return -0xFF;
+}
 
 #ifdef NON_MATCHING
 /* Updates the texture references of the loaded entries of types 2 and 3
@@ -246,15 +288,6 @@ void func_80018DD4(s32 *v, MATRIX *m, s32 *out) {
 
 INCLUDE_ASM("asm/us/nonmatchings/gfx", func_80018EBC);
 
-/* Texture coordinates of a polygon: u, v, then CLUT or tpage, for 3 corners. */
-typedef struct {
-    u8 u0, v0;
-    u16 clut;
-    u8 u1, v1;
-    u16 tpage; /* bits 10-12: texture page reference, 0x200: loaded */
-    u8 u2, v2;
-    u8 u3, v3;
-} TexInfo;
 #ifdef NON_MATCHING
 /* Loads the texture page a texture refers to and stores its location.
  * Equivalent; the original schedules the field loads after the arithmetic. */

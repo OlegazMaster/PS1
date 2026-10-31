@@ -152,6 +152,30 @@ class ProgressTest(unittest.TestCase):
             self.assertEqual(set(stats.remaining), {"func_todo", "func_segment"})
             self.assertEqual(set(all_stats[progress.CATEGORIES["psyq"]].remaining), {"CdInit"})
 
+    def test_function_written_after_extract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            asm = root / "asm" / "us"
+            funcs = asm / "nonmatchings" / "sys"
+            funcs.mkdir(parents=True)
+            for name in ("func_new", "func_parked", "func_old"):
+                (funcs / f"{name}.s").write_text(ASM_FUNCTION.format(name=name))
+            (asm / "main.ld").write_text("    build/us/src/sys.c.o(.text);\n")
+            (root / "src").mkdir()
+            (root / "src" / "sys.c").write_text(
+                '#include "common.h"\n\n'
+                's32 func_new(DrawContext *dc) {\n    return 0;\n}\n\n'
+                'void func_new(void);\n\n'
+                '#ifdef NON_MATCHING\nvoid func_parked(void) {\n}\n#else\n'
+                'INCLUDE_ASM("asm/us/nonmatchings/sys", func_parked);\n#endif\n'
+            )
+
+            stats = progress.scan(root, "us")[progress.GAME]
+            # func_old was renamed away: neither C nor INCLUDE_ASM uses it.
+            self.assertEqual(stats.total_funcs, 2)
+            self.assertEqual(stats.done_funcs, 1)
+            self.assertEqual(set(stats.remaining), {"func_parked"})
+
 
 def dir_record(name: bytes, lba: int, size: int, is_dir: bool = False) -> bytes:
     length = 33 + len(name) + (len(name) + 1) % 2

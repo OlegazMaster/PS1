@@ -25,6 +25,7 @@ FUNCTION = re.compile(r"^\s*glabel\s+(\w+)")
 SECTION = re.compile(r"^\s*\.section\s+([.\w]+)")
 INCLUDE_ASM = re.compile(r"^\s*INCLUDE_ASM\(\s*\"[^\"]*\"\s*,\s*(\w+)\s*\)", re.MULTILINE)
 # "build/us/src/gool.c.o(.text);" in the linker script -> "src/gool.c".
+DEFINITION = re.compile(r"^[A-Za-z_][^;()\n]*?\b(\w+)\([^;{]*\)\s*\{", re.M)
 LINKED_OBJECT = re.compile(r"\bbuild/[^/\s]+/(\S+?)\.o\b")
 
 # Code that is reported separately from the game's own C code, by file name.
@@ -78,6 +79,14 @@ def included_functions(c_file: Path) -> set:
     return set(INCLUDE_ASM.findall(c_file.read_text(encoding="utf-8", errors="replace")))
 
 
+def defined_functions(c_file: Path) -> set:
+    """Names of the functions defined (not only declared) in a C file."""
+    if not c_file.exists():
+        return set()
+    text = c_file.read_text(encoding="utf-8", errors="replace")
+    return set(DEFINITION.findall(text))
+
+
 def linked_sources(ld_script: Path) -> list:
     """Source files (relative to the repository) in link order, without duplicates."""
     sources = LINKED_OBJECT.findall(ld_script.read_text(encoding="utf-8"))
@@ -110,9 +119,12 @@ def scan(root: Path, version: str) -> dict:
             functions = {}
             for asm_file in sorted((asm_dir / "matchings" / name).glob("*.s")):
                 functions.update(function_sizes(asm_file))
+            # A function written in C since the last `make extract` still has
+            # its asm in nonmatchings: it counts once the C file defines it.
+            defined = defined_functions(root / source)
             for asm_file in sorted((asm_dir / "nonmatchings" / name).glob("*.s")):
                 functions.update({f: size for f, size in function_sizes(asm_file).items()
-                                  if f in still_asm})
+                                  if f in still_asm or f in defined})
             for function, size in functions.items():
                 if size:
                     stats.add(function, size, function not in still_asm)

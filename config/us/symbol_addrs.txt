@@ -70,9 +70,9 @@ InitPAD = 0x8005BA58; // type:func
 StartPAD = 0x8005BA68; // type:func
 StopPAD = 0x8005BA78; // type:func
 PAD_init = 0x8005BA88; // type:func
-InitCARD = 0x8005BBA8; // type:func
-StartCARD = 0x8005BBB8; // type:func
-StopCARD = 0x8005BBC8; // type:func
+InitCARD2 = 0x8005BBA8; // type:func
+StartCARD2 = 0x8005BBB8; // type:func
+StopCARD2 = 0x8005BBC8; // type:func
 
 // Entry points inside Naughty Dog's assembly whose addresses the C code takes
 nd_entry_80041648 = 0x80041648; // type:func
@@ -175,3 +175,9 @@ VSyncCallback = 0x8004B52C; // type:func
 ResetCallback = 0x8004B49C; // type:func
 SysInit = 0x800154AC; // type:func
 SysKill = 0x80015658; // type:func
+VSync = 0x8004B2A8; // type:func
+InitCARD = 0x8005B6A0; // type:func
+StartCARD = 0x8005B6F8; // type:func
+StopCARD = 0x8005B730; // type:func
+CardInit = 0x80017AE8; // type:func
+CardKill = 0x80017C88; // type:func

@@ -36,7 +36,7 @@ typedef struct {
 void free(void *ptr);
 
 void func_8007170C(void);
-s32 func_8005B730(void);
+s32 StopCARD(void);
 void func_800165F8(DrawContext *dc);
 void GpuResetPrims(DrawContext *dc);
 void GpuInit(void);
@@ -51,7 +51,7 @@ s32 CdInit(void);
 void func_8004592C(s32);
 void func_80032144(void);
 void func_800322D0(void);
-void func_80017AE8(void);
+void CardInit(void);
 void PadInit(s32 count);
 void VSyncCallback(void (*func)(void));
 void func_80017AD0(void);
@@ -94,7 +94,7 @@ s32 SysInit(void) {
     for (i = 15; i >= 0; i--) {
         D_80060D70[i].eid = 0x6396347F;
     }
-    func_80017AE8();
+    CardInit();
     PadInit(2);
     VSyncCallback(func_80017AD0);
     EnterCriticalSection();
@@ -122,7 +122,7 @@ INCLUDE_ASM("asm/us/nonmatchings/sys", SysInit);
 
 s32 CdControlB(s32 com, u8 *param, u8 *result);
 void func_8004B590(void);
-s32 func_80017C88(void);
+s32 CardKill(void);
 void func_80048E88(void);
 s32 DisableEvent(s32 event);
 s32 CloseEvent(s32 event);
@@ -132,7 +132,7 @@ s32 SysKill(void) {
         CdControlB(8, NULL, NULL);
         func_8004B590();
     }
-    func_80017C88();
+    CardKill();
     func_80048E88();
     VSyncCallback(NULL);
     EnterCriticalSection();
@@ -666,10 +666,43 @@ void func_80017AD0(void) {
     D_800608E8++;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/sys", func_80017AE8);
+s32 VSync(s32 mode);
+void InitCARD(s32 shared);
+s32 StartCARD(void);
+void _bu_init(void);
 
-s32 func_80017C88(void) {
-    func_8005B730();
+/* Opens the memory card events (software and hardware: done, error, timeout,
+ * new card) and starts the card driver. */
+void CardInit(void) {
+    EnterCriticalSection();
+    D_80060A68 = OpenEvent(0xF4000001, 0x4, 0x2000, NULL);
+    D_80060A6C = OpenEvent(0xF4000001, 0x8000, 0x2000, NULL);
+    D_80060A70 = OpenEvent(0xF4000001, 0x100, 0x2000, NULL);
+    D_80060A74 = OpenEvent(0xF4000001, 0x2000, 0x2000, NULL);
+    D_80060A78 = OpenEvent(0xF0000011, 0x4, 0x2000, NULL);
+    D_80060A7C = OpenEvent(0xF0000011, 0x8000, 0x2000, NULL);
+    D_80060A80 = OpenEvent(0xF0000011, 0x100, 0x2000, NULL);
+    D_80060A84 = OpenEvent(0xF0000011, 0x2000, 0x2000, NULL);
+    ExitCriticalSection();
+    VSync(5);
+    InitCARD(1);
+    VSync(5);
+    StartCARD();
+    VSync(5);
+    _bu_init();
+    VSync(5);
+    EnableEvent(D_80060A68);
+    EnableEvent(D_80060A6C);
+    EnableEvent(D_80060A70);
+    EnableEvent(D_80060A74);
+    EnableEvent(D_80060A78);
+    EnableEvent(D_80060A7C);
+    EnableEvent(D_80060A80);
+    EnableEvent(D_80060A84);
+}
+
+s32 CardKill(void) {
+    StopCARD();
     return 0;
 }
 

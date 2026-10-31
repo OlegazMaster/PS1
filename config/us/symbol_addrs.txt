@@ -157,3 +157,6 @@ GpuResetPrims = 0x8001660C; // type:func
 exit = 0x80048040; // type:func
 GpuSetupPrims = 0x800163F8; // type:func
 GpuDrawRect = 0x80016CE4; // type:func
+PadInit = 0x800156E0; // type:func
+PadInitDirect = 0x8004A748; // type:func
+PadStartCom = 0x80048E68; // type:func

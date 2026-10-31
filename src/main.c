@@ -1,16 +1,11 @@
 #include "common.h"
 #include "gfx.h"
 #include "game.h"
+#include "pad.h"
 
 /* Names follow the Crash 1 port "c1" where the code is clearly the same.
  * Structures only list the fields used so far, at their offsets. */
 
-typedef struct {
-    u8 unk0[0x4];
-    s8 unk4;
-    u8 unk5[0x23];
-    u32 tapped; /* 0x28: buttons pressed this frame */
-} Pad;
 
 typedef struct {
     u8 unk0[0x8];
@@ -117,7 +112,6 @@ extern s32 D_80060A98;
 extern s32 D_80060A9C;
 extern s32 D_80060AA4;
 extern u8 D_80041550[];
-extern Pad pads;
 extern NsState ns;
 extern RenderState D_800676B0;
 extern Unk80065C90 D_80065C90;
@@ -183,8 +177,8 @@ void CoreLoop(s32 lid) {
     NSInit(&ns, lid);
     func_8002FA1C();
     do {
-        if (((pads.tapped & 0x800) || (paused == 1 && game.pause_obj == 0) ||
-             (paused == 0 && pads.unk4 != 0)) &&
+        if (((pads.pads[0].tapped & 0x800) || (paused == 1 && game.pause_obj == 0) ||
+             (paused == 0 && pads.pads[0].status != 0)) &&
             ((game.unk204 == 0 && (game.unk208 == 0 || (game.display_flags & 0x800000)) &&
               game.unk188 != 0) ||
              paused != 0)) {

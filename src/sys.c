@@ -1,6 +1,7 @@
 #include "common.h"
 #include "gfx.h"
 #include "game.h"
+#include "pad.h"
 
 /* System setup and teardown: CD, events, heap, overlays, video, memory card. */
 
@@ -17,7 +18,30 @@ INCLUDE_ASM("asm/us/nonmatchings/sys", func_800154AC);
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80015658);
 
-INCLUDE_ASM("asm/us/nonmatchings/sys", func_800156E0);
+void PadInitDirect(u8 *buf1, u8 *buf2);
+void PadStartCom(void);
+
+void PadInit(s32 count) {
+    s32 i;
+
+    game.unk164 = 0;
+    game.unk18C = 0;
+    game.unk1F0 = 0;
+    game.unk1F4 = 0;
+    game.unk224 = 0;
+    game.unk220 = 0;
+    pads.count = count;
+    for (i = 0; i < count; i++) {
+        pads.pads[i].tapped = pads.pads[i].held = pads.pads[i].held_prev = pads.pads[i].held_prev2 = 0;
+        if (i == 0) {
+            PadInitDirect((u8 *)&pads.pads[0], (u8 *)&pads.pads[1]);
+            PadStartCom();
+        }
+        pads.pads[i].unk4C = 0;
+        pads.pads[i].unk4D = 0;
+        pads.pads[i].unk48 = 1;
+    }
+}
 
 INCLUDE_RODATA("asm/us/nonmatchings/sys", D_80010230);
 

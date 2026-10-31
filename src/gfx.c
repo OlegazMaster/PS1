@@ -107,7 +107,85 @@ s32 func_80018304(Entry *entry) {
     return func_80018048(entry, 1, 0x6396347F);
 }
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+#ifdef NON_MATCHING
+/* The VRAM rectangle of the texture (type 1) or the CLUT (type 2) of frame
+ * frame of the sprite animation anim. Equivalent; the original keeps the
+ * minima and maxima in other registers. For other animation types f is not
+ * set, as in the original. */
+void func_8001832C(s32 type, void *a, void *b, RECT *rect) {
+    u8 *anim = a;
+    s32 frame = (s32)b;
+    u8 *f;
+    TexInfo *t;
+    u32 tpage;
+    s32 mode;
+    s32 minu;
+    s32 minv;
+    s32 maxu;
+    s32 maxv;
+    s32 w;
+    s32 u0;
+    s32 v0;
+    s32 h;
+
+    switch (anim[0]) {
+    case 2:
+        f = anim + ((frame >> 8) * 16 + 8);
+        break;
+    case 5:
+        f = anim + ((frame >> 8) * 24 + 0xC);
+        break;
+    }
+    t = (TexInfo *)(f + 4);
+    func_80019090(t, (u32 *)(anim + 4));
+    tpage = t->tpage;
+    mode = (tpage >> 7) & 3;
+    switch (type) {
+    case 2:
+        rect->x = (t->clut & 0x3F) << 4;
+        rect->y = (t->clut >> 6) & 0x1FF;
+        rect->w = mode == 0 ? 0x10 : 0x100;
+        rect->h = 1;
+        break;
+    case 1:
+        u0 = t->u0;
+        v0 = t->v0;
+        minu = MIN(u0, t->u1);
+        minv = MIN(v0, t->v1);
+        maxu = MAX(u0, t->u1);
+        maxv = MAX(v0, t->v1);
+        minu = MIN(minu, t->u2);
+        minv = MIN(minv, t->v2);
+        maxu = MAX(maxu, t->u2);
+        maxv = MAX(maxv, t->v2);
+        w = maxu - minu + 1;
+        h = maxv - minv + 1;
+        rect->x = (tpage & 0xF) << 6;
+        rect->y = ((t->tpage << 4) & 0x100) + minv;
+        switch (mode) {
+        case 0:
+            rect->x += minu / 4;
+            rect->w = w / 4;
+            break;
+        case 1:
+            rect->w = w / 2;
+            rect->x += minu / 2;
+            break;
+        case 2:
+            rect->w = w;
+            rect->x += minu;
+            break;
+        }
+        rect->h = h;
+        break;
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/gfx", func_8001832C);
+#endif
 
 typedef struct {
     u8 unk0[0xC];

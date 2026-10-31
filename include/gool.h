@@ -21,7 +21,8 @@ typedef struct GoolObject {
     struct Entry *unk10;
     u8 unk14[0x4];
     struct Entry *zone; /* 0x18 */
-    u8 unk1C[0x24];
+    u8 unk1C[0x4];
+    u8 unk20[0x20];
     struct GoolObject *self; /* 0x40 */
     struct GoolObject *parent; /* 0x44 */
     struct GoolObject *sibling; /* 0x48 */
@@ -87,6 +88,7 @@ s32 GoolZoneObjectTerminate(GoolObject *obj, struct Entry *zone);
 s32 GoolSendEvent(GoolObject *sender, GoolObject *recipient, u32 event, s32 argc, u32 *argv);
 GoolObject *GoolObjectHasPidFlags(GoolObject *obj, s32 pid_flags);
 GoolObject *GoolObjectTestStateFlags(GoolObject *obj, u32 flags);
+GoolObject *GoolObjectCreate(GoolObject *parent, s32 exec, s32 subtype, s32 argc, u32 *argv, s32 interrupt);
 s32 GoolObjectSearchTree(GoolObject *obj, GoolTraverseFunc func, s32 arg);
 
 #endif /* GOOL_H */

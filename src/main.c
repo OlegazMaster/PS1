@@ -86,7 +86,6 @@ void NSInit(NsState *, s32);
 void NSKill(NsState *);
 void func_80016634(s32);
 void func_80018A54(void);
-s32 func_8001A42C(void *, s32, s32, s32, s32, s32);
 void func_8001C824(GoolObject *, s32, u32, void *, s32);
 void func_8001CD80(Object *, s32, s32, s32);
 void func_8001D16C(s32);
@@ -140,7 +139,7 @@ void CoreLoop(s32 lid) {
              paused != 0)) {
             if (paused = !paused) {
                 if (game.pause_obj == 0) {
-                    game.pause_obj = func_8001A42C(&game.handles[7], 4, 4, 0, 0, 1);
+                    game.pause_obj = (s32)GoolObjectCreate((GoolObject *)&game.handles[7], 4, 4, 0, NULL, 1);
                     if (game.pause_obj >= -0xFE) {
                         paused = 0;
                         game.pause_obj = 0;

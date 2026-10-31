@@ -243,7 +243,50 @@ GoolObject *GoolObjectTestStateFlags(GoolObject *obj, u32 flags) {
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019CE4);
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001A42C);
+void *memset(void *dst, s32 c, s32 n);
+extern s32 paused;
+s32 GoolObjectInit(GoolObject *obj, s32 exec, s32 subtype, s32 argc, u32 *argv, s32 keep);
+
+/* Creates an object under parent (c1: GoolObjectCreate); with exec and
+ * subtype 0 it is the player. When no object is free and interrupt is set,
+ * it terminates an object that allows it and tries again. */
+GoolObject *GoolObjectCreate(GoolObject *parent, s32 exec, s32 subtype, s32 argc, u32 *argv, s32 interrupt) {
+    GoolObject *obj;
+    GoolObject *found;
+    s32 res;
+    s32 i;
+
+    if (exec == 0 && subtype == 0) {
+        obj = game.player;
+        crash = obj;
+    } else {
+    retry:
+        obj = GoolObjectGetChildren((GoolObject *)&game.free_objects);
+        if (obj == NULL && interrupt) {
+            for (i = 7; i >= 0; i--) {
+                found = GoolObjectSearchTree((GoolObject *)&game.handles[i], (GoolTraverseFunc)GoolObjectTestStateFlags, paused ? 0x420000 : 0x20000);
+                if (found != NULL) {
+                    break;
+                }
+            }
+            if (found != NULL) {
+                GoolObjectTerminate(found, 0);
+                goto retry;
+            }
+        }
+    }
+    if (obj == NULL) {
+        return (GoolObject *)-0x16;
+    }
+    GoolObjectAddChild(obj, parent);
+    obj->subtype = 3;
+    res = GoolObjectInit(obj, exec, subtype, argc, argv, 0);
+    memset(obj->unk20, 0, 0x20);
+    if (res > -0xFF) {
+        return (GoolObject *)res;
+    }
+    return obj;
+}
 
 s32 func_80032DF8(s32 a, s32 b, s32 c, s32 d, s32 e, s32 f, s32 g);
 s32 GoolObjectChangeState(GoolObject *obj, u32 state, s32 argc, u32 *argv);
@@ -398,7 +441,7 @@ s32 GoolZoneObjectTerminate(GoolObject *obj, Entry *zone) {
 INCLUDE_ASM("asm/us/nonmatchings/gool", GoolZoneObjectTerminate);
 #endif
 
-void GoolObjectTerminate(GoolObject *obj) {
+void GoolObjectTerminate(GoolObject *obj, s32 unused) {
     GoolObjectKill(obj, 1);
 }
 

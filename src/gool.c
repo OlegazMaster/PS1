@@ -10,6 +10,15 @@
 GoolObject *crash; /* the player object */
 s32 D_80060A94; /* entries used in D_80067A38 */
 
+s32 func_80032710(s32 a, s32 id, s32 pos, s32 b, s32 *out, s32 c, s32 d, s32 e, s32 f);
+s32 func_80032DF8(s32 a, s32 b, s32 c, s32 d, s32 e, s32 f, s32 g);
+s32 GoolObjectInit(GoolObject *obj, s32 exec, s32 subtype, s32 argc, u32 *argv, s32 keep);
+void *memset(void *dst, s32 c, s32 n);
+extern s32 paused;
+extern u32 spawns[];
+GoolObject *GoolObjectSpawn(Entry *zone, s32 idx);
+void GoolObjectTerminate(GoolObject *obj, s32 unused);
+
 s32 func_80019624(void) {
     return -0xFF;
 }
@@ -241,11 +250,165 @@ GoolObject *GoolObjectTestStateFlags(GoolObject *obj, u32 flags) {
     return NULL;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019CE4);
+typedef struct {
+    u8 unk0[0x184];
+    s32 unk184; /* 0x184: items before the entities */
+    s32 unk188;
+    u8 unk18C[0x4];
+    s32 neighbor_count; /* 0x190 */
+    u32 neighbors[1]; /* 0x194: references to the neighbor zones */
+} ZoneHeader;
 
-void *memset(void *dst, s32 c, s32 n);
-extern s32 paused;
-s32 GoolObjectInit(GoolObject *obj, s32 exec, s32 subtype, s32 argc, u32 *argv, s32 keep);
+s32 func_80032EDC(s32 entity, s32 tag, s32 a, s32 b);
+s32 func_80032250(s32 a, s32 b); /* angle/difference */
+void func_80020670(GoolObject *obj, s32 a, Transform *xform);
+void func_8002FF3C(GoolObject *obj, void *state, s32 a, s32 b);
+typedef struct {
+    s32 v[3];
+} Vec3;
+extern s32 next_lid;
+extern u8 savestate[];
+typedef struct {
+    Vec3 pos;
+    s32 unkC[3];
+} Unk80061044Pos;
+typedef struct {
+    u8 unk0[0x2E8];
+    Unk80061044Pos unk2E8[1]; /* 0x2E8 */
+} Unk80061044;
+extern Unk80061044 *D_80061044;
+/* A property of an entity: 0x9F id, 0xA9 exec, 0xAA subtype, 0x342 flags. */
+#define EntityProp(e, tag) func_80032DF8(e, tag, 0, 0, 0, 2, 0)
+/* The spawn flags of an entity (1: spawned, 2: removed); the original reads
+ * the id twice. */
+#define EntitySpawn(e) (id = (EntityProp(e, 0x9F), EntityProp(e, 0x9F)), spawns[id])
+
+#ifdef NON_MATCHING
+/* Spawns the object of entity idx of zone (c1: GoolObjectSpawn); crates
+ * (exec 0x22) right above the previous one are stacked on it. Equivalent;
+ * the original keeps the list index in s0 and loads the high part of
+ * D_80061044 into another register. */
+GoolObject *GoolObjectSpawn(Entry *zone, s32 idx) {
+    ZoneHeader *header;
+    s32 entity;
+    GoolObject *obj;
+    GoolObject *found;
+    GoolObject *prev;
+    s16 *pos;
+    s16 *prev_pos;
+    s32 is_player;
+    s32 list;
+    s32 i;
+    s32 argc;
+    u32 *argv;
+    s32 res;
+    s32 id;
+
+    if (zone == NULL) {
+        goto fail;
+    }
+    prev = NULL;
+    is_player = 0;
+    header = (ZoneHeader *)zone->items[0];
+    entity = (s32)zone->items[idx + header->unk184 + header->unk188];
+    if (EntityProp(entity, 0xA9) == 0 || (EntityProp(entity, 0x9F) > 0 && EntityProp(entity, 0x9F) < 5)) {
+        is_player = 1;
+    }
+    if (is_player && crash != NULL) {
+        return (GoolObject *)-0xE;
+    }
+    if (EntityProp(entity, 0xA9) == 0x22) {
+        if (game.unk380 != 0 && (pos = (s16 *)func_80032710(entity, 0x4B, 0, 0, NULL, 2, 0, 0, 0), prev_pos = (s16 *)func_80032710(game.unk380, 0x4B, 0, 0, NULL, 2, 0, 0, 0), game.unk380 != 0) && func_80032250(pos[0], prev_pos[0]) < 0x28 && func_80032250(pos[2], prev_pos[2]) < 0x28 && func_80032250(pos[1], prev_pos[1] + 0x190) < 0x28) {
+            prev = game.unk378;
+        } else {
+            game.unk37C = 0x19000;
+            prev = NULL;
+            game.unk378 = NULL;
+        }
+        game.unk380 = entity;
+    }
+    if ((EntitySpawn(entity) & 1) || (EntitySpawn(entity) & 2)) {
+        if (EntityProp(entity, 0xA9) == 0x22) {
+            game.unk37C += 0x19000;
+        }
+        goto fail;
+    }
+    if (EntityProp(entity, 0x342) & 1) {
+        spawns[EntityProp(entity, 0x9F)] |= (EntityProp(entity, 0x9F), 2);
+        return (GoolObject *)-0xE;
+    }
+    if (is_player) {
+        obj = game.player;
+        crash = obj;
+        list = 6;
+    } else {
+    retry:
+        obj = GoolObjectGetChildren((GoolObject *)&game.free_objects);
+        list = 3;
+        if (obj == NULL) {
+            for (i = 7; i >= 0; i--) {
+                found = GoolObjectSearchTree((GoolObject *)&game.handles[i], (GoolTraverseFunc)GoolObjectTestStateFlags, paused ? 0x420000 : 0x20000);
+                if (found != NULL) {
+                    break;
+                }
+            }
+            if (found == NULL) {
+                return (GoolObject *)-0x16;
+            }
+            GoolObjectTerminate(found, 0);
+            goto retry;
+        }
+    }
+    GoolObjectAddChild(obj, (GoolObject *)&game.handles[list]);
+    obj->subtype = 3;
+    obj->pid_flags = EntityProp(entity, 0x9F) << 8;
+    memset(obj->unk20, 0, 0x20);
+    obj->unkF0 = entity;
+    obj->unkF8 = func_80032EDC(entity, 0x4B, 0, 2) << 8;
+    argv = (u32 *)func_80032710(entity, 0xA4, 0, 0, &argc, 2, 0, 0, 0);
+    if (argv == NULL) {
+        argc = 0;
+    }
+    res = GoolObjectInit(obj, EntityProp(entity, 0xA9), EntityProp(entity, 0xAA), argc, argv, 1);
+    if (res > -0xFF) {
+        GoolObjectAddChild(obj, (GoolObject *)&game.free_objects);
+        return (GoolObject *)res;
+    }
+    spawns[EntityProp(entity, 0x9F)] |= (EntityProp(entity, 0x9F), 1);
+    obj->zone = zone;
+    func_80020670(obj, 0, &obj->xform);
+    if (obj == crash) {
+        *(Vec3 *)obj->xform.trans = D_80061044->unk2E8[game.unk26C].pos;
+        if (next_lid == -1) {
+            game.unk174 = next_lid;
+            func_8002FF3C(obj, savestate, 1, 0);
+        }
+    }
+    if (((s32 *)obj->global->items[0])[1] == 0x300) {
+        GoolObjectAddChild(obj, (GoolObject *)&game.handles[4]);
+    }
+    if (obj->id >> 16 == 0x22) {
+        if (argv == NULL || !(argv[1] & 0x80000)) {
+            if (prev != NULL) {
+                obj->misc_a[0] = (s32)prev;
+                obj->misc_a[1] = 0;
+                prev->misc_a[1] = (s32)obj;
+            } else {
+                obj->misc_a[0] = 0;
+                obj->misc_a[1] = 0;
+            }
+            obj->xform.trans[1] += 0x19000 - game.unk37C;
+        }
+        game.unk378 = obj;
+    }
+    return obj;
+fail:
+    return (GoolObject *)-0xE;
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectSpawn);
+#endif
+
 
 /* Creates an object under parent (c1: GoolObjectCreate); with exec and
  * subtype 0 it is the player. When no object is free and interrupt is set,
@@ -288,7 +451,6 @@ GoolObject *GoolObjectCreate(GoolObject *parent, s32 exec, s32 subtype, s32 argc
     return obj;
 }
 
-s32 func_80032DF8(s32 a, s32 b, s32 c, s32 d, s32 e, s32 f, s32 g);
 s32 GoolObjectChangeState(GoolObject *obj, u32 state, s32 argc, u32 *argv);
 #ifdef NON_MATCHING
 /* Resets obj and starts it as subtype of the GOOL executable exec (c1).
@@ -378,7 +540,6 @@ s32 GoolObjectInit(GoolObject *obj, s32 exec, s32 subtype, s32 argc, u32 *argv, 
 INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectInit);
 #endif
 
-extern u32 spawns[];
 void AudioVoiceFree(GoolObject *obj);
 #ifdef NON_MATCHING
 /* Kills obj and its descendants and returns them to the free list (c1).
@@ -450,11 +611,6 @@ void GoolZoneObjectsTerminate(s32 arg) {
     GoolForEachHandle(GoolObjectHandleTraverseTreePostorder, (GoolTraverseFunc)GoolZoneObjectTerminate, arg);
 }
 
-typedef struct {
-    u8 unk0[0x190];
-    s32 neighbor_count; /* 0x190 */
-    u32 neighbors[1]; /* 0x194: references to the neighbor zones */
-} ZoneHeader;
 extern Entry *cur_zone;
 /* Kills the objects of the zones next to the current one (c1:
  * GoolZoneNeighborObjectsTerminate). */
@@ -545,7 +701,6 @@ void func_8001ACAC(s32 id, u32 *values, s32 count) {
     }
 }
 
-s32 func_80032710(s32 a, s32 id, s32 pos, s32 b, s32 *out, s32 c, s32 d, s32 e, s32 f);
 
 void func_8001AD68(s32 a, s32 pos, s32 dir) {
     s32 out;
@@ -561,7 +716,6 @@ void func_8001AD68(s32 a, s32 pos, s32 dir) {
     }
 }
 
-GoolObject *func_80019CE4(u32 zone, s32 idx); /* spawns entity idx of zone */
 
 /* Runs the queued entries (all, or those with id): 0x13C spawns the object
  * of an entity (value: bits 0-7 neighbor zone, 8-23 pid, 24-31 entity) unless
@@ -587,7 +741,7 @@ void func_8001AE64(Entry *zone, s32 id) {
             value = e->value;
             pid = value & 0xFFFF00;
             if (!(spawns[pid >> 8] & 1) && (value & 0xFF) < 0x10) {
-                e->unk4 = (s32)func_80019CE4(NSOpen(&((ZoneHeader *)zone->items[0])->neighbors[value & 0xFF], 1, 0), *((u8 *)e + 3));
+                e->unk4 = (s32)GoolObjectSpawn((Entry *)NSOpen(&((ZoneHeader *)zone->items[0])->neighbors[value & 0xFF], 1, 0), *((u8 *)e + 3));
                 if (e->unk4 > -0xFF) {
                     goto remove;
                 }

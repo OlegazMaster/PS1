@@ -32,7 +32,9 @@ typedef struct {
     s32 unk114;
     u8 unk118[0x4C];
     s32 unk164;
-    u8 unk168[0x20];
+    u8 unk168[0xC];
+    s32 unk174;
+    u8 unk178[0x10];
     s32 unk188;
     s32 unk18C;
     u8 unk190[0xC];
@@ -63,7 +65,7 @@ typedef struct {
     u8 unk368[0x4];
     s32 unk36C;
     u8 unk370[0x8];
-    s32 unk378;
+    struct GoolObject *unk378;
     s32 unk37C;
     s32 unk380;
 } GameState;

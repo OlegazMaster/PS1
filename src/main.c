@@ -64,7 +64,7 @@ extern s32 done;
 extern s32 next_lid;
 extern s32 bonus_return;
 extern s32 ticks_elapsed; /* lives inside Naughty Dog's assembly */
-extern void *D_80060A90;
+extern struct GoolObject *crash;
 extern u32 D_80060A64;
 extern s32 D_80060A94;
 extern s32 D_80060A98;
@@ -165,7 +165,7 @@ void CoreLoop(s32 lid) {
             pause_status = 0;
         }
         func_80011FB8();
-        if (D_80060A90 != NULL && D_80060A64 != 0x6396347F) {
+        if (crash != NULL && D_80060A64 != 0x6396347F) {
             func_800308B8(&D_80060A64);
         }
         bonus_return2 = 0;
@@ -267,7 +267,7 @@ void CoreLoop(s32 lid) {
                 func_80043FFC(game.unk19C, context.cur, &D_800676B0);
                 if (ns.ldat->lid != 0xE && ns.ldat->lid != 0x1C) {
                     func_800452A0(game.unk19C, context.cur, &D_800676B0);
-                    if ((*(u32 *)((u8 *)D_80060A90 + 0x100) >> 28) == 0xA) {
+                    if ((*(u32 *)((u8 *)crash + 0x100) >> 28) == 0xA) {
                         func_8005D370(game.unk19C, context.cur, &D_800676B0);
                     }
                 }

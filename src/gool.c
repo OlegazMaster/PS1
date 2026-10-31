@@ -7,7 +7,7 @@
 /* GOOL objects: allocation, the object tree, messages (names follow c1). */
 
 /* .sbss */
-void *D_80060A90;
+GoolObject *crash; /* the player object */
 s32 D_80060A94; /* entries used in D_80067A38 */
 
 s32 func_80019624(void) {
@@ -19,7 +19,7 @@ s32 func_80019624(void) {
 /* Moves child to the front of the children of parent (c1: GoolObjectAddChild).
  * Equivalent; the original tests cur for NULL twice in the search loop. */
 
-s32 func_8001962C(GoolObject *child, GoolObject *parent) {
+s32 GoolObjectAddChild(GoolObject *child, GoolObject *parent) {
     GoolObject *old = child->parent;
     GoolObject *cur;
 
@@ -45,7 +45,7 @@ s32 func_8001962C(GoolObject *child, GoolObject *parent) {
     GoolObjectSetChildren(parent, child);
 }
 #else
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001962C);
+INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectAddChild);
 #endif
 
 s32 GoolObjectTraverseTreePreorder(GoolObject *obj, GoolTraverseFunc func, s32 arg) {
@@ -335,7 +335,48 @@ s32 GoolObjectInit(GoolObject *obj, s32 exec, s32 subtype, s32 argc, u32 *argv, 
 INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectInit);
 #endif
 
+extern u32 spawns[];
+void AudioVoiceFree(GoolObject *obj);
+#ifdef NON_MATCHING
+/* Kills obj and its descendants and returns them to the free list (c1).
+ * Equivalent; the original does not move the store to crash before the last
+ * store through game.player. */
+
+s32 GoolObjectKill(GoolObject *obj, s32 sig) {
+    GoolObject *child;
+    GoolObject *next;
+    GoolObject *children;
+
+    if (obj != NULL && obj != crash) {
+        if (sig) {
+            GoolSendEvent(NULL, obj, 0x1A00, 0, NULL);
+        }
+        child = obj->children;
+        while (child != NULL) {
+            next = child->sibling;
+            GoolObjectKill(child, sig);
+            child = next;
+        }
+        AudioVoiceFree(obj);
+        spawns[obj->pid_flags >> 8] &= ~1;
+        obj->type = 0;
+        if (obj == crash) {
+            children = GoolObjectGetChildren((GoolObject *)&game.free_objects);
+            GoolObjectAddChild(obj, (GoolObject *)&game.free_objects);
+            GoolObjectSetChildren((GoolObject *)&game.free_objects, children);
+            game.player->parent = NULL;
+            game.player->children = NULL;
+            game.player->sibling = NULL;
+            crash = NULL;
+        } else {
+            GoolObjectAddChild(obj, (GoolObject *)&game.free_objects);
+        }
+    }
+    return -0xFF;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectKill);
+#endif
 
 extern Entry *D_80065D60;
 

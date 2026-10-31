@@ -15,7 +15,8 @@ typedef struct {
     struct GoolObject *player; /* 0x0 */
     u8 unk4[0x4];
     GoolHandle handles[8]; /* 0x8: heads of the object lists */
-    u8 unk48[0x18];
+    GoolHandle free_objects; /* 0x48 */
+    u8 unk50[0x10];
     s32 unk60[4];
     u32 unk70;
     s32 unk74;

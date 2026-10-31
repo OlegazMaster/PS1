@@ -1433,7 +1433,7 @@ NsdPte *NSProbeSafe(u32 eid) {
 }
 
 extern s32 next_lid;
-extern void *D_80060A90;
+extern struct GoolObject *crash;
 extern s32 D_80060ABC;
 extern char D_800100A8[];
 void func_80016234(s32 lid);
@@ -1461,7 +1461,7 @@ s32 NSInit(NsState *nss, s32 lid) {
         return -0xFF;
     }
     next_lid = -1;
-    D_80060A90 = NULL;
+    crash = NULL;
     D_80060ABC = lid;
     nss->inited = 1;
     nss->cur_ps = NULL;

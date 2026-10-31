@@ -16,7 +16,7 @@ typedef struct ObjectLink {
 typedef struct GoolObject {
     s32 type; /* 0: free, 1: object, 2: handle */
     s32 subtype; /* 0x4: for a handle, its first child (see GoolHandle) */
-    u8 unk8[0x4];
+    void *unk8;
     struct Entry *global; /* 0xC: the GOOL executable of the object */
     struct Entry *unk10;
     u8 unk14[0x4];

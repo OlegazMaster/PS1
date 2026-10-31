@@ -213,7 +213,22 @@ INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AC74);
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001ACAC);
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AD68);
+s32 func_80032710(s32 a, s32 id, s32 pos, s32 b, s32 *out, s32 c, s32 d, s32 e, s32 f);
+void func_8001ACAC(s32 id, s32 handle, s32 value);
+
+void func_8001AD68(s32 a, s32 pos, s32 dir) {
+    s32 out;
+    s32 handle;
+
+    handle = func_80032710(a, dir == 2 ? 0x13B : 0x13C, dir == 2 ? pos - 0x100 : pos + 0x100, 0, &out, 1, 0, 0, 0);
+    if (handle != 0 && out != 0) {
+        func_8001ACAC(0x13B, handle, out);
+    }
+    handle = func_80032710(a, dir == 2 ? 0x13C : 0x13B, pos, 0, &out, 1, 0, 0, 0);
+    if (handle != 0 && out != 0) {
+        func_8001ACAC(0x13C, handle, out);
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AE64);
 
@@ -221,6 +236,40 @@ INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001B0BC);
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001B328);
 
+typedef struct {
+    u8 unk0[0x2];
+    u16 frame_count; /* 0x2 */
+    u32 flags; /* 0x4: bit 0: frames at half rate */
+    u8 unk8[0x8];
+    u32 eid; /* 0x10 */
+} AnimInfo;
+#ifdef NON_MATCHING
+/* Finds the frame (or the two frames to blend) for the current animation
+ * frame of obj; returns that frame number. Equivalent; the original keeps
+ * the entry and the frame in other registers. */
+
+u32 func_8001B524(GoolObject *obj, u32 *frame_a, u32 *frame_b) {
+    AnimInfo *anim = (AnimInfo *)obj->unkE8;
+    Entry *entry = (Entry *)NSOpen(&anim->eid, 1, 0);
+    s32 half = anim->flags & 1;
+    u32 frame = obj->unkEC >> 8;
+
+    if (frame_b == NULL) {
+        *frame_a = (u32)entry->items[half ? frame >> 1 : frame];
+        return frame;
+    }
+    if (!half) {
+        *frame_a = *frame_b = (u32)entry->items[frame];
+    } else if ((frame & 1) && (s32)(frame + 1) < anim->frame_count) {
+        *frame_a = (u32)entry->items[frame >> 1];
+        *frame_b = (u32)entry->items[(frame >> 1) + 1];
+    } else {
+        *frame_a = *frame_b = (u32)entry->items[(s32)(frame + 1) >> 1];
+    }
+    return frame;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001B524);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001B630);

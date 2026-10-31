@@ -3,6 +3,7 @@
 #include "gfx.h"
 #include "game.h"
 #include "ns.h"
+#include "pad.h"
 
 /* The GOOL interpreter: state changes, events, opcodes (gool.c in c1). */
 
@@ -592,6 +593,91 @@ s32 func_8001E42C(GoolObject *obj, u32 pc, s32 argc, u32 *argv) {
     return func_80038E28(obj, 3, NULL);
 }
 
+typedef struct {
+    u8 unk0[0x18];
+    u32 unk18; /* 0x18 */
+} Unk80061A7C;
+extern Unk80061A7C *D_80061A7C;
+s32 func_8001FAC8(s32 angle, s32 target, s32 speed, s32 a); /* turns angle toward target */
+void func_80020184(s32 *in, s32 *out);
+s32 func_8003D9DC(s32 x); /* square root */
+s32 func_8003C2F0(s32 angle); /* sin */
+s32 func_8003C364(s32 angle); /* cos */
+
+#ifdef NON_MATCHING
+/* Moves obj by the left stick: turns it, accelerates it by params[0] and
+ * slows it by params[2] (0xC7 in the air), up to the speed params[1]; sets
+ * its speed from the distance to target. Equivalent; the original negates
+ * the limit into another register. The return value is not set. */
+s32 func_8001E4BC(GoolObject *obj, s32 *params, s32 *target) {
+    s32 mag = pads.pads[0].stick_mag;
+    s32 dir = pads.pads[0].stick_dir;
+    s32 angle = pads.pads[0].stick_angle;
+    s32 t;
+    s32 f;
+    s32 lim;
+    s32 v;
+    s32 r;
+    s32 neg;
+    s32 d;
+    s32 in[3];
+    s32 out[3];
+
+    if (mag < 0x99 || !(obj->status_b & 0x80)) {
+        dir = 8;
+        mag = 0;
+    } else {
+        obj->misc_b[1] = func_8001FAC8(obj->misc_b[1], (D_80065C90.unk114 + angle) & 0xFFF, params[5], 0);
+    }
+    t = D_80061A7C->unk18;
+    if ((u32)t > 0x66) {
+        t = 0x66;
+    }
+    mag = (mag * (params[0] * t / 1020)) >> 8;
+    in[0] = ((func_8003C2F0(angle) >> 4) * mag) >> 8;
+    in[1] = 0;
+    in[2] = ((func_8003C364(angle) >> 4) * mag) >> 8;
+    func_80020184(in, out);
+    obj->misc_a[0] += out[0];
+    obj->misc_a[2] += out[2];
+    if (dir == 8 || !(obj->status_a & 0x2000000)) {
+        f = params[2];
+        if (!(obj->status_a & 0x2000000)) {
+            f = 0xC7;
+        }
+        obj->misc_a[0] = (obj->misc_a[0] * f) >> 8;
+        obj->misc_a[2] = (obj->misc_a[2] * f) >> 8;
+    }
+    v = obj->misc_a[0];
+    lim = params[1];
+    if (v < lim) {
+        lim = -lim;
+        if (v >= lim) {
+            lim = v;
+        }
+    }
+    obj->misc_a[0] = lim;
+    v = obj->misc_a[2];
+    lim = params[1];
+    if (v < lim) {
+        lim = -lim;
+        if (v >= lim) {
+            lim = v;
+        }
+    }
+    obj->misc_a[2] = lim;
+    d = func_8003D9DC(((obj->xform.trans[0] - target[0]) >> 6) * ((obj->xform.trans[0] - target[0]) >> 6) + ((obj->xform.trans[2] - target[2]) >> 6) * ((obj->xform.trans[2] - target[2]) >> 6));
+    obj->speed = (-(d << 8) + (d << 12)) << 1;
+    if (obj->speed < 0x6400) {
+        if (dir != 8) {
+            obj->speed = 0x6400;
+        }
+    } else if (params[1] < obj->speed) {
+        obj->speed = params[1];
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001E4BC);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001E78C);

@@ -105,7 +105,9 @@ typedef struct {
     s32 unkC4; /* GTE projection distance (H) */
     u8 unkC8[0x4];
     UnkCC *unkCC;
-    u8 unkD0[0x74];
+    u8 unkD0[0x44];
+    s32 unk114; /* 0x114: camera yaw */
+    u8 unk118[0x2C];
     u32 unk144;
     u8 unk148[0x18D8];
     RenderState render; /* 0x1A20 (D_800676B0) */

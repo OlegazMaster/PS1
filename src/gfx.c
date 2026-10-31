@@ -257,8 +257,6 @@ typedef struct {
     u8 u2, v2;
     u8 u3, v3;
 } TexInfo;
-void *func_8001440C(u32 *ref, s32 count);
-u32 NSOpen(u32 *en_ref, s32 flag, s32 count);
 #ifdef NON_MATCHING
 /* Loads the texture page a texture refers to and stores its location.
  * Equivalent; the original schedules the field loads after the arithmetic. */

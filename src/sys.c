@@ -241,7 +241,6 @@ extern u8 D_80072230[]; /* end of the overlay */
 void D_8006F64C(void); /* overlay functions */
 void D_8006F780(void);
 void func_800716A0(void);
-void *NSFileRead(CdFile *file, void *buf, s32 mode, s32 arg3);
 u32 NSChecksum(u32 *buf, s32 size);
 void InitHeap(void *start, u32 size);
 void FlushCache(void);

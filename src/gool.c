@@ -372,8 +372,6 @@ typedef struct {
     u32 neighbors[1]; /* 0x194: references to the neighbor zones */
 } ZoneHeader;
 extern Entry *cur_zone;
-void *func_8001440C(u32 *ref, s32 count);
-u32 NSOpen(u32 *en_ref, s32 flag, s32 count);
 /* Kills the objects of the zones next to the current one (c1:
  * GoolZoneNeighborObjectsTerminate). */
 

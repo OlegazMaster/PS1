@@ -121,4 +121,8 @@ typedef struct {
 } NsSubsystem;
 extern NsSubsystem subsys[22];
 
+u32 NSOpen(u32 *en_ref, s32 flag, s32 count);
+void *func_8001440C(u32 *ref, s32 count);
+void *NSFileRead(CdFile *file, void *buf, s32 mode, s32 arg3);
+
 #endif /* NS_H */

@@ -5,6 +5,9 @@
 
 /* Textures and sprites. */
 
+void func_8001832C(s32 type, void *a, void *b, RECT *rect);
+void func_800186D8(s32 load, RECT *rect, u8 *buf, u8 *data, s32 async);
+s32 StoreImage(RECT *rect, u32 *data);
 s32 func_80018088(Entry *entry, s32 flag, u32 eid, s32 count, void *infos, s32 ref_count, u32 *refs);
 
 s32 func_80018008(Entry *entry, s32 flag, u32 eid) {
@@ -121,9 +124,60 @@ void func_800185C8(TextBlock *block, s32 idx, char *src, s32 len) {
 INCLUDE_ASM("asm/us/nonmatchings/gfx", func_800185C8);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/gfx", func_800186D8);
+/* Moves a rectangle between VRAM and data (load 1: to VRAM). Data that is not
+ * 16-byte aligned goes through buf. */
+void func_800186D8(s32 load, RECT *rect, u8 *buf, u8 *data, s32 async) {
+    u8 *src;
+    u8 *dst;
+    s32 n;
 
-INCLUDE_ASM("asm/us/nonmatchings/gfx", func_80018820);
+    if (load == 1) {
+        if ((u32)data & 0xF) {
+            src = data;
+            dst = buf;
+            n = rect->w * rect->h * 2;
+            while (n--) {
+                *dst++ = *src++;
+            }
+            LoadImage(rect, (u32 *)buf);
+            DrawSync(0);
+            return;
+        }
+        LoadImage(rect, (u32 *)data);
+    } else {
+        if ((u32)data & 0xF) {
+            StoreImage(rect, (u32 *)buf);
+            DrawSync(0);
+            src = buf;
+            dst = data;
+            n = rect->w * rect->h * 2;
+            while (n--) {
+                *dst++ = *src++;
+            }
+            return;
+        }
+        StoreImage(rect, (u32 *)data);
+    }
+    if (!async) {
+        DrawSync(0);
+    }
+}
+
+s32 func_80018820(s32 load, void *a, void *b, u8 *data2, u8 *data1, s32 async) {
+    RECT rect;
+    u8 buf[0x110];
+    u8 *aligned = (u8 *)((u32)(buf + 0xF) & ~0xF);
+
+    if (data2 != NULL) {
+        func_8001832C(2, a, b, &rect);
+        func_800186D8(load, &rect, aligned, data2, async);
+    }
+    if (data1 != NULL) {
+        func_8001832C(1, a, b, &rect);
+        func_800186D8(load, &rect, aligned, data1, async);
+    }
+    return async;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/gfx", func_800188EC);
 

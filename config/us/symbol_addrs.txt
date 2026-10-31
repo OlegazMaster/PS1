@@ -182,3 +182,4 @@ StopCARD = 0x8005B730; // type:func
 CardInit = 0x80017AE8; // type:func
 CardKill = 0x80017C88; // type:func
 GpuGetPrimsTail = 0x80017FF8; // type:func
+StoreImage = 0x8004C90C; // type:func

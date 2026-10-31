@@ -42,7 +42,7 @@ typedef struct PageStruct {
     s16 unkC;
     s8 ref_count; /* 0xE */
     s8 unkF;
-    u8 unk10[0x4];
+    u16 *unk10;
     s32 pgid; /* 0x14 */
     u32 eid; /* 0x18 */
     s32 unk1C;
@@ -68,7 +68,7 @@ typedef struct {
     s32 page_count; /* 0xA28 */
     struct PageStruct *cur_ps; /* 0xA2C */
     s32 unkA30;
-    s32 unkA34;
+    struct PageStruct *cur_audio_ps; /* 0xA34 */
     s32 unkA38;
     PageStruct **page_map; /* 0xA3C */
     s32 unkA40;
@@ -370,11 +370,6 @@ void *NSFileRead(CdFile *file, void *buf, s32 mode) {
 /* .sdata continues after the literals of NSFileRead. */
 Rect16 tpage_rect = { 0, 0, 256, 128 };
 char D_800608C0[] = "de ls\n";
-char D_800608C8[] = "de l\n";
-#ifndef NON_MATCHING
-/* The "!mem\n" literal of NSPageAllocate, which is still assembly in matching builds. */
-char D_800608D0[] = "!mem\n";
-#endif
 
 #ifdef NON_MATCHING
 /* Equivalent; the original stores the entry pointer from the register it is computed in. */
@@ -425,9 +420,15 @@ u32 NSChecksum(u32 *buf, s32 size) {
     return checksum;
 }
 
-INCLUDE_RODATA("asm/us/nonmatchings/ns", D_80010068);
+/* GCC emits the literals of inline functions where they are defined, so these
+ * helpers keep the strings in .rodata in the order of the original. */
+static inline void NSPrintRetrySlave(PageStruct *ps) {
+    printf("ERROR: frame retry slave %s\n", NSEIDValToString(ps->pgid));
+}
 
-INCLUDE_RODATA("asm/us/nonmatchings/ns", D_80010088);
+static inline void NSPrintRetryLoading(PageStruct *ps) {
+    printf("ERROR: frame retry loading %s\n", NSEIDValToString(ps->pgid));
+}
 
 INCLUDE_RODATA("asm/us/nonmatchings/ns", D_800100A8);
 
@@ -475,7 +476,7 @@ free_entries:
 }
 
 PageStruct *NSPageCreatePhysical(PageStruct *ps, s32 pgid, u32 eid, s32 *count, s32 flag);
-s32 func_800132F8(PageStruct *ps, s32 pgid);
+void NSPageUpdate(PageStruct *ps, s32 pgid);
 
 /* Starts reading the next run of virtual pages (lowest pgid first, or the
  * requested one) into physical pages, then advances every physical page. */
@@ -519,7 +520,7 @@ void NSUpdate(s32 pgid) {
         }
     }
     for (i = 0; i < ns.physical_page_count; i++) {
-        func_800132F8(&ns.physical_pages[i], pgid);
+        NSPageUpdate(&ns.physical_pages[i], pgid);
     }
 }
 
@@ -644,7 +645,215 @@ s32 func_800131B0(PageStruct *ps) {
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_800131CC);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_800132F8);
+PageStruct *func_800131CC(PageStruct *ps);
+s32 func_800519C4(s32);
+s32 func_80013B8C(s32 type, s32 arg1);
+void func_80051934(s32);
+void func_800518D4(void *, s32);
+void func_800126D0(s32);
+
+PageStruct *func_800131CC(PageStruct *ps);
+s32 func_800519C4(s32);
+s32 func_80013B8C(s32 type, s32 arg1);
+void func_80051934(s32);
+void func_800518D4(void *, s32);
+void func_800126D0(s32);
+
+PageStruct *func_800131CC(PageStruct *ps);
+s32 func_800519C4(s32);
+s32 func_80013B8C(s32 type, s32 arg1);
+void func_80051934(s32);
+void func_800518D4(void *, s32);
+void func_800126D0(s32);
+
+PageStruct *func_800131CC(PageStruct *ps);
+s32 func_800519C4(s32);
+s32 func_80013B8C(s32 type, s32 arg1);
+void func_80051934(s32);
+void func_800518D4(void *, s32);
+void func_800126D0(s32);
+
+PageStruct *func_800131CC(PageStruct *ps);
+s32 func_800519C4(s32);
+s32 func_80013B8C(s32 type, s32 arg1);
+void func_80051934(s32);
+void func_800518D4(void *, s32);
+void func_800126D0(s32);
+
+PageStruct *func_800131CC(PageStruct *ps);
+s32 func_800519C4(s32);
+s32 func_80013B8C(s32 type, s32 arg1);
+void func_80051934(s32);
+void func_800518D4(void *, s32);
+void func_800126D0(s32);
+
+PageStruct *func_800131CC(PageStruct *ps);
+s32 func_800519C4(s32);
+s32 func_80013B8C(s32 type, s32 arg1);
+void func_80051934(s32);
+void func_800518D4(void *, s32);
+void func_800126D0(s32);
+
+/* Advances a page through its states: CD read, decompression, upload of audio
+ * pages to sound RAM. Returns when the page has to wait. */
+void NSPageUpdate(PageStruct *ps, s32 pgid) {
+    PageStruct *head;
+    PageStruct *aps;
+    Page *page;
+    Entry *entry;
+    s32 status;
+    s32 idx;
+    s32 arg;
+    u32 i;
+    s32 type;
+
+loop:
+    switch (ps->state) {
+    case 13:
+        if (*ps->unk10 == 0x8765) {
+            return;
+        }
+        if ((s32)func_800131CC(ps) == -0x10) {
+            NSPrintRetrySlave(ps);
+            goto loop;
+        }
+        goto case_4;
+    case 2:
+        if (ns.cur_ps != NULL) {
+            return;
+        }
+        if (pgid != -1 && !func_80013158(ps, pgid)) {
+            return;
+        }
+        ns.unkA38 = ps->pgid;
+        if (!use_cd) {
+            goto delete;
+        }
+        if (CdSync(1, NULL) != 2 && pgid == -1) {
+            return;
+        }
+        head = func_800131CC(ps);
+        ns.cur_ps = ps;
+    read:
+        if (NSCdRead(head, ps->unk1C) >= -0xFE) {
+            goto read;
+        }
+        ps = head;
+        goto loop;
+    case 3:
+        if (!use_cd || ns.cur_ps != ps) {
+            goto delete;
+        }
+        status = func_80013000(0);
+        if (status == 1) {
+            if ((s32)func_800131CC(ps) == -0x10) {
+                NSPrintRetryLoading(ps);
+                ns.cur_ps = NULL;
+                goto loop;
+            }
+            ns.cur_ps = NULL;
+            goto case_4;
+        }
+        if (status != -0x10) {
+            return;
+        }
+        printf("de l\n");
+        ns.cur_ps = NULL;
+        func_800131B0(ps);
+        goto loop;
+    delete:
+        NSPageDelete(ps);
+        ns.page_count--;
+        ns.cur_ps = NULL;
+        return;
+    case 4:
+    case_4:
+        switch (((Page *)ps->page)->type) {
+        case 3:
+        case 4:
+            ps->state = 10;
+            break;
+        default:
+            func_800126D0(ps->unkC);
+            ns.page_count--;
+            return;
+        }
+    case 10:
+        if (ns.cur_audio_ps != NULL) {
+            return;
+        }
+        if (!func_800519C4(0)) {
+            return;
+        }
+        arg = -1;
+        type = ((Page *)ps->page)->type;
+        if (type == 4) {
+            arg = *(s32 *)((Page *)ps->page)->entries[0]->items[0];
+        }
+        idx = func_80013B8C(type, arg);
+        if (idx == -0xC) {
+            if (((Page *)ps->page)->type == 5) {
+                return;
+            }
+            NSPageDelete(ps);
+            ns.page_count--;
+            return;
+        }
+        aps = &D_80060BB8[idx];
+        ps->state = 11;
+        ps->unk24 = aps;
+        ns.cur_audio_ps = ps;
+        aps->state = 11;
+        aps->pgid = ps->pgid;
+        aps->eid = ps->eid;
+        aps->unkF = 0;
+        aps->ref_count = 0;
+        func_80051934(aps->unk1C);
+        page = ps->page;
+        switch (page->type) {
+        case 4:
+            entry = page->entries[0];
+            func_800518D4(entry->items[1], ((s32 *)entry->items[0])[1]);
+            break;
+        case 5:
+            for (i = 0; i < page->entry_count; i++) {
+                if (page->entries[i]->eid == ps->eid) {
+                    func_800518D4(((Page *)ps->page)->entries[i]->items[0], NSEntryItemSize(page->entries[i], 0));
+                    break;
+                }
+            }
+            break;
+        case 3:
+            func_800518D4(page, 0x10000);
+            break;
+        }
+    case 11:
+        if (ns.cur_audio_ps != ps) {
+            return;
+        }
+        if (!func_800519C4(0)) {
+            return;
+        }
+        if (((Page *)ps->page)->type == 5) {
+            ps->state = 20;
+            ps->unk24->state = 20;
+        } else {
+            func_800126D0(ps->unkC);
+        }
+        ns.cur_audio_ps = NULL;
+        ns.page_count--;
+        return;
+    case 31:
+        ps->state = 1;
+        ps->unkF = 0;
+        return;
+    }
+}
+
+#ifndef NON_MATCHING
+/* The "!mem\n" literal of NSPageAllocate, which is still assembly in matching builds. */
+char D_800608D0[] = "!mem\n";
+#endif
 
 s32 NSPageFree(PageStruct *ps);
 
@@ -1243,7 +1452,7 @@ NsdPte *NSProbeSafe(u32 eid) {
 INCLUDE_ASM("asm/us/nonmatchings/ns", NSInit);
 
 void free(void *ptr);
-void func_800519C4(s32);
+s32 func_800519C4(s32);
 void func_800351EC(void);
 void func_80033238(void);
 void NSKillPage(NsState *nss, s32 idx);
@@ -1257,7 +1466,7 @@ s32 NSKill(NsState *nss) {
     if (use_cd && ns.cur_ps != 0) {
         func_80013000(1);
     }
-    if (ns.unkA34 != 0) {
+    if (ns.cur_audio_ps != 0) {
         func_800519C4(1);
     }
     func_800351EC();

@@ -11,7 +11,8 @@ typedef struct {
 /* Global game state. Only the fields used so far are named, at their offsets. */
 typedef struct {
     u8 unk0[0x40];
-    u8 handles[0x34]; /* 0x40 */
+    u8 handles[0x30]; /* 0x40 */
+    u32 unk70;
     s32 unk74;
     u8 unk78[0xC];
     u32 display_flags; /* 0x84 */

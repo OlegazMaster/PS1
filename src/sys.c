@@ -11,6 +11,7 @@ void free(void *ptr);
 void func_8007170C(void);
 s32 func_8005B730(void);
 void func_800165F8(DrawContext *dc);
+void GpuResetPrims(DrawContext *dc);
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_800154AC);
 
@@ -82,7 +83,49 @@ void GpuInit(void) {
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80016234);
 
-INCLUDE_ASM("asm/us/nonmatchings/sys", func_800163F8);
+void *malloc(s32 size);
+void exit(s32 status);
+void func_8003AC44(void *ot, s32 count);
+
+s32 GpuSetupPrims(void) {
+    DrawContext *dc;
+    void *mem;
+    s32 size;
+    s32 i;
+
+    func_8003AC44(context.cur->ot, 0x800);
+    func_8003AC44(context.c2_p->ot, 0x800);
+    mem = malloc(0x1A40);
+    for (i = 0; i < context.count; i++) {
+        dc = &context.buffers[i];
+        dc->unk2094 = mem;
+        if (D_80060ABC == 40) {
+            game.unk70 &= ~2;
+        }
+        switch (D_80060ABC) {
+        case 3:
+        case 5:
+        case 6:
+        case 19:
+        case 23:
+        case 31:
+        case 42:
+            size = 0x1E400;
+            break;
+        case 2:
+            size = 0x18000;
+            break;
+        default:
+            size = 0x16400;
+            break;
+        }
+        if ((dc->prims_head = malloc(size)) == NULL) {
+            exit(-0xF);
+        }
+        GpuResetPrims(dc);
+    }
+    return -0xFF;
+}
 
 s32 GpuKill(void) {
     DrawContext *dc;
@@ -115,7 +158,21 @@ void GpuResetPrims(DrawContext *dc) {
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80016634);
 
-INCLUDE_ASM("asm/us/nonmatchings/sys", func_80016CE4);
+void GpuDrawRect(s32 x, s32 y, s32 w, s32 h, s32 r, s32 g, s32 b) {
+    BLK_FILL *bf;
+
+    bf = context.cur->prims_tail;
+    context.cur->prims_tail = bf + 1;
+    setBlockFill(bf);
+    bf->w = w;
+    bf->h = h;
+    bf->r0 = r;
+    bf->g0 = g;
+    bf->b0 = b;
+    bf->x0 = context.cur->draw.clip.x + x;
+    bf->y0 = context.cur->draw.clip.y + y;
+    AddPrim(context.cur->ot, bf);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80016D8C);
 

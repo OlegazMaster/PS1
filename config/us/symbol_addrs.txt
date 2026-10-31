@@ -154,3 +154,6 @@ GpuClearVram = 0x80016048; // type:func
 GpuInit = 0x800160D8; // type:func
 GpuKill = 0x80016544; // type:func
 GpuResetPrims = 0x8001660C; // type:func
+exit = 0x80048040; // type:func
+GpuSetupPrims = 0x800163F8; // type:func
+GpuDrawRect = 0x80016CE4; // type:func

@@ -1,4 +1,5 @@
 #include "common.h"
+#include "gfx.h"
 
 /* Names follow the Crash 1 port "c1" where the code is clearly the same.
  * Structures only list the fields used so far, at their offsets. */
@@ -58,10 +59,6 @@ typedef struct {
     s32 draw_skip_counter; /* 0x24 */
 } NsState;
 
-typedef struct {
-    u8 unk0[0x10];
-    s32 draw_stamp; /* 0x10 */
-} DrawContext2;
 
 typedef struct ObjectLink {
     struct ObjectLink *next;
@@ -76,21 +73,6 @@ typedef struct GoolObject {
     u32 unkEC;
 } GoolObject;
 
-typedef struct {
-    u8 unk0[0xC];
-    s32 unkC;
-    u8 unk10[0x10];
-    u8 ot[0x2070]; /* 0x20: ordering table */
-    s32 unk2090;
-    u8 unk2094[0x8];
-    ObjectLink *unk209C;
-} DrawContext;
-
-typedef struct {
-    u8 unk0[0x8];
-    DrawContext2 *c2_p;
-    DrawContext *c1_p;
-} GfxContext;
 
 typedef struct {
     u8 unk0[0x28];
@@ -172,7 +154,6 @@ extern s32 D_80060AA4;
 extern u8 D_80041550[];
 extern Pad pads;
 extern NsState ns;
-extern GfxContext context;
 extern GameState game;
 extern RenderState D_800676B0;
 extern Unk80065C90 D_80065C90;

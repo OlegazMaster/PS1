@@ -3,6 +3,7 @@
 #include "game.h"
 #include "pad.h"
 #include "ns.h"
+#include "gool.h"
 
 /* System setup and teardown: CD, events, heap, overlays, video, memory card. */
 
@@ -706,4 +707,93 @@ s32 CardKill(void) {
     return 0;
 }
 
+extern u8 D_8006B0E8[40][4][9]; /* save data: 9 packed bytes per record */
+void func_80071590(s32 arg);
+s32 func_800717D8(s32 arg);
+s32 func_80071880(s32 arg);
+s32 func_800718D0(void);
+s32 func_80071930(void);
+s32 func_80071974(void);
+void func_800719D8(void);
+void func_80071ABC(u8 *p, s32 arg);
+s32 func_80071C8C(s32 arg);
+s32 func_80071D38(s32 arg);
+s32 func_80071DA8(s32 arg);
+s32 func_80072094(s32 arg);
+#ifdef NON_MATCHING
+/* Messages of the memory card subsystem; 19 and 20 move a save record between
+ * the save data and the GOOL stack of obj. Equivalent; the original keeps
+ * arg in another register. */
+
+s32 func_80017CA8(GoolObject *obj, u32 msg, s32 arg) {
+    u8 *rec;
+    u32 v;
+
+    switch (msg) {
+    case 0:
+        break;
+    case 2:
+        func_80071590(0x80);
+        return 1;
+    case 3:
+        return func_800717D8(arg);
+    case 5:
+        return func_800718D0();
+    case 10:
+        return func_80071930();
+    case 12:
+        return func_80071974();
+    case 13:
+        return func_80071C8C(arg);
+    case 14:
+        return func_80072094(arg);
+    case 15:
+        if (D_80060908 == 0) {
+            break;
+        }
+        func_80071ABC((u8 *)D_80060908 + (arg * 0x58C + 0x6F4), 0);
+        func_800719D8();
+        return 0;
+    case 16:
+        return func_80071D38(arg);
+    case 17:
+        return func_80071DA8(arg);
+    case 18:
+        return func_80071880(arg);
+    case 19:
+        if ((u32)(arg >> 8) < 40) {
+            rec = D_8006B0E8[arg >> 8][arg & 0xFF];
+            *obj->sp++ = rec[7] | (rec[8] << 8);
+            *obj->sp++ = rec[3] | (rec[4] << 8) | (rec[5] << 16) | (rec[6] << 24);
+            *obj->sp++ = rec[0] | (rec[1] << 8) | (rec[2] << 16);
+        } else {
+            *obj->sp++ = 0;
+            *obj->sp++ = 0;
+            *obj->sp++ = 0;
+        }
+        return obj->sp[-1];
+    case 20:
+        if ((u32)(arg >> 8) < 40) {
+            rec = D_8006B0E8[arg >> 8][arg & 0xFF];
+            v = *--obj->sp;
+            rec[1] = v >> 8;
+            rec[0] = v;
+            rec[2] = v >> 16;
+            v = *--obj->sp;
+            rec[4] = v >> 8;
+            rec[5] = v >> 16;
+            rec[3] = v;
+            rec[6] = v >> 24;
+            v = *--obj->sp;
+            rec[7] = v;
+            rec[8] = v >> 8;
+        } else {
+            obj->sp -= 3;
+        }
+        return 0;
+    }
+    return 1;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80017CA8);
+#endif

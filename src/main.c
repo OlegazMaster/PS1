@@ -3,25 +3,12 @@
 #include "game.h"
 #include "pad.h"
 #include "ns.h"
+#include "gool.h"
 
 /* Names follow the Crash 1 port "c1" where the code is clearly the same.
  * Structures only list the fields used so far, at their offsets. */
 
 
-
-
-typedef struct ObjectLink {
-    struct ObjectLink *next;
-    struct GoolObject *obj;
-} ObjectLink;
-
-typedef struct GoolObject {
-    u8 unk0[0xAC];
-    u32 unkAC;
-    u8 unkB0[0x38];
-    s32 unkE8;
-    u32 unkEC;
-} GoolObject;
 
 
 typedef struct {

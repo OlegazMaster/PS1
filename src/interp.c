@@ -681,3 +681,21 @@ INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001E4BC);
 #endif
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001E78C);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FAC8);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FC40);
+
+/* Moves cur toward target by step; returns target once it is within step. */
+
+s32 func_8001FD08(s32 cur, s32 target, s32 step) {
+    s32 d = target - cur;
+
+    if (step > 0 && (d < 0 ? -d : d) < step) {
+        return target;
+    }
+    if (d > 0) {
+        return cur + step;
+    }
+    return cur - step;
+}

@@ -116,6 +116,7 @@ NSPageCreatePhysical = 0x80013D04; // type:func
 NSPageAllocate = 0x800137AC; // type:func
 NSPageOpen = 0x80013FA8; // type:func
 NSCountAvailablePages = 0x800145A0; // type:func
+NSPageFree = 0x80012B00; // type:func
 NSCdSeek = 0x80012F7C; // type:func
 NSCdRead = 0x80013050; // type:func
 NSInit = 0x80014BC8; // type:func

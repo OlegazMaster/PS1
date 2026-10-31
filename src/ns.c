@@ -3,7 +3,8 @@
 /* NSF/NSD paging: loads level data from the disc (names follow c1). */
 
 typedef struct {
-    u8 unk0[0x8];
+    u32 unk0;
+    u32 eid; /* 0x4 */
     s32 type; /* 0x8 */
     s32 item_count; /* 0xC */
     u8 *items[1]; /* 0x10: item_count + 1 offsets */
@@ -64,7 +65,7 @@ typedef struct {
     s32 virtual_page_count; /* 0x3C8 */
     PageStruct virtual_pages[37]; /* 0x3CC */
     s32 page_count; /* 0xA28 */
-    s32 unkA2C;
+    struct PageStruct *cur_ps; /* 0xA2C */
     s32 unkA30;
     s32 unkA34;
     s32 unkA38;
@@ -97,6 +98,15 @@ typedef struct {
 } Unk8006C4D8;
 
 extern Unk8006C4D8 D_8006C4D8[];
+
+/* Per entry type: callbacks run when levels and pages are loaded and freed. */
+typedef struct {
+    u8 unk0[0x14];
+    void (*on_free)(Entry *entry);
+    void (*kill)(void);
+} NsSubsystem;
+
+extern NsSubsystem subsys[22];
 
 extern char alpha_map[];
 extern char eid_str_buf[];
@@ -368,7 +378,46 @@ INCLUDE_RODATA("asm/us/nonmatchings/ns", D_800100A8);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_800126D0);
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012B00);
+s32 NSPageFree(PageStruct *ps) {
+    Page *page;
+    Entry *entry;
+    NsdPte *pte;
+    s32 pgid;
+    u32 i;
+
+    if (ns.cur_ps == ps) {
+        ns.cur_ps = NULL;
+    }
+    if (ps->state == 20 || ps->state == 21) {
+        page = ps->page;
+        if (page->type != 1 && page->type != 3 && page->type != 4) {
+            goto free_entries;
+        }
+        if (ps->state == 20 || ps->state == 21) {
+            ns.page_map[ps->pgid >> 1] = (PageStruct *)-0x12;
+        }
+    }
+    ps->state = 1;
+    ps->unkF = 0;
+    ps->ref_count = 0;
+    return -0xFF;
+
+free_entries:
+    pte = ns.pte_buckets[(page->entries[0]->eid >> 15) & 0xFF];
+    pgid = ps->pgid;
+    for (i = 0; i < ((Page *)ps->page)->entry_count; i++) {
+        entry = ((Page *)ps->page)->entries[i];
+        while (pte->eid != entry->eid) {
+            pte++;
+        }
+        if (subsys[entry->type].on_free != NULL) {
+            subsys[entry->type].on_free(entry);
+        }
+        pte->value = pgid;
+    }
+    NSPageDelete(ps);
+    return -0xFF;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012CBC);
 
@@ -417,7 +466,7 @@ s32 CdRead(s32 sectors, void *buf, s32 mode);
 void NSCdSeek(s32 idx) {
     u8 loc[4];
 
-    if (use_cd && ns.unkA2C == 0 && CdSync(1, NULL) == 0) {
+    if (use_cd && ns.cur_ps == 0 && CdSync(1, NULL) == 0) {
         CdIntToPos(D_8006C4D8[idx].sector & 0x7FFFFF, loc);
         CdControl(0x15, loc);
     }
@@ -500,7 +549,7 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", func_800131CC);
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", func_800132F8);
 
-void func_80012B00(PageStruct *ps);
+s32 NSPageFree(PageStruct *ps);
 
 /* Finds the longest run of free (or evictable, preferring the oldest) physical pages. */
 #ifdef NON_MATCHING
@@ -549,7 +598,7 @@ s32 NSPageAllocate(s32 *count, s32 flag) {
     }
     if (idx_max != -1) {
         for (i = idx_max; i < idx_max + len_max; i++) {
-            func_80012B00(&ns.physical_pages[i]);
+            NSPageFree(&ns.physical_pages[i]);
         }
         *count = len_max;
         return idx_max;
@@ -1097,12 +1146,6 @@ NsdPte *NSProbeSafe(u32 eid) {
 
 INCLUDE_ASM("asm/us/nonmatchings/ns", NSInit);
 
-typedef struct {
-    u8 unk0[0x18];
-    void (*kill)(void);
-} NsSubsystem;
-
-extern NsSubsystem subsys[22];
 void free(void *ptr);
 void func_800519C4(s32);
 void func_800351EC(void);
@@ -1115,7 +1158,7 @@ s32 NSKill(NsState *nss) {
     if (nss->inited != 1) {
         return -0xFF;
     }
-    if (use_cd && ns.unkA2C != 0) {
+    if (use_cd && ns.cur_ps != 0) {
         func_80013000(1);
     }
     if (ns.unkA34 != 0) {

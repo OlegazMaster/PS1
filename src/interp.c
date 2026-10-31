@@ -15,11 +15,11 @@ u8 *D_80060924 = D_8005C488;
 typedef struct {
     GoolObject *sender;
     u32 event; /* 0x4 */
-    u32 *argv; /* 0x8 */
-    s32 argc; /* 0xC */
-    s32 unk10;
-    s32 count; /* 0x14 */
-    s32 filter; /* 0x18 */
+    s32 argc; /* 0x8 */
+    s32 type; /* 0xC: which objects receive it (1-6) */
+    s32 sent; /* 0x10 */
+    s32 accepted; /* 0x14 */
+    u32 *argv; /* 0x18 */
 } GoolBroadcast;
 s32 func_8001DDF4(GoolObject *obj, GoolBroadcast *msg);
 s32 func_8001D588(GoolObject *obj, s32 argc, u32 flags);
@@ -229,40 +229,40 @@ INCLUDE_ASM("asm/us/nonmatchings/interp", GoolSendEvent);
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001DDF4);
 
-/* Sends event to all objects that pass filter. */
+/* Sends event to all objects of the given type (see func_8001DDF4). */
 
-s32 func_8001E34C(GoolObject *sender, u32 event, s32 argc, u32 *argv, s32 filter) {
+s32 func_8001E34C(GoolObject *sender, u32 event, s32 type, s32 argc, u32 *argv) {
     GoolBroadcast msg;
 
     msg.sender = sender;
     msg.event = event;
-    msg.argv = argv;
     msg.argc = argc;
-    msg.unk10 = 0;
-    msg.count = 0;
-    msg.filter = filter;
+    msg.type = type;
+    msg.sent = 0;
+    msg.accepted = 0;
+    msg.argv = argv;
     GoolForEachHandle(GoolObjectHandleTraverseTreePostorder, (GoolTraverseFunc)func_8001DDF4, (s32)&msg);
     if (sender != NULL) {
-        sender->unkD4 = msg.count;
+        sender->unkD4 = msg.accepted;
     }
     return -0xFF;
 }
 
-/* Sends event to the objects under recipient that pass filter. */
+/* Sends event to the objects under recipient of the given type. */
 
-s32 func_8001E3BC(GoolObject *sender, GoolObject *recipient, u32 event, s32 argc, u32 *argv, s32 filter) {
+s32 func_8001E3BC(GoolObject *sender, GoolObject *recipient, u32 event, s32 type, s32 argc, u32 *argv) {
     GoolBroadcast msg;
 
     msg.sender = sender;
     msg.event = event;
-    msg.argv = argv;
     msg.argc = argc;
-    msg.unk10 = 0;
-    msg.count = 0;
-    msg.filter = filter;
+    msg.type = type;
+    msg.sent = 0;
+    msg.accepted = 0;
+    msg.argv = argv;
     GoolObjectHandleTraverseTreePostorder(recipient, (GoolTraverseFunc)func_8001DDF4, (s32)&msg);
     if (sender != NULL) {
-        sender->unkD4 = msg.count;
+        sender->unkD4 = msg.accepted;
     }
     return -0xFF;
 }

@@ -34,4 +34,8 @@ typedef struct {
 
 extern GfxContext context;
 
+/* Takes the next primitive of a type from the current draw buffer. */
+#define GpuAllocPrim(type) \
+    ((type *)(context.cur->prims_tail = (type *)context.cur->prims_tail + 1) - 1)
+
 #endif /* GFX_H */

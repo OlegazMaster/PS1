@@ -202,8 +202,8 @@ INCLUDE_ASM("asm/us/nonmatchings/sys", func_80016D8C);
 
 #ifdef NON_MATCHING
 /* Fades the screen with a dark semi-transparent quad: a diamond in the middle,
- * or the whole screen. Equivalent; the original copies the primitive pointer
- * from another register and addresses game.unk364 before the rest of game. */
+ * or the whole screen. Equivalent; the original addresses game.unk364 before
+ * the base of game. */
 static inline void GpuDrawFadeQuad(POLY_FT4 *p, s32 type, s32 x0, s32 y0, s32 x1, s32 y1, s32 x2, s32 y2, s32 x3, s32 y3) {
     p->r0 = 8;
     p->g0 = 8;
@@ -239,13 +239,11 @@ void func_80017204(s32 type) {
     POLY_FT4 *p;
 
     if (type >= 7 && type < 30) {
-        p = context.cur->prims_tail;
-        context.cur->prims_tail = p + 1;
+        p = GpuAllocPrim(POLY_FT4);
         GpuDrawFadeQuad(p, type, 256, 60, 384, 120, 128, 120, 256, 180);
     }
     if (type >= 31) {
-        p = context.cur->prims_tail;
-        context.cur->prims_tail = p + 1;
+        p = GpuAllocPrim(POLY_FT4);
         GpuDrawFadeQuad(p, type, 0, 0, 512, 0, 0, 240, 512, 240);
     }
 }
@@ -255,7 +253,49 @@ INCLUDE_ASM("asm/us/nonmatchings/sys", func_80017204);
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_8001742C);
 
-INCLUDE_ASM("asm/us/nonmatchings/sys", func_800176A0);
+extern u8 D_8005C000[];
+
+/* Darkens the screen; fade (0..255) indexes a table of gray levels. */
+void func_800176A0(u32 fade) {
+    DR_MODE *mode;
+    POLY_F4 *p;
+    void **ot;
+    u8 *t;
+    u32 lo;
+    s32 abr;
+
+    mode = GpuAllocPrim(DR_MODE);
+    p = GpuAllocPrim(POLY_F4);
+    ot = &context.cur->ot[0x7FF];
+    if (fade != 0) {
+        while (((u32)*ot & 0xFFFFFF) != 0xFFFFFF) {
+            ot = (void **)(((u32)ot & 0xFF000000) | ((u32)*ot & 0xFFFFFF));
+        }
+        t = &D_8005C000[fade >> 4];
+        lo = t[0];
+        fade = (((t[1] - lo) * (fade & 0xF)) >> 4) + lo;
+        p->x0 = 0;
+        p->x2 = 0;
+        p->y0 = -12;
+        p->y1 = -12;
+        p->x1 = 512;
+        p->y2 = 228;
+        p->x3 = 512;
+        p->y3 = 228;
+        p->r0 = fade;
+        p->g0 = fade;
+        p->b0 = fade;
+        SetPolyF4(p);
+        SetSemiTrans(p, 1);
+        AddPrim(ot, p);
+        abr = 2;
+        if (game.display_flags & 0x800000) {
+            abr = 1;
+        }
+        SetDrawMode(mode, 1, 0, GetTPage(0, abr, 0, 0), NULL);
+        AddPrim(ot, mode);
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80017834);
 

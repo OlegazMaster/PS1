@@ -60,6 +60,20 @@ typedef struct {
     u16 pad2;
 } POLY_FT4; /* 0x28 */
 
+typedef struct {
+    u32 tag;
+    u8 r0, g0, b0, code;
+    s16 x0, y0;
+    s16 x1, y1;
+    s16 x2, y2;
+    s16 x3, y3;
+} POLY_F4; /* 0x18 */
+
+typedef struct {
+    u32 tag;
+    u32 code[2];
+} DR_MODE; /* 0xC */
+
 #define setlen(p, len) (((u8 *)(p))[3] = (len))
 #define setcode(p, c) (((u8 *)(p))[7] = (c))
 #define setBlockFill(p) (setlen(p, 3), setcode(p, 0x02))
@@ -80,5 +94,7 @@ s32 LoadImage(RECT *rect, u32 *data);
 u16 GetTPage(s32 tp, s32 abr, s32 x, s32 y);
 void SetPolyFT4(POLY_FT4 *p);
 void SetSemiTrans(void *p, s32 abe);
+void SetPolyF4(POLY_F4 *p);
+void SetDrawMode(DR_MODE *p, s32 dfe, s32 dtd, s32 tpage, RECT *tw);
 
 #endif /* LIBGPU_H */

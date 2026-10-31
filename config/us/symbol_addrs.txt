@@ -163,3 +163,5 @@ PadStartCom = 0x80048E68; // type:func
 GetTPage = 0x8004F1E4; // type:func
 SetPolyFT4 = 0x8004F2F4; // type:func
 SetSemiTrans = 0x8004F2A4; // type:func
+SetPolyF4 = 0x8004F2D4; // type:func
+SetDrawMode = 0x8004D410; // type:func

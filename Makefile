@@ -150,8 +150,12 @@ ctx:
 # First draft of a function in C: make decompile FUNC=func_80012345
 decompile: ctx
 	@test -n "$(FUNC)" || (echo "укажите функцию: make decompile FUNC=func_80012345"; exit 1)
-	$(M2C) --target mipsel-gcc-c --context ctx.c \
-		$$(find asm/$(VERSION)/nonmatchings -name '$(FUNC).s' | head -n 1)
+	@file=$$(find asm/$(VERSION)/nonmatchings asm/$(VERSION)/matchings -name '$(FUNC).s' | head -n 1); \
+	if [ -z "$$file" ]; then \
+		file=$$(grep -l "^glabel $(FUNC)$$" asm/$(VERSION)/*.s | head -n 1); \
+	fi; \
+	test -n "$$file" || { echo "$(FUNC) не найдена в asm/$(VERSION)"; exit 1; }; \
+	$(M2C) --target mipsel-gcc-c --context ctx.c -f $(FUNC) $$file
 
 # Compare a function with the original: make diff FUNC=func_80012345
 diff:

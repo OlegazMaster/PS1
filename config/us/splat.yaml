@@ -79,6 +79,7 @@ segments:
       - { start: 0x51238, type: sbss, vram: 0x80060A38, name: heap_sbss }
       - { type: .sbss, vram: 0x80060A58, name: main }
       - { type: .sbss, vram: 0x80060A60, name: sys }
-      - { type: sbss, vram: 0x80060A90, name: sbss_80060A90 } # .sbss and .bss of the other files
+      - { type: .sbss, vram: 0x80060A90, name: gool }
+      - { type: sbss, vram: 0x80060A98, name: sbss_80060A98 } # .sbss and .bss of the other files
   # The rest of the file is zero padding up to a multiple of 0x800 (see Makefile).
   - [0x51238]

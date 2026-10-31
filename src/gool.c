@@ -5,6 +5,10 @@
 
 /* GOOL objects: allocation, the object tree, messages (names follow c1). */
 
+/* .sbss */
+void *D_80060A90;
+s32 D_80060A94; /* entries used in D_80067A38 */
+
 s32 func_80019624(void) {
     return -0xFF;
 }
@@ -209,12 +213,45 @@ GoolObject *func_8001ABF8(s32 pid_flags) {
     return res;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AC74);
+typedef struct {
+    u32 value;
+    s32 unk4;
+    s32 id; /* 0x8 */
+} Unk80067A38;
+extern Unk80067A38 D_80067A38[];
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001ACAC);
+void func_8001AC74(void) {
+    s32 i;
+
+    for (i = 0; i < D_80060A94; i++) {
+        D_80067A38[i].id = 0x13B;
+    }
+}
+
+/* Updates (or adds) the entries matching bits 8-23 of each value. */
+
+void func_8001ACAC(s32 id, u32 *values, s32 count) {
+    u32 *v = &values[count - 1];
+    s32 j;
+
+    for (count--; count >= 0; count--, v--) {
+        for (j = 0; j < D_80060A94; j++) {
+            if ((D_80067A38[j].value & 0xFFFF00) == (*v & 0xFFFF00)) {
+                D_80067A38[j].value = *v;
+                D_80067A38[j].id = id;
+                break;
+            }
+        }
+        if (j == D_80060A94) {
+            D_80067A38[j].value = *v;
+            D_80067A38[j].id = id;
+            D_80067A38[j].unk4 = 0;
+            D_80060A94 = j + 1;
+        }
+    }
+}
 
 s32 func_80032710(s32 a, s32 id, s32 pos, s32 b, s32 *out, s32 c, s32 d, s32 e, s32 f);
-void func_8001ACAC(s32 id, s32 handle, s32 value);
 
 void func_8001AD68(s32 a, s32 pos, s32 dir) {
     s32 out;
@@ -222,11 +259,11 @@ void func_8001AD68(s32 a, s32 pos, s32 dir) {
 
     handle = func_80032710(a, dir == 2 ? 0x13B : 0x13C, dir == 2 ? pos - 0x100 : pos + 0x100, 0, &out, 1, 0, 0, 0);
     if (handle != 0 && out != 0) {
-        func_8001ACAC(0x13B, handle, out);
+        func_8001ACAC(0x13B, (u32 *)handle, out);
     }
     handle = func_80032710(a, dir == 2 ? 0x13C : 0x13B, pos, 0, &out, 1, 0, 0, 0);
     if (handle != 0 && out != 0) {
-        func_8001ACAC(0x13C, handle, out);
+        func_8001ACAC(0x13C, (u32 *)handle, out);
     }
 }
 

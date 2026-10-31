@@ -286,7 +286,71 @@ void func_80018DD4(s32 *v, MATRIX *m, s32 *out) {
     out[2] = (m->m[2][0] * v[0] + m->m[2][1] * v[1] + m->m[2][2] * v[2]) >> 12;
 }
 
+/* A light source read from an entry. */
+typedef struct {
+    u32 eid;
+    s32 pos[3]; /* 0x4 */
+    s32 *item; /* 0x10 */
+    void *unk14;
+    void *unk18;
+    void *unk1C;
+    void *unk20;
+    void *unk24;
+    void *unk28;
+    void *unk2C;
+} Light; /* 0x30 */
+typedef struct {
+    s32 count;
+    Light lights[1]; /* 0x4 */
+} LightSet;
+s32 func_80032DF8(s32 a, s32 b, s32 c, s32 d, s32 e, s32 f, s32 g);
+
+#ifdef NON_MATCHING
+/* Loads the lights of set enabled in the current zone (bits of property
+ * 0x27F of its entity). Equivalent; the original addresses the light
+ * through other loop variables. */
+void func_80018EBC(LightSet *set) {
+    s32 mask;
+    s32 i;
+    Entry *e;
+    s32 *item;
+    s32 *p;
+    s32 v[3];
+
+    mask = func_80032DF8(D_80065C90.unkD4, 0x27F, -1, D_80065C90.unkE8, 0, 2, 0);
+    D_80065C90.unk144 = mask & 0xFF;
+    for (i = 0; i < set->count; i++) {
+        if (((mask & 0xFF) >> i) & 1) {
+            e = (Entry *)NSOpen(&set->lights[i].eid, 1, 0);
+            item = (s32 *)e->items[0];
+            if (item[3] == 1) {
+                p = set->lights[i].pos;
+                p[0] = item[0] >> 2;
+                p[1] = item[1] >> 2;
+                p[2] = item[2] >> 2;
+            } else {
+                v[0] = (item[0] >> 2) - (D_80065C90.unk60.trans[0] >> 10);
+                v[1] = (item[1] >> 2) - (D_80065C90.unk60.trans[1] >> 10);
+                v[2] = (item[2] >> 2) - (D_80065C90.unk60.trans[2] >> 10);
+                p = set->lights[i].pos;
+                p[0] = v[0];
+                p[1] = v[1];
+                p[2] = v[2];
+            }
+            set->lights[i].item = item;
+            set->lights[i].unk1C = e->items[1];
+            set->lights[i].unk14 = e->items[2];
+            set->lights[i].unk18 = e->items[3];
+            set->lights[i].unk28 = e->items[4];
+            set->lights[i].unk20 = e->items[5];
+            set->lights[i].unk2C = item + 11;
+            set->lights[i].unk24 = e->items[6];
+        }
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/gfx", func_80018EBC);
+#endif
 
 #ifdef NON_MATCHING
 /* Loads the texture page a texture refers to and stores its location.

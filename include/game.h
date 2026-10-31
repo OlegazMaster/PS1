@@ -105,7 +105,11 @@ typedef struct {
     s32 unkC4; /* GTE projection distance (H) */
     u8 unkC8[0x4];
     UnkCC *unkCC;
-    u8 unkD0[0x44];
+    u8 unkD0[0x4];
+    s32 unkD4; /* 0xD4: entity of the current zone */
+    u8 unkD8[0x10];
+    s32 unkE8;
+    u8 unkEC[0x28];
     s32 unk114; /* 0x114: camera yaw */
     u8 unk118[0x2C];
     u32 unk144;

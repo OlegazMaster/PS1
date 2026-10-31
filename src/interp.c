@@ -684,7 +684,52 @@ INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001E78C);
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FAC8);
 
+#ifdef NON_MATCHING
+/* Turns the angle cur toward target by speed (scaled by the frame time);
+ * on reaching it sets status_a bit 0x800 of obj. Angles are 12-bit.
+ * Equivalent; the original negates the copy ad instead of d. */
+s32 func_8001FC40(s32 cur, s32 target, s32 speed, GoolObject *obj) {
+    s32 t = D_80061A7C->unk18;
+    s32 d;
+    s32 ad;
+
+    if ((u32)t > 0x66) {
+        t = 0x66;
+    }
+    speed = speed * t / 1020;
+    d = ((target - cur) << 20) >> 20;
+    if (d == 0) {
+        goto reached;
+    }
+    ad = d;
+    if (d < 0) {
+        ad = -ad;
+    }
+    if (speed >= 0) {
+        if (ad >= speed) {
+            cur = (cur + speed) & 0xFFF;
+            goto end;
+        }
+    } else if (ad >= -speed) {
+        goto move;
+    }
+    if ((speed ^ d) < 0) {
+        goto move;
+    }
+reached:
+    if (obj != NULL) {
+        obj->status_a |= 0x800;
+    }
+    cur = target;
+    goto end;
+move:
+    cur = (cur + speed) & 0xFFF;
+end:
+    return cur;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FC40);
+#endif
 
 /* Moves cur toward target by step; returns target once it is within step. */
 

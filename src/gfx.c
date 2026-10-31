@@ -1,5 +1,6 @@
 #include "common.h"
 #include "gfx.h"
+#include "game.h"
 #include "ns.h"
 #include "libgte.h"
 
@@ -179,7 +180,35 @@ s32 func_80018820(s32 load, void *a, void *b, u8 *data2, u8 *data1, s32 async) {
     return async;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/gfx", func_800188EC);
+typedef struct {
+    u8 unk0[0x14];
+    s32 unk14;
+    s32 unk18;
+    s32 unk1C;
+} Unk80065C70;
+extern Unk80065C70 D_80065C70;
+void func_8004F724(s32 vol);
+void func_8004F704(s32 a, s32 b);
+void func_80018DA8(Transform *t);
+
+void func_800188EC(void) {
+    Transform *t;
+
+    D_80065C70.unk14 = D_80065C70.unk18 = D_80065C70.unk1C = 0;
+    func_8004F724(D_80065C90.unkC4 = 0x120);
+    func_8004F704(0, 0);
+    t = &D_80065C90.unk60;
+    func_80018DA8(t);
+    t->rot[0] = 0;
+    t->rot[1] = 0;
+    t->rot[2] = 0x1F400;
+    t->trans[0] = 0;
+    t->trans[1] = 0;
+    t->trans[2] = 0;
+    D_80065C90.unkA8 = 0;
+    game.unk110 = 0;
+    game.unk114 = 0;
+}
 
 void func_80018988(MATRIX *out, MATRIX *in) {
     out->m[0][0] = in->m[0][0];
@@ -197,12 +226,6 @@ void func_80018988(MATRIX *out, MATRIX *in) {
 }
 
 INCLUDE_ASM("asm/us/nonmatchings/gfx", func_80018A54);
-
-typedef struct {
-    s32 rot[3];
-    s32 trans[3];
-    s32 scale[3];
-} Transform;
 
 void func_80018DA8(Transform *t) {
     t->trans[0] = 0;

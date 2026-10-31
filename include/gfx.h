@@ -4,6 +4,13 @@
 #include "types.h"
 #include "libgpu.h"
 
+/* Rotation, translation and scale of an object or camera. */
+typedef struct {
+    s32 rot[3];
+    s32 trans[3];
+    s32 scale[3];
+} Transform;
+
 /* One of the two draw buffers ("gfx_context" in c1). */
 typedef struct DrawContext {
     s32 idx;

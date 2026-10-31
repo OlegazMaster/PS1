@@ -2,6 +2,7 @@
 #define GAME_H
 
 #include "types.h"
+#include "gfx.h"
 
 typedef struct {
     u8 unk0[0x44];
@@ -21,7 +22,10 @@ typedef struct {
     s32 pause_obj; /* 0x90: a pointer or an error code */
     u8 unk94[0x10];
     s32 game_state; /* 0xA4 */
-    u8 unkA8[0xBC];
+    u8 unkA8[0x68];
+    s32 unk110;
+    s32 unk114;
+    u8 unk118[0x4C];
     s32 unk164;
     u8 unk168[0x20];
     s32 unk188;
@@ -65,7 +69,11 @@ typedef struct {
 typedef struct {
     u8 unk0[0x20];
     u16 unk20[9];
-    u8 unk32[0x92];
+    u8 unk32[0x2E];
+    Transform unk60;
+    u8 unk84[0x24];
+    s32 unkA8;
+    u8 unkAC[0x18];
     s32 unkC4;
     u8 unkC8[0x4];
     UnkCC *unkCC;

@@ -1231,7 +1231,50 @@ s32 NSKill(NsState *nss) {
     return -0xFF;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80015230);
+#define ABS(x) ((x) < 0 ? -(x) : (x))
+
+/* Lays out the audio pages in sound RAM, downwards from 512 KB. */
+void NSInitAudioPages(s32 arg0, s32 reserved, s32 size, s32 inst_size, s32 n) {
+    s32 addr = 0x80000 - reserved;
+    s32 pages = (size + 0xFF8F) / 0xFF90;
+    s32 saved;
+    s32 i;
+
+    for (i = pages - 1; i >= 0; i--) {
+        D_80060BB8[i].unkC = i;
+        D_80060BB8[i].state = 1;
+        D_80060BB8[i].type = 4;
+        if (i == pages - 1) {
+            addr -= (size % 0xFF90 + 0xF) / 16 * 16;
+        } else {
+            addr -= 0xFF90;
+        }
+        D_80060BB8[i].unk1C = addr;
+    }
+    ns.unkA30 = addr;
+    saved = addr;
+    for (i = pages; i < pages + ABS(n); i++) {
+        D_80060BB8[i].unkC = i;
+        D_80060BB8[i].state = 1;
+        D_80060BB8[i].type = 5;
+        D_80060BB8[i].eid = 0x6396347F;
+        D_80060BB8[i].unk1C = addr -= inst_size;
+    }
+    if (n < 0) {
+        addr = saved;
+    }
+    for (; i < 10; i++) {
+        D_80060BB8[i].unkC = i;
+        D_80060BB8[i].type = 3;
+        if (addr - 0x10000 < 0x1010) {
+            D_80060BB8[i].state = 30;
+        } else {
+            addr -= 0x10000;
+            D_80060BB8[i].state = 1;
+            D_80060BB8[i].unk1C = addr;
+        }
+    }
+}
 
 PageStruct *func_80015414(s32 arg0) {
     PageStruct *p = D_80060BB8;

@@ -125,6 +125,7 @@ NSCdSeek = 0x80012F7C; // type:func
 NSCdRead = 0x80013050; // type:func
 NSInit = 0x80014BC8; // type:func
 NSKill = 0x80015110; // type:func
+NSInitAudioPages = 0x80015230; // type:func
 NSKillPage = 0x80015468; // type:func
 subsys = 0x8005BC98;
 free = 0x8001152C; // type:func

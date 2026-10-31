@@ -2,22 +2,12 @@
 #include "gfx.h"
 #include "game.h"
 #include "pad.h"
+#include "ns.h"
 
 /* Names follow the Crash 1 port "c1" where the code is clearly the same.
  * Structures only list the fields used so far, at their offsets. */
 
 
-typedef struct {
-    u8 unk0[0x8];
-    s32 lid; /* 0x8: level id */
-} LevelData;
-
-typedef struct {
-    u8 unk0[0x14];
-    LevelData *ldat; /* 0x14 */
-    u8 unk18[0xC];
-    s32 draw_skip_counter; /* 0x24 */
-} NsState;
 
 
 typedef struct ObjectLink {
@@ -99,7 +89,6 @@ extern s32 D_80060A98;
 extern s32 D_80060A9C;
 extern s32 D_80060AA4;
 extern u8 D_80041550[];
-extern NsState ns;
 extern RenderState D_800676B0;
 extern u16 D_80065CB0[];
 extern Unk80065D5C *D_80065D5C;

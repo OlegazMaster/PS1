@@ -1,95 +1,15 @@
 #include "common.h"
+#include "ns.h"
 
 /* NSF/NSD paging: loads level data from the disc (names follow c1). */
-
-typedef struct {
-    u32 unk0;
-    u32 eid; /* 0x4 */
-    s32 type; /* 0x8 */
-    s32 item_count; /* 0xC */
-    u8 *items[1]; /* 0x10: item_count + 1 offsets */
-} Entry;
-
-/* An NSD page table entry: either an entry pointer or an EID (low bits set). */
-typedef struct {
-    u32 value;
-    u32 eid;
-} NsdPte;
-
-typedef struct {
-    u8 unk0[0x400];
-    s32 unk400;
-    s32 pte_count; /* 0x404 */
-    u8 unk408[0x10];
-    s32 unk418;
-    u8 unk41C[0x4];
-    u32 page_offsets[64]; /* 0x420 */
-    NsdPte ptes[1]; /* 0x520 */
-} Nsd;
-
-
 
 typedef struct {
     s16 x, y, w, h;
 } Rect16;
 
-typedef struct PageStruct {
-    void *page; /* 0x0 */
-    s16 state; /* 0x4 */
-    s16 type; /* 0x6 */
-    s16 unk8;
-    s16 unkA;
-    s16 unkC;
-    s8 ref_count; /* 0xE */
-    s8 unkF;
-    u16 *unk10;
-    s32 pgid; /* 0x14 */
-    u32 eid; /* 0x18 */
-    s32 unk1C;
-    s32 *unk20;
-    struct PageStruct *unk24;
-    s32 timestamp; /* 0x28 */
-} PageStruct;
-
-typedef struct {
-    s32 inited;
-    s32 lid; /* 0x4 */
-    NsdPte **pte_buckets; /* 0x8: 256 hash buckets of the NSD */
-    NsdPte *ptes; /* 0xC */
-    u32 *unk10; /* 0x10 */
-    s32 *unk14; /* 0x14 */
-    Nsd *nsd; /* 0x18 */
-    u8 unk1C[0x4];
-    s32 sector; /* 0x20: first sector of the NSF file */
-    u8 unk24[0x4];
-    s32 physical_page_count; /* 0x28 */
-    PageStruct physical_pages[21]; /* 0x2C */
-    s32 virtual_page_count; /* 0x3C8 */
-    PageStruct virtual_pages[37]; /* 0x3CC */
-    s32 page_count; /* 0xA28 */
-    struct PageStruct *cur_ps; /* 0xA2C */
-    s32 unkA30;
-    struct PageStruct *cur_audio_ps; /* 0xA34 */
-    s32 unkA38;
-    PageStruct **page_map; /* 0xA3C */
-    s32 unkA40;
-} NsState;
-
-extern NsState ns;
 extern s32 ticks_elapsed;
 
 extern u8 D_8005F408;
-
-
-/* A 64 KB page of an NSF file. */
-typedef struct {
-    u16 magic; /* 0x1234 */
-    u16 type;
-    u32 id;
-    u32 entry_count; /* 0x8 */
-    s32 unkC;
-    Entry *entries[1]; /* 0x10: entry_count + 1 offsets, then pointers */
-} Page;
 
 extern PageStruct D_80060BB8[10];
 extern PageStruct D_80060D70[16];
@@ -656,7 +576,6 @@ void func_80012EAC(void) {
     }
 }
 
-
 void NSCdSeek(s32 idx) {
     u8 loc[4];
 
@@ -785,7 +704,6 @@ s32 func_800519C4(s32);
 s32 func_80013B8C(s32 type, s32 arg1);
 void func_80051934(s32);
 void func_800518D4(void *, s32);
-
 
 /* Advances a page through its states: CD read, decompression, upload of audio
  * pages to sound RAM. Returns when the page has to wait. */
@@ -948,7 +866,6 @@ loop:
 char D_800608D0[] = "!mem\n";
 #endif
 
-
 /* Finds the longest run of free (or evictable, preferring the oldest) physical pages. */
 #ifdef NON_MATCHING
 /* Equivalent; the original computes the address of ns once for both uses. */
@@ -1032,7 +949,6 @@ s32 NSTexturePageAllocate(u32 eid) {
     }
     return -0xC;
 }
-
 
 #ifdef NON_MATCHING
 /* Equivalent; the original loads the array address before scaling the index. */
@@ -1172,7 +1088,6 @@ void func_80013E64(PageStruct *ps) {
     }
 }
 
-
 void NSPageDecRef(PageStruct *ps) {
     if (ps->ref_count != 0) {
         ps->ref_count--;
@@ -1213,7 +1128,6 @@ PageStruct *NSPageOpen(s32 pgid, u32 eid, s32 flag, s32 count) {
     }
     return NSPageCreateVirtual(pgid, eid, flag, count);
 }
-
 
 s32 func_80014024(s32 pgid, s32 flag, s32 count, u32 eid) {
     PageStruct *ps;
@@ -1589,8 +1503,8 @@ s32 NSInit(NsState *nss, s32 lid) {
     nss->ptes = nsd->ptes;
     nss->unk10 = (u32 *)nsd->unk408;
     nss->pte_buckets = (NsdPte **)nsd;
-    nss->unk14 = (s32 *)&nsd->ptes[nsd->pte_count];
-    nss->nsd = realloc(nsd, sizeof(Nsd) - sizeof(NsdPte) + nsd->pte_count * sizeof(NsdPte) + 0x2F4 + (*nss->unk14 - 1) * 0x18);
+    nss->ldat = (LevelData *)&nsd->ptes[nsd->pte_count];
+    nss->nsd = realloc(nsd, sizeof(Nsd) - sizeof(NsdPte) + nsd->pte_count * sizeof(NsdPte) + 0x2F4 + (nss->ldat->unk0 - 1) * 0x18);
     for (i = 255; i >= 0; i--) {
         nss->pte_buckets[i] = &nss->ptes[(s32)nss->pte_buckets[i]];
     }

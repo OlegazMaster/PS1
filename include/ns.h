@@ -1,0 +1,94 @@
+#ifndef NS_H
+#define NS_H
+
+#include "types.h"
+
+/* NSF/NSD paging: level data streamed from the disc (names follow c1). */
+
+typedef struct {
+    u32 unk0;
+    u32 eid; /* 0x4 */
+    s32 type; /* 0x8 */
+    s32 item_count; /* 0xC */
+    u8 *items[1]; /* 0x10: item_count + 1 offsets */
+} Entry;
+
+/* An NSD page table entry: either an entry pointer or an EID (low bits set). */
+typedef struct {
+    u32 value;
+    u32 eid;
+} NsdPte;
+
+typedef struct {
+    u8 unk0[0x400];
+    s32 unk400;
+    s32 pte_count; /* 0x404 */
+    u8 unk408[0x10];
+    s32 unk418;
+    u8 unk41C[0x4];
+    u32 page_offsets[64]; /* 0x420 */
+    NsdPte ptes[1]; /* 0x520 */
+} Nsd;
+
+/* Level header stored after the NSD page table. */
+typedef struct {
+    s32 unk0; /* count of 0x18-byte records that follow the header */
+    u8 unk4[0x4];
+    s32 lid; /* 0x8: level id */
+} LevelData;
+
+typedef struct PageStruct {
+    void *page; /* 0x0 */
+    s16 state; /* 0x4 */
+    s16 type; /* 0x6 */
+    s16 unk8;
+    s16 unkA;
+    s16 unkC;
+    s8 ref_count; /* 0xE */
+    s8 unkF;
+    u16 *unk10;
+    s32 pgid; /* 0x14 */
+    u32 eid; /* 0x18 */
+    s32 unk1C;
+    s32 *unk20;
+    struct PageStruct *unk24;
+    s32 timestamp; /* 0x28 */
+} PageStruct;
+
+typedef struct {
+    s32 inited;
+    s32 lid; /* 0x4 */
+    NsdPte **pte_buckets; /* 0x8: 256 hash buckets of the NSD */
+    NsdPte *ptes; /* 0xC */
+    u32 *unk10; /* 0x10 */
+    LevelData *ldat; /* 0x14 */
+    Nsd *nsd; /* 0x18 */
+    u8 unk1C[0x4];
+    s32 sector; /* 0x20: first sector of the NSF file */
+    s32 draw_skip_counter; /* 0x24 */
+    s32 physical_page_count; /* 0x28 */
+    PageStruct physical_pages[21]; /* 0x2C */
+    s32 virtual_page_count; /* 0x3C8 */
+    PageStruct virtual_pages[37]; /* 0x3CC */
+    s32 page_count; /* 0xA28 */
+    struct PageStruct *cur_ps; /* 0xA2C */
+    s32 unkA30;
+    struct PageStruct *cur_audio_ps; /* 0xA34 */
+    s32 unkA38;
+    PageStruct **page_map; /* 0xA3C */
+    s32 unkA40;
+} NsState;
+
+/* A 64 KB page of an NSF file. */
+typedef struct {
+    u16 magic; /* 0x1234 */
+    u16 type;
+    u32 id;
+    u32 entry_count; /* 0x8 */
+    s32 unkC;
+    Entry *entries[1]; /* 0x10: entry_count + 1 offsets, then pointers */
+} Page;
+
+extern NsState ns;
+
+#endif /* NS_H */

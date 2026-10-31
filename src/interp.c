@@ -24,6 +24,7 @@ typedef struct {
 } GoolBroadcast;
 s32 func_8001DDF4(GoolObject *obj, GoolBroadcast *msg);
 s32 func_8001D588(GoolObject *obj, s32 argc, u32 flags);
+void func_80018DD4(s32 *v, MATRIX *m, s32 *out);
 s32 GoolObjectChangeState(GoolObject *obj, u32 state, s32 argc, u32 *argv);
 extern GoolObject *crash;
 s32 func_80038E28(GoolObject *obj, u32 flags, void *a); /* GoolObjectInterpret */
@@ -806,9 +807,28 @@ INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FD58);
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FE98);
 
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FFF0);
+void func_8001FE98(MATRIX *m, s32 *a, s32 *b); /* builds a matrix */
+/* Transforms the point in (in 1/16 units) by the matrix built from a and b
+ * and puts it at pos + the result in out. */
 
-void func_80018DD4(s32 *v, MATRIX *m, s32 *out);
+void func_8001FFF0(s32 *in, s32 *pos, s32 *a, s32 *b, s32 unused, s32 *out) {
+    MATRIX m;
+    s32 r[3];
+    s32 v[3];
+
+    func_8001FE98(&m, a, b);
+    v[0] = in[0] >> 4;
+    v[1] = in[1] >> 4;
+    v[2] = in[2] >> 4;
+    func_80018DD4(v, &m, r);
+    r[0] <<= 4;
+    r[1] <<= 4;
+    r[2] <<= 4;
+    out[0] = r[0] + pos[0];
+    out[1] = r[1] + pos[1];
+    out[2] = r[2] + pos[2];
+}
+
 /* Transforms the point in by the model matrix of obj (in 1/16 units) and
  * puts it into world space at out. */
 

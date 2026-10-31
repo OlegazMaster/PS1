@@ -19,6 +19,24 @@ u32 func_8001B524(GoolObject *obj, u32 *frame_a, u32 *frame_b);
 
 extern GoolObject *crash;
 
+/* A character of a font: its texture and size. */
+typedef struct {
+    s32 tex; /* 0x0 */
+    u8 unk4[0xC];
+    s16 w; /* 0x10 */
+    s16 h; /* 0x12 */
+} Glyph; /* 0x14 */
+typedef struct {
+    u8 unk0[0x4];
+    u8 unk4[0x4];
+    Glyph glyphs[96]; /* 0x8: characters from ' ' */
+} Font;
+void func_80019090(void *a, void *b);
+void func_800192F8(GoolObject *obj, Glyph *g, s32 a, Entry *tex, s32 *box, s32 draw, s32 color, s32 b);
+int atoi(const char *s);
+s32 func_8001C3F8(GoolObject *obj, char *str, s32 x, Font *font, Entry *tex, s32 shift, s32 draw);
+
+
 /* A frame of a model animation (entry item). */
 typedef struct {
     u8 unk0[0x20];
@@ -233,7 +251,6 @@ INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001B7A0);
 
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001C3F8);
 
-s32 func_8001C3F8(GoolObject *obj, char *str, s32 x, u32 *font, Entry *tex, s32 scale, s32 flags);
 s32 func_8003C3D0(Transform *xform, Transform *cam, s32 flag, s32 scale, u16 *a, s32 h, s32 b, s32 flag2);
 int sprintf(char *buf, const char *fmt, ...);
 typedef struct {
@@ -285,14 +302,14 @@ void func_8001C824(GoolObject *obj, char *str, s32 idx, s32 flags, s32 align) {
     if (align > 0) {
         x = 0;
     } else {
-        x = func_8001C3F8(obj, str, 0, font, tex, scale, 0);
+        x = func_8001C3F8(obj, str, 0, (Font *)font, tex, scale, 0);
         if (align == 0) {
             x = -x / 2;
         } else {
             x = -x;
         }
     }
-    func_8001C3F8(obj, str, x, font, tex, scale, flags);
+    func_8001C3F8(obj, str, x, (Font *)font, tex, scale, flags);
 }
 #else
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001C824);

@@ -58,9 +58,11 @@ typedef struct GoolObject {
     u32 id; /* 0xB4: exec << 16 | subtype */
     s32 pid_flags; /* 0xB8 */
     u32 *sp; /* 0xBC: top of the object's GOOL stack */
-    u8 unkC0[0x10];
+    u32 *pc; /* 0xC0: GOOL program counter */
+    u32 *fp; /* 0xC4: GOOL frame pointer */
+    u8 unkC8[0x8];
     s32 once_p; /* 0xD0 */
-    u8 unkD4[0x4];
+    s32 unkD4; /* 0xD4: result of the last broadcast */
     s32 ack; /* 0xD8 */
     u8 unkDC[0xC];
     s32 unkE8; /* anim_seq */
@@ -107,5 +109,8 @@ GoolObject *GoolObjectHasPidFlags(GoolObject *obj, s32 pid_flags);
 GoolObject *GoolObjectTestStateFlags(GoolObject *obj, u32 flags);
 GoolObject *GoolObjectCreate(GoolObject *parent, s32 exec, s32 subtype, s32 argc, u32 *argv, s32 interrupt);
 s32 GoolObjectSearchTree(GoolObject *obj, GoolTraverseFunc func, s32 arg);
+s32 GoolObjectHandleTraverseTreePreorder(GoolObject *obj, GoolTraverseFunc func, s32 arg);
+s32 GoolObjectHandleTraverseTreePostorder(GoolObject *obj, GoolTraverseFunc func, s32 arg);
+void GoolForEachHandle(s32 (*func)(GoolObject *, GoolTraverseFunc, s32), GoolTraverseFunc arg1, s32 arg2);
 
 #endif /* GOOL_H */

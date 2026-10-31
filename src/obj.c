@@ -7,8 +7,89 @@
 /* Object models: animation frames, collision boxes, drawing. */
 
 u32 func_80031A54(s32 *a, s32 *b); /* ApxDist */
+u32 func_8001B524(GoolObject *obj, u32 *frame_a, u32 *frame_b);
 
-INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001B0BC);
+extern GoolObject *crash;
+
+/* A frame of a model animation (entry item). */
+typedef struct {
+    u8 unk0[0x20];
+    s32 trans[3]; /* 0x20 */
+    s32 min[3]; /* 0x2C */
+    s32 max[3]; /* 0x38 */
+} ModelFrame;
+
+/* The model state of an object (GoolObject.unk8). */
+typedef struct {
+    u8 unk0[0x20];
+    u32 frame_a; /* 0x20 */
+    u32 frame_b; /* 0x24 */
+    s32 unk28; /* the model/texture entry, 0 or an error code */
+    s32 frame; /* 0x2C */
+    s32 box[6]; /* 0x30 */
+} ObjModel;
+
+/* Opens the entries of the current animation of obj; for the player it also
+ * scales the collision box of the frame by scale (x taken as positive). */
+void func_8001B0BC(GoolObject *obj, s32 *scale) {
+    u8 *anim;
+    ModelFrame *frame;
+    u32 *eid;
+    s32 res;
+    s32 sx;
+    s32 *p;
+    s32 b[6];
+
+    anim = (u8 *)obj->unkE8;
+    ((ObjModel *)obj->unk8)->unk28 = 0;
+    if (anim == NULL) {
+        return;
+    }
+    if (*anim != 4) {
+        if (*anim == 1) {
+            eid = (u32 *)(anim + 0x10);
+        } else {
+            eid = (u32 *)(anim + 4);
+        }
+        if (((u32)eid & 0xFF800003) != 0x80000000) {
+            return;
+        }
+        res = NSOpen(eid, 1, 0);
+        ((ObjModel *)obj->unk8)->unk28 = res;
+        if (res > -0xFF) {
+            ((ObjModel *)obj->unk8)->unk28 = 0;
+            return;
+        }
+    }
+    if (*(u8 *)obj->unkE8 == 1) {
+        ((ObjModel *)obj->unk8)->frame = func_8001B524(obj, &((ObjModel *)obj->unk8)->frame_a, &((ObjModel *)obj->unk8)->frame_b);
+        frame = (ModelFrame *)((ObjModel *)obj->unk8)->frame_a;
+        ((ObjModel *)obj->unk8)->unk28 = NSOpen((u32 *)(anim + 0xC), 1, 0);
+        if (obj != crash) {
+            return;
+        }
+        sx = scale[0];
+        if (sx < 0) {
+            scale[0] = -sx;
+        }
+        b[0] = frame->trans[0] + frame->min[0];
+        b[1] = frame->trans[1] + frame->min[1];
+        b[2] = frame->trans[2] + frame->min[2];
+        b[3] = frame->trans[0] + frame->max[0];
+        b[4] = frame->trans[1] + frame->max[1];
+        b[5] = frame->trans[2] + frame->max[2];
+        p = b;
+        ((ObjModel *)obj->unk8)->box[0] = (p[0] >> 8) * scale[0] >> 4;
+        ((ObjModel *)obj->unk8)->box[1] = (p[1] >> 8) * scale[1] >> 4;
+        ((ObjModel *)obj->unk8)->box[2] = (p[2] >> 8) * scale[2] >> 4;
+        ((ObjModel *)obj->unk8)->box[3] = (p[3] >> 8) * scale[0] >> 4;
+        ((ObjModel *)obj->unk8)->box[4] = (p[4] >> 8) * scale[1] >> 4;
+        ((ObjModel *)obj->unk8)->box[5] = (p[5] >> 8) * scale[2] >> 4;
+        scale[0] = sx;
+    } else {
+        ((ObjModel *)obj->unk8)->unk28 = -0xE;
+    }
+}
 
 s32 func_8003191C(s32 *box_a, s32 *box_b); /* boxes overlap */
 /* Makes obj and other collide (unless obj already collides with a nearer

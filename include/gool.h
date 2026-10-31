@@ -31,6 +31,8 @@ typedef struct GoolObject {
 
 #define ISHANDLE(obj) ((obj)->type == 2)
 #define GoolObjectGetChildren(obj) (ISHANDLE(obj) ? (obj)->handle_children : (obj)->children)
+#define GoolObjectSetChildren(obj, child) \
+    (*(ISHANDLE(obj) ? &(obj)->handle_children : &(obj)->children) = (child))
 
 typedef s32 (*GoolTraverseFunc)(GoolObject *obj, s32 arg);
 

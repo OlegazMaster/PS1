@@ -5,7 +5,39 @@
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019624);
 
+
+#ifdef NON_MATCHING
+/* Moves child to the front of the children of parent (c1: GoolObjectAddChild).
+ * Equivalent; the original tests cur for NULL twice in the search loop. */
+
+s32 func_8001962C(GoolObject *child, GoolObject *parent) {
+    GoolObject *old = child->parent;
+    GoolObject *cur;
+
+    if (old != NULL) {
+        cur = GoolObjectGetChildren(old);
+        if (cur == child) {
+            GoolObjectSetChildren(old, child->sibling);
+        } else {
+            while (1) {
+                if (cur == NULL) {
+                    return -0x18;
+                }
+                if (cur->sibling == child) {
+                    break;
+                }
+                cur = cur->sibling;
+            }
+            cur->sibling = child->sibling;
+        }
+    }
+    child->parent = parent;
+    child->sibling = GoolObjectGetChildren(parent);
+    GoolObjectSetChildren(parent, child);
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001962C);
+#endif
 
 s32 GoolObjectTraverseTreePreorder(GoolObject *obj, GoolTraverseFunc func, s32 arg) {
     GoolObject *child;

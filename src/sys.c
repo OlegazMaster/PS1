@@ -200,7 +200,58 @@ void GpuDrawRect(s32 x, s32 y, s32 w, s32 h, s32 r, s32 g, s32 b) {
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80016D8C);
 
+#ifdef NON_MATCHING
+/* Fades the screen with a dark semi-transparent quad: a diamond in the middle,
+ * or the whole screen. Equivalent; the original copies the primitive pointer
+ * from another register and addresses game.unk364 before the rest of game. */
+static inline void GpuDrawFadeQuad(POLY_FT4 *p, s32 type, s32 x0, s32 y0, s32 x1, s32 y1, s32 x2, s32 y2, s32 x3, s32 y3) {
+    p->r0 = 8;
+    p->g0 = 8;
+    p->b0 = 8;
+    p->tpage = GetTPage(2, 2, 0, 256);
+    p->x0 = x0;
+    p->y0 = y0;
+    p->x1 = x1;
+    p->y1 = y1;
+    p->x2 = x2;
+    p->y2 = y2;
+    p->x3 = x3;
+    p->y3 = y3;
+    p->u0 = 0;
+    p->v0 = 0;
+    p->u1 = 0;
+    p->v1 = 0;
+    p->u2 = 0;
+    p->v2 = 0;
+    p->u3 = 0;
+    p->v3 = 0;
+    SetPolyFT4(p);
+    SetSemiTrans(p, 1);
+    AddPrim(&context.cur->ot[0x7FF], p);
+    if (type >= 63) {
+        game.unk364 = -1;
+        game.unk208 = 0x120;
+        game.unk70 &= ~0x800000;
+    }
+}
+
+void func_80017204(s32 type) {
+    POLY_FT4 *p;
+
+    if (type >= 7 && type < 30) {
+        p = context.cur->prims_tail;
+        context.cur->prims_tail = p + 1;
+        GpuDrawFadeQuad(p, type, 256, 60, 384, 120, 128, 120, 256, 180);
+    }
+    if (type >= 31) {
+        p = context.cur->prims_tail;
+        context.cur->prims_tail = p + 1;
+        GpuDrawFadeQuad(p, type, 0, 0, 512, 0, 0, 240, 512, 240);
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80017204);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_8001742C);
 

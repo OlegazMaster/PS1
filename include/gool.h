@@ -65,7 +65,7 @@ typedef struct GoolObject {
     s32 once_p; /* 0xD0 */
     s32 unkD4; /* 0xD4: result of the last broadcast */
     s32 ack; /* 0xD8 */
-    u8 unkDC[0x4];
+    u32 update_stamp; /* 0xDC: frame of the last full update */
     u32 state_stamp; /* 0xE0: frame the state was entered */
     u8 unkE4[0x4];
     s32 unkE8; /* anim_seq */
@@ -108,11 +108,14 @@ typedef s32 (*GoolTraverseFunc)(GoolObject *obj, s32 arg);
 /* The header of a GOOL executable (item 0). */
 typedef struct {
     u32 unk0;
-    u32 type; /* 0x4: 0x300, 0x400, ... */
+    s32 type; /* 0x4: 0x100, 0x200, ... */
     u32 unk8;
     s32 stack_size; /* 0xC: initial stack depth in words */
     s32 event_count; /* 0x10 */
 } GoolHeader;
+
+/* The type of the executable of obj (0x100 player, 0x300 crate, ...). */
+#define GoolObjectType(obj) (((GoolHeader *)(obj)->global->items[0])->type)
 
 /* A state of a GOOL executable (c1: gool_state). Code offsets are in words;
  * 0x3FFF means none and bit 0x4000 selects the external executable. */

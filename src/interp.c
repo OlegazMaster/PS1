@@ -131,7 +131,131 @@ s32 func_8001D5E8(GoolObject *obj, u32 *flags) {
     return -0xFF;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001D674);
+void func_80015798(void);
+s32 func_8001CA68(GoolObject *obj, s32 full);
+void func_8001E78C(GoolObject *obj, void *prev, s32 *out);
+void func_8001B630(GoolObject *obj, s32 *out);
+void func_8001B7A0(GoolObject *obj, s32 *out);
+extern s32 paused;
+typedef struct {
+    s32 v[3];
+} Vec3i;
+typedef struct {
+    Vec3i trans;
+    Vec3i rot;
+} TransRot;
+/* Updates obj for this frame (c1: GoolObjectUpdate): with full set (or
+ * state flag 0x40000) and objects of its type enabled, runs the code of its
+ * state, resumes it after a wait, updates its light and animation; then
+ * draws it if objects of its type are drawn. */
+
+s32 func_8001D674(GoolObject *obj, s32 full) {
+    u32 flags;
+    u32 sf;
+    s32 run;
+    s32 res;
+    u32 w;
+    s32 out[2];
+    TransRot prev;
+
+    if (obj == crash) {
+        func_80015798();
+    }
+    flags = game.display_flags;
+    game.unk50 = obj;
+    if ((run = flags & 8)) {
+        sf = obj->state_flags;
+        if (sf & 0x40000) {
+            full = 1;
+        }
+        if (((obj->status_b & 0x2000000) || (sf & 0x8000)) && (flags & 0x8000)) {
+            run = 1;
+        } else {
+            switch (GoolObjectType(obj)) {
+            case 0x100:
+                run = game.display_flags & 0x20;
+                break;
+            case 0x300:
+            case 0x500:
+            case 0x600:
+                run = game.display_flags & 0x80;
+                break;
+            case 0x200:
+                run = game.display_flags & 0x100;
+                break;
+            case 0x400:
+            case 0x900:
+                run = game.display_flags & 0x400;
+                break;
+            }
+        }
+    }
+    if (full && run) {
+        obj->update_stamp = game.frames;
+        if (obj->status_b & 0x10) {
+            prev.trans = *(Vec3i *)obj->xform.trans;
+            prev.rot = *(Vec3i *)obj->xform.rot;
+        }
+        if (obj->tpc != NULL) {
+            func_8001D588(obj, 0, 0xFFFF);
+            obj->pc = obj->tpc;
+            res = func_80038E28(obj, 3, NULL);
+            if (res > -0xFF) {
+                return res;
+            }
+        }
+        w = obj->sp[-1];
+        if (game.frames - (w & 0xFFFFFF) >= w >> 24 || w >> 24 < 2) {
+            obj->sp--;
+            res = func_80038E28(obj, 4, NULL);
+            if (res > -0xFF) {
+                return res;
+            }
+        }
+        func_8001CA68(obj, full);
+        func_8001E78C(obj, &prev, out);
+        obj->status_a &= ~0x20;
+    } else {
+        func_8001B630(obj, out);
+    }
+    if (obj->unkE8 != 0 && (u8)obj->unk120 != 1 && !(obj->status_b & 0x100) && (game.display_flags & 4)) {
+        if (((obj->status_b & 0x2000000) || (obj->state_flags & 0x8000)) && (game.display_flags & 0x4000)) {
+            run = 1;
+        } else {
+            run = 0;
+            switch (GoolObjectType(obj)) {
+            case 0x100:
+                if ((game.display_flags & 0x10) && ((game.unk19C & 1) || paused || obj->invincibility_state != 4)) {
+                    run = 1;
+                }
+                break;
+            case 0x300:
+            case 0x500:
+            case 0x600:
+                run = game.display_flags & 0x40;
+                break;
+            case 0x200:
+                run = game.display_flags & 0x200;
+                if (!full && !(obj->state_flags & 0x40000) && game.pause_obj != 0) {
+                    run = 0;
+                }
+                break;
+            case 0x400:
+            case 0x900:
+                run = game.display_flags & 0x800;
+                break;
+            }
+        }
+        if (!full && !(game.display_flags & 0x8000000) && !(obj->state_flags & 0x40000)) {
+            run = 0;
+        }
+        if (run) {
+            func_8001B7A0(obj, out);
+        }
+    }
+    game.unk50 = NULL;
+    return -0xFF;
+}
 
 
 #ifdef NON_MATCHING
@@ -224,8 +348,6 @@ void func_8002D85C(void); /* releases it */
 s32 func_8003188C(s32 *point, s32 *box); /* point in box */
 s32 func_8003191C(s32 *box_a, s32 *box_b); /* boxes overlap */
 s32 func_80031BD0(s32 a, s32 *p1, s32 *p2, s32 rx, s32 ry, s32 rz);
-
-#define GoolObjectType(obj) (((GoolHeader *)(obj)->global->items[0])->type)
 
 #ifdef NON_MATCHING
 /* Sends the event of msg to obj if obj is one of the receivers chosen by

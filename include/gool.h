@@ -105,6 +105,15 @@ typedef struct {
 
 typedef s32 (*GoolTraverseFunc)(GoolObject *obj, s32 arg);
 
+/* The header of a GOOL executable (item 0). */
+typedef struct {
+    u32 unk0;
+    u32 type; /* 0x4: 0x300, 0x400, ... */
+    u32 unk8;
+    s32 stack_size; /* 0xC: initial stack depth in words */
+    s32 event_count; /* 0x10 */
+} GoolHeader;
+
 /* A state of a GOOL executable (c1: gool_state). Code offsets are in words;
  * 0x3FFF means none and bit 0x4000 selects the external executable. */
 typedef struct {

@@ -29,10 +29,6 @@ s32 func_80038E28(GoolObject *obj, u32 flags, void *a); /* GoolObjectInterpret *
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001D16C);
 
-typedef struct {
-    u8 unk0[0xC];
-    s32 stack_size; /* 0xC: initial stack depth in words */
-} GoolHeader;
 
 /* Code offset pc of a state as a pointer (see GoolState). */
 #define GoolStatePc(obj, pc) \
@@ -137,10 +133,6 @@ s32 func_8001D5E8(GoolObject *obj, u32 *flags) {
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001D674);
 
-typedef struct {
-    u8 unk0[0x10];
-    s32 event_count; /* 0x10 */
-} GoolEventHeader;
 
 #ifdef NON_MATCHING
 /* Sends event with argc arguments from argv to recipient: runs its event
@@ -156,7 +148,7 @@ s32 GoolSendEvent(GoolObject *sender, GoolObject *recipient, u32 event, s32 argc
     s32 i;
     s32 out[20];
 
-    if (recipient == NULL || recipient->type == 0 || (s32)event >> 8 >= ((GoolEventHeader *)recipient->global->items[0])->event_count) {
+    if (recipient == NULL || recipient->type == 0 || (s32)event >> 8 >= ((GoolHeader *)recipient->global->items[0])->event_count) {
         goto fail;
     }
     if (sender != NULL) {
@@ -227,7 +219,162 @@ fail:
 INCLUDE_ASM("asm/us/nonmatchings/interp", GoolSendEvent);
 #endif
 
+s32 *func_8002D0E8(GoolObject *obj, s32 a, s32 idx); /* takes a collision box */
+void func_8002D85C(void); /* releases it */
+s32 func_8003188C(s32 *point, s32 *box); /* point in box */
+s32 func_8003191C(s32 *box_a, s32 *box_b); /* boxes overlap */
+s32 func_80031BD0(s32 a, s32 *p1, s32 *p2, s32 rx, s32 ry, s32 rz);
+
+#define GoolObjectType(obj) (((GoolHeader *)(obj)->global->items[0])->type)
+
+#ifdef NON_MATCHING
+/* Sends the event of msg to obj if obj is one of the receivers chosen by
+ * msg->type: 1, 4 objects whose box touches the sender's, 2, 3 objects whose
+ * box holds the sender, 5 objects in the sender's range (misc_b), 6 objects
+ * the sender sweeps through this frame (misc_a); other types send to all.
+ * Equivalent; the original swaps the registers of msg and part. */
+s32 func_8001DDF4(GoolObject *obj, GoolBroadcast *msg) {
+    s32 *box;
+    s32 *box2;
+    s32 *box3;
+    s32 *part;
+    s32 hit;
+    s32 i;
+    s32 j;
+    s32 n;
+    s32 any;
+    s32 pos[3];
+    s32 step[3];
+    s32 bounds[6];
+
+    if (msg->type != 0) {
+        switch (msg->type) {
+        case 4:
+            if (GoolObjectType(obj) != 0x300 && GoolObjectType(obj) != 0x400) {
+                return -0xFF;
+            }
+        case 1:
+            if (obj == msg->sender) {
+                return -0xFF;
+            }
+            if (msg->type == 1) {
+                if (!(obj->status_b & 0x10)) {
+                    return -0xFF;
+                }
+                if (msg->sender->collider == obj) {
+                    break;
+                }
+            }
+            box = func_8002D0E8(obj, 0, -2);
+            if (box == NULL) {
+                return -0xFF;
+            }
+            box2 = func_8002D0E8(msg->sender, 0, -2);
+            if (box2 == NULL) {
+                func_8002D85C();
+                return -0xFF;
+            }
+            hit = func_8003191C(box + 2, box2 + 2);
+            func_8002D85C();
+            func_8002D85C();
+            if (hit) {
+                break;
+            }
+            return -0xFF;
+        case 3:
+            if (GoolObjectType(obj) != 0x300 && GoolObjectType(obj) != 0x400) {
+                return -0xFF;
+            }
+        case 2:
+            box2 = func_8002D0E8(msg->sender, 0, -2);
+            if (box2 == NULL) {
+                return -0xFF;
+            }
+            hit = func_8003188C(obj->xform.trans, box2 + 2);
+            func_8002D85C();
+            if (hit) {
+                break;
+            }
+            return -0xFF;
+        case 6:
+            if (GoolObjectType(obj) != 0x300) {
+                return -0xFF;
+            }
+            if (func_80031BD0(0, obj->xform.trans, msg->sender->xform.trans, 0xC8000, 0x12C000, 0xC8000)) {
+                return -0xFF;
+            }
+            any = 0;
+            if (obj->unkE8 != 0 && *(u8 *)obj->unkE8 == 1) {
+                n = *(s32 *)(*(u8 **)((u8 *)obj->unk8 + 0x20) + 0x14);
+            } else {
+                n = 1;
+            }
+            step[0] = msg->sender->misc_a[0] / 16;
+            step[1] = msg->sender->misc_a[1] / 16;
+            step[2] = msg->sender->misc_a[2] / 16;
+            for (i = 0; i < n; i++) {
+                part = func_8002D0E8(obj, 0, i);
+                if (part == NULL) {
+                    return -0xFF;
+                }
+                pos[0] = msg->sender->xform.trans[0];
+                pos[1] = msg->sender->xform.trans[1];
+                pos[2] = msg->sender->xform.trans[2];
+                for (j = 0; j < 16; j++) {
+                    any |= func_8003188C(pos, part + 2);
+                    pos[0] += step[0];
+                    pos[1] += step[1];
+                    pos[2] += step[2];
+                }
+                func_8002D85C();
+            }
+            if (any) {
+                break;
+            }
+            return -0xFF;
+        case 5:
+            if (GoolObjectType(obj) != 0x300 && GoolObjectType(obj) != 0x400) {
+                return -0xFF;
+            }
+            box3 = func_8002D0E8(obj, 0, -2);
+            if (box3 == NULL) {
+                return -0xFF;
+            }
+            bounds[0] = msg->sender->xform.trans[0] - msg->sender->misc_b[0];
+            bounds[1] = msg->sender->xform.trans[1] - msg->sender->misc_b[1];
+            bounds[2] = msg->sender->xform.trans[2] - msg->sender->misc_b[2];
+            bounds[3] = msg->sender->misc_b[0] + msg->sender->xform.trans[0];
+            bounds[4] = msg->sender->misc_b[1] + msg->sender->xform.trans[1];
+            bounds[5] = msg->sender->misc_b[2] + msg->sender->xform.trans[2];
+            hit = func_8003191C(box3 + 2, bounds);
+            func_8002D85C();
+            if (!hit) {
+                return -0xFF;
+            }
+            if (msg->sent >= 3 && msg->sent % 5 != 0) {
+                msg->sent++;
+                return -0xFF;
+            }
+            break;
+        }
+    }
+    msg->sent++;
+    GoolSendEvent(msg->sender, obj, msg->event, msg->argc, msg->argv);
+    if (msg->sender == NULL) {
+        return -0xFF;
+    }
+    if (msg->sender->unkD4 == 0) {
+        return -0xFF;
+    }
+    msg->accepted++;
+    if (msg->sender == crash && msg->event == 0x2E00) {
+        obj->status_b &= ~0x10;
+    }
+    return -0xFF;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001DDF4);
+#endif
 
 /* Sends event to all objects of the given type (see func_8001DDF4). */
 

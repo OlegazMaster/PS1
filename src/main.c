@@ -185,7 +185,7 @@ void CoreLoop(s32 lid);
 void func_80015658(void);
 void func_80011FB8(void);
 void func_80011FC0(void);
-void func_80012CBC(s32);
+void NSUpdate(s32);
 void NSInit(NsState *, s32);
 void NSKill(NsState *);
 void func_80016634(s32);
@@ -309,7 +309,7 @@ void CoreLoop(s32 lid) {
             }
             bonus_return = 0;
         }
-        func_80012CBC(-1);
+        NSUpdate(-1);
         if (!(game.display_flags & 0x40000000)) {
             if (!paused) {
                 func_80028A78();

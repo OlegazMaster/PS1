@@ -134,3 +134,4 @@ alpha_map = 0x8005BC58;
 eid_str_buf = 0x80060B70; // size:0x10
 eid_str_buf2 = 0x80060B80; // size:0x10
 tpage_rect = 0x800608B8; // size:0x8
+NSUpdate = 0x80012CBC; // type:func

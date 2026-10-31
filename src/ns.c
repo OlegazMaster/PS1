@@ -17,7 +17,8 @@ typedef struct {
 } NsdPte;
 
 typedef struct {
-    u8 unk0[0x404];
+    u8 unk0[0x400];
+    s32 unk400;
     s32 pte_count; /* 0x404 */
     u8 unk408[0x10];
     s32 unk418;
@@ -473,7 +474,54 @@ free_entries:
     return -0xFF;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_80012CBC);
+PageStruct *NSPageCreatePhysical(PageStruct *ps, s32 pgid, u32 eid, s32 *count, s32 flag);
+s32 func_800132F8(PageStruct *ps, s32 pgid);
+
+/* Starts reading the next run of virtual pages (lowest pgid first, or the
+ * requested one) into physical pages, then advances every physical page. */
+void NSUpdate(s32 pgid) {
+    PageStruct *ps, *next;
+    s32 i, idx, count;
+    s32 pgid_min, ps_pgid;
+
+    if (ns.page_count == 0) {
+        return;
+    }
+    if (ns.cur_ps == NULL) {
+        idx = -1;
+        for (i = 0; i < ns.virtual_page_count; i++) {
+            ps = &ns.virtual_pages[i];
+            if (ps->state == 2) {
+                ps_pgid = ps->pgid;
+                if ((pgid == -1 && (idx == -1 || ps_pgid < pgid_min)) || ps_pgid == pgid) {
+                    pgid_min = ps_pgid;
+                    idx = i;
+                    if (pgid_min == pgid) {
+                        break;
+                    }
+                }
+            }
+        }
+        if (idx != -1) {
+            count = 1;
+            if (use_cd) {
+                while ((pgid_min >> 1) < ns.nsd->unk400 - 1) {
+                    pgid_min = (((pgid_min >> 1) + 1) << 1) | 1; /* pgid of the next page */
+                    next = ns.page_map[pgid_min >> 1];
+                    if ((s32)next < -0xFE && next->type == 0) {
+                        count++;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            NSPageCreatePhysical(&ns.virtual_pages[idx], ns.virtual_pages[idx].pgid, 0x6396347F, &count, pgid != -1);
+        }
+    }
+    for (i = 0; i < ns.physical_page_count; i++) {
+        func_800132F8(&ns.physical_pages[i], pgid);
+    }
+}
 
 typedef struct {
     u8 unk0[0x10];
@@ -496,7 +544,6 @@ extern s32 D_800691FC;
 extern s32 D_800608E8;
 extern Unk80061A7C *D_80061A7C;
 void func_80035078(u8 *);
-void func_80012CBC(s32 pgid);
 void func_80016634(s32);
 
 void func_80012EAC(void) {
@@ -505,7 +552,7 @@ void func_80012EAC(void) {
         if (D_80065C90.unkCC != NULL && D_80060B1C != -1) {
             func_80035078(D_80065C90.unkCC->unk10 + 0x2E4);
         }
-        func_80012CBC(-1);
+        NSUpdate(-1);
         if (D_800691FC >= 0 && D_800608E8 != D_80061A7C->unk1C) {
             func_80016634(1);
         }
@@ -867,7 +914,6 @@ PageStruct *NSPageOpen(s32 pgid, u32 eid, s32 flag, s32 count) {
     return NSPageCreateVirtual(pgid, eid, flag, count);
 }
 
-void func_80012CBC(s32 pgid);
 
 s32 func_80014024(s32 pgid, s32 flag, s32 count, u32 eid) {
     PageStruct *ps;
@@ -878,7 +924,7 @@ retry:
         return 1;
     }
     if ((flag & 1) && !(ps->state == 20 || ps->state == 21)) {
-        func_80012CBC(pgid);
+        NSUpdate(pgid);
         count = 0;
         goto retry;
     }

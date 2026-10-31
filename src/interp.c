@@ -598,7 +598,7 @@ typedef struct {
     u32 unk18; /* 0x18 */
 } Unk80061A7C;
 extern Unk80061A7C *D_80061A7C;
-s32 func_8001FAC8(s32 angle, s32 target, s32 speed, s32 a); /* turns angle toward target */
+s32 func_8001FAC8(s32 angle, s32 target, s32 speed, GoolObject *obj); /* turns angle toward target */
 void func_80020184(s32 *in, s32 *out);
 s32 func_8003D9DC(s32 x); /* square root */
 s32 func_8003C2F0(s32 angle); /* sin */
@@ -682,7 +682,64 @@ INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001E4BC);
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001E78C);
 
+#define ABS(x) ((x) < 0 ? -(x) : (x))
+
+#ifdef NON_MATCHING
+/* Turns the angle cur toward target by speed (scaled by the frame time),
+ * slowing down near it when obj has status_b bit 0x20000000. Sets status_a
+ * bit 0x800 of obj on reaching target, and bit 8 while turning negatively.
+ * Equivalent; the original keeps t in another register and schedules the
+ * status stores differently. */
+s32 func_8001FAC8(s32 cur, s32 target, s32 speed, GoolObject *obj) {
+    s32 t = D_80061A7C->unk18;
+    s32 d;
+    s32 ad;
+
+    if ((u32)t > 0x66) {
+        t = 0x66;
+    }
+    speed = speed * t / 1020;
+    d = ((target - cur) << 20) >> 20;
+    ad = ABS(d);
+    if (obj != NULL && (obj->status_b & 0x20000000) && ad < speed * 4) {
+        if (ad < speed * 2) {
+            if (ad < speed) {
+                speed /= 8;
+            } else {
+                speed /= 4;
+            }
+        } else if (ad < speed * 3) {
+            speed /= 2;
+        } else {
+            speed = speed * 3 / 4;
+        }
+    }
+    if (ad < speed) {
+        if (obj != NULL) {
+            obj->status_a |= 0x800;
+        }
+        cur = target;
+    } else {
+        if (ABS(ad) == 0x800 && target >= 0x800) {
+            d = -d;
+        }
+        if (d < 0) {
+            cur = (cur - speed) & 0xFFF;
+            if (obj != NULL) {
+                obj->status_a |= 8;
+            }
+        } else {
+            cur = (cur + speed) & 0xFFF;
+            if (obj != NULL) {
+                obj->status_a &= ~8;
+            }
+        }
+    }
+    return cur;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FAC8);
+#endif
 
 #ifdef NON_MATCHING
 /* Turns the angle cur toward target by speed (scaled by the frame time);

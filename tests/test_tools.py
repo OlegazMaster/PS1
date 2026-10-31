@@ -1,10 +1,12 @@
 """Tests for the helper scripts in tools/ (run with `make test`)."""
 
+import io
 import struct
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
@@ -12,6 +14,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import disc_image  # noqa: E402
 import gen_config  # noqa: E402
 import progress  # noqa: E402
+import comm_globl  # noqa: E402
 import psexe  # noqa: E402
 import versions  # noqa: E402
 
@@ -267,6 +270,15 @@ class DiscImageTest(unittest.TestCase):
             volume.write_bytes(header + bytes(range(256)) * 200)
             with self.assertRaises(disc_image.DiscError):
                 disc_image.load_image(volume)
+
+
+class CommGloblTest(unittest.TestCase):
+    def test_declares_comm_symbols_global(self):
+        src = "\t.comm\tpause_stamp,4\n\t.lcomm\tlocal_var,4\n\tlw\t$2,x\n"
+        out = io.StringIO()
+        with mock.patch("sys.stdin", io.StringIO(src)), mock.patch("sys.stdout", out):
+            comm_globl.main()
+        self.assertEqual(out.getvalue(), "\t.globl\tpause_stamp\n" + src)
 
 
 class VersionsTest(unittest.TestCase):

@@ -96,7 +96,7 @@ $(LD_SCRIPT):
 
 $(BUILD)/%.c.o: %.c
 	@mkdir -p $(@D)
-	$(CPP) $(CPPFLAGS) -MMD -MP -MT $@ -MF $@.d $< | $(CC1) $(CC1FLAGS) | $(MASPSX) $(MASPSXFLAGS) | $(AS) $(ASFLAGS) -o $@
+	$(CPP) $(CPPFLAGS) -MMD -MP -MT $@ -MF $@.d $< | $(CC1) $(CC1FLAGS) | $(PYTHON) tools/comm_globl.py | $(MASPSX) $(MASPSXFLAGS) | $(AS) $(ASFLAGS) -o $@
 
 $(BUILD)/%.s.o: %.s
 	@mkdir -p $(@D)

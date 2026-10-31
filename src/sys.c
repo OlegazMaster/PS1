@@ -7,6 +7,38 @@
 
 extern s32 D_80060ABC; /* current level */
 
+/* .sdata, in the order of the original */
+s32 D_800608E0 = 0;
+s32 done = 0;
+s32 D_800608E8 = 0;
+u8 D_800608EC[6] = { 0x00, 0x01, 0xFF, 0xFF, 0xFF, 0xFF }; /* pad actuator alignment */
+s32 D_800608F4 = 0;
+/* The "fwc %d\n" literal of func_80016234, which is still assembly. */
+char D_800608F8[] = "fwc %d\n";
+s32 D_80060900 = 0;
+s32 D_80060904 = 0;
+s32 D_80060908 = 0;
+/* Not used by the game code (the overlays may use them). */
+s32 D_8006090C = 1;
+s32 D_80060910 = 0;
+s32 D_80060914 = 0;
+s32 D_80060918 = 0x808080;
+s32 D_8006091C = 0x8000;
+
+/* .sbss */
+s32 D_80060A60;
+s32 D_80060A64;
+s32 D_80060A68;
+s32 D_80060A6C;
+s32 D_80060A70;
+s32 D_80060A74;
+s32 D_80060A78;
+s32 D_80060A7C;
+s32 D_80060A80;
+s32 D_80060A84;
+s32 D_80060A88;
+s32 D_80060A8C;
+
 typedef struct {
     u16 c[16];
 } Clut16;

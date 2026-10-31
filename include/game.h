@@ -12,7 +12,8 @@ typedef struct {
 
 /* Global game state. Only the fields used so far are named, at their offsets. */
 typedef struct {
-    u8 unk0[0x8];
+    struct GoolObject *player; /* 0x0 */
+    u8 unk4[0x4];
     GoolHandle handles[8]; /* 0x8: heads of the object lists */
     u8 unk48[0x18];
     s32 unk60[4];

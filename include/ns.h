@@ -35,6 +35,8 @@ typedef struct {
     s32 unk0; /* count of 0x18-byte records that follow the header */
     u8 unk4[0x4];
     s32 lid; /* 0x8: level id */
+    u8 unkC[0x4];
+    u32 exec_map[64]; /* 0x10: EIDs of the GOOL executables */
 } LevelData;
 
 typedef struct PageStruct {

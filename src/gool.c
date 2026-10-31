@@ -182,7 +182,7 @@ s32 func_80019ACC(GoolObject *obj, GoolNearestQuery *query) {
     if (!((1 << (((s32 *)obj->global->items[0])[1] >> 8)) & query->categories)) {
         return 0;
     }
-    dist = func_80031A54(obj->trans, query->obj->trans);
+    dist = func_80031A54(obj->xform.trans, query->obj->xform.trans);
     if (dist >= query->dist) {
         return 0;
     }
@@ -245,7 +245,95 @@ INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019CE4);
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001A42C);
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001A5C8);
+s32 func_80032DF8(s32 a, s32 b, s32 c, s32 d, s32 e, s32 f, s32 g);
+s32 GoolObjectChangeState(GoolObject *obj, u32 state, s32 argc, u32 *argv);
+#ifdef NON_MATCHING
+/* Resets obj and starts it as subtype of the GOOL executable exec (c1).
+ * Equivalent; the original tests the result of GoolObjectChangeState in v0. */
+
+s32 GoolObjectInit(GoolObject *obj, s32 exec, s32 subtype, s32 argc, u32 *argv, s32 keep) {
+    GoolObject *parent;
+    Entry *global;
+    u32 *p_eid;
+    u32 state;
+
+    if (!keep) {
+        obj->pid_flags = 0;
+        obj->unkF0 = 0;
+        obj->unkF8 = 0;
+        obj->unk120 = 0;
+    } else {
+        obj->unk120 = func_80032DF8(obj->unkF0, 0x47, 0, 0, 0, 2, 0);
+    }
+    parent = obj->parent;
+    obj->voice_id = -2;
+    obj->unkF4 = 0;
+    obj->type = 1;
+    obj->misc_a[0] = 0;
+    obj->misc_a[1] = 0;
+    obj->misc_a[2] = 0;
+    obj->misc_b[0] = 0;
+    obj->misc_b[1] = 0;
+    obj->misc_b[2] = 0;
+    obj->misc_c[0] = 0;
+    obj->misc_c[1] = 0;
+    obj->misc_c[2] = 0;
+    obj->speed = 0;
+    obj->unkEC = 0;
+    obj->ack = 0;
+    obj->misc_b[1] = 0;
+    obj->status_a = 0;
+    obj->status_c = 0;
+    obj->status_b = 0;
+    obj->invincibility_state = 0;
+    obj->unk118 = 0;
+    obj->unk110 = 0;
+    obj->hotspot_size = 0;
+    obj->node = 0xFFFF;
+    if (parent->type == 1) {
+        obj->zone = parent->zone;
+        obj->xform = obj->parent->xform;
+    } else {
+        obj->zone = NULL;
+        obj->xform.rot[0] = 0;
+        obj->xform.rot[1] = 0;
+        obj->xform.rot[2] = 0;
+        obj->xform.scale[0] = 0x1000;
+        obj->xform.scale[1] = 0x1000;
+        obj->xform.scale[2] = 0x1000;
+    }
+    if (exec >= 4 && (exec < 6 || exec == 29)) {
+        obj->zone = NULL;
+    }
+    if (obj->subtype == 3) {
+        p_eid = &ns.ldat->exec_map[exec];
+        if (*p_eid != 0x6396347F && exec < 128) {
+            obj->global = (Entry *)NSOpen(p_eid, 1, 0);
+            obj->unk10 = obj->global;
+            if ((s32)obj->global < -0xFE) {
+                obj->self = obj;
+                obj->collider = NULL;
+                obj->creator = NULL;
+                obj->interrupter = NULL;
+                obj->player = game.player;
+                obj->id = (exec << 16) | subtype;
+                obj->unkE8 = 0;
+                obj->once_p = 0;
+                state = ((u16 *)obj->global->items[3])[((s32 *)obj->global->items[0])[4] + (u16)obj->id];
+                if (state == 0xFF) {
+                    return -0x1B;
+                }
+                if (GoolObjectChangeState(obj, state, argc, argv) < -0xFE) {
+                    return -0xFF;
+                }
+            }
+        }
+    }
+    return -0xE;
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectInit);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectKill);
 
@@ -255,7 +343,7 @@ extern Entry *D_80065D60;
 /* Kills an object of zone when the zone goes away (c1). Equivalent; the
  * original compares obj->zone first and loads the -1 later. */
 s32 GoolZoneObjectTerminate(GoolObject *obj, Entry *zone) {
-    if (obj->pid_flags != 0 || obj->type == 0 || zone != obj->zone || (obj->unkAC & 0x1000000)
+    if (obj->pid_flags != 0 || obj->type == 0 || zone != obj->zone || (obj->status_b & 0x1000000)
         || (obj->state_flags & 0x10000)) {
         return -0xFF;
     }

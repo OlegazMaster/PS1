@@ -6,8 +6,8 @@
 
 /* Rotation, translation and scale of an object or camera. */
 typedef struct {
-    s32 rot[3];
     s32 trans[3];
+    s32 rot[3];
     s32 scale[3];
 } Transform;
 

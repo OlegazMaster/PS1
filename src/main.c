@@ -307,10 +307,10 @@ void CoreLoop(s32 lid) {
                 GoolObject *obj = link->obj;
                 s32 dir = 1;
 
-                if (obj->unkAC & 0x200000) {
+                if (obj->status_b & 0x200000) {
                     dir = -1;
                 }
-                if (obj->unkAC & 0x400) {
+                if (obj->status_b & 0x400) {
                     dir = 0;
                 }
                 func_8001C824(obj, obj->unkE8, obj->unkEC >> 8, context.cur->ot, dir);

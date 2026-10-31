@@ -199,12 +199,12 @@ void func_800188EC(void) {
     func_8004F704(0, 0);
     t = &D_80065C90.unk60;
     func_80018DA8(t);
-    t->rot[0] = 0;
-    t->rot[1] = 0;
-    t->rot[2] = 0x1F400;
     t->trans[0] = 0;
     t->trans[1] = 0;
-    t->trans[2] = 0;
+    t->trans[2] = 0x1F400;
+    t->rot[0] = 0;
+    t->rot[1] = 0;
+    t->rot[2] = 0;
     D_80065C90.unkA8 = 0;
     game.unk110 = 0;
     game.unk114 = 0;
@@ -228,12 +228,12 @@ void func_80018988(MATRIX *out, MATRIX *in) {
 INCLUDE_ASM("asm/us/nonmatchings/gfx", func_80018A54);
 
 void func_80018DA8(Transform *t) {
-    t->trans[0] = 0;
-    t->trans[1] = 0;
-    t->trans[2] = 0;
     t->rot[0] = 0;
     t->rot[1] = 0;
     t->rot[2] = 0;
+    t->trans[0] = 0;
+    t->trans[1] = 0;
+    t->trans[2] = 0;
     t->scale[0] = 0x1000;
     t->scale[1] = 0x1000;
     t->scale[2] = 0x1000;

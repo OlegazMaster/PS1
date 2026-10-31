@@ -60,7 +60,8 @@ segments:
       - [0x800, .rodata, ns]
       - [0xA30, .rodata, sys]
       - [0xB6C, .rodata, obj]
-      - [0xBE0, rodata, "BE0"]
+      - [0xBE0, .rodata, interp]
+      - [0xBF8, rodata, "BF8"]
       - [0x181C, asm, heap]       # memory allocator: InitHeap, malloc, free, ...
       - [0x1E28, c, main]
       - [0x2768, asm, "2768"]     # render setup + empty stubs
@@ -69,7 +70,8 @@ segments:
       - [0x8808, c, gfx]          # textures, sprites (GTE)
       - [0x9E24, c, gool]         # GOOL objects: tree, lists, init/kill
       - [0xB8BC, c, obj]          # object models: animation frames, collision, drawing
-      - [0xD96C, asm, "D96C"]     # rest of the game C code, to be split into files
+      - [0xD96C, c, interp]       # GOOL interpreter: state changes, events, opcodes
+      - [0x102C8, asm, "102C8"]   # rest of the game C code, to be split into files
       - [0x2A63C, asm, nd_asm]    # Naughty Dog's hand-written assembly (uses the GTE)
       - [0x35F50, asm, psyq]      # PSY-Q libraries (libcd, libgpu, libspu, libapi, ...)
       - [0x4C440, data, "4C440"]
@@ -78,7 +80,8 @@ segments:
       - [0x510D8, sdata, "510D8"]
       - [0x510E0, .sdata, sys]
       - [0x51120, .sdata, obj]
-      - [0x51124, sdata, "51124"]
+      - [0x51124, .sdata, interp]
+      - [0x51128, sdata, "51128"]
       - { start: 0x51238, type: sbss, vram: 0x80060A38, name: heap_sbss }
       - { type: .sbss, vram: 0x80060A58, name: main }
       - { type: .sbss, vram: 0x80060A60, name: sys }

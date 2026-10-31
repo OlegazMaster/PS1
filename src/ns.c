@@ -14,25 +14,9 @@ extern u8 D_8005F408;
 extern PageStruct D_80060BB8[10];
 extern PageStruct D_80060D70[16];
 
-typedef struct {
-    u32 sector;
-    u32 unk4;
-    u32 nsf_sector; /* 0x8 */
-} Unk8006C4D8;
 
-extern Unk8006C4D8 D_8006C4D8[];
 
-/* Per entry type: callbacks run when levels and pages are loaded and freed. */
-typedef struct {
-    u8 unk0[0x8];
-    void (*init)(void);
-    void (*init2)(void);
-    void (*on_load)(Entry *entry);
-    void (*on_free)(Entry *entry);
-    void (*kill)(void);
-} NsSubsystem;
 
-extern NsSubsystem subsys[22];
 
 extern char alpha_map[];
 extern char eid_str_buf[];
@@ -241,12 +225,6 @@ s32 NSEntryItemSize(Entry *entry, s32 idx) {
     return 0;
 }
 
-typedef struct {
-    u32 sector : 23;
-    u32 unk0 : 9;
-    u32 size : 17;
-    u32 unk4 : 15;
-} CdFile;
 
 void *malloc(s32 size);
 void *realloc(void *ptr, s32 size);

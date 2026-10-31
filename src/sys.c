@@ -14,17 +14,6 @@ s32 done = 0;
 s32 D_800608E8 = 0;
 u8 D_800608EC[6] = { 0x00, 0x01, 0xFF, 0xFF, 0xFF, 0xFF }; /* pad actuator alignment */
 s32 D_800608F4 = 0;
-/* The "fwc %d\n" literal of func_80016234, which is still assembly. */
-char D_800608F8[] = "fwc %d\n";
-s32 D_80060900 = 0;
-s32 D_80060904 = 0;
-s32 D_80060908 = 0;
-/* Not used by the game code (the overlays may use them). */
-s32 D_8006090C = 1;
-s32 D_80060910 = 0;
-s32 D_80060914 = 0;
-s32 D_80060918 = 0x808080;
-s32 D_8006091C = 0x8000;
 
 /* .sbss */
 s32 D_80060A60;
@@ -243,7 +232,86 @@ void GpuInit(void) {
     SetDispMask(1);
 }
 
+extern s32 _ramsize;
+extern s32 _stacksize;
+extern u8 D_8006EA78[]; /* end of .bss: where the overlay is loaded */
+extern u8 D_8006EA80[];
+extern u8 D_80072230[]; /* end of the overlay */
+void D_8006F64C(void); /* overlay functions */
+void D_8006F780(void);
+void func_800716A0(void);
+void *NSFileRead(CdFile *file, void *buf, s32 mode, s32 arg3);
+u32 NSChecksum(u32 *buf, s32 size);
+void InitHeap(void *start, u32 size);
+void FlushCache(void);
+/* Loads the overlay for the title and the warp room (levels 2 and 60), then
+ * puts the heap after the overlay or after .bss. */
+#ifdef NON_MATCHING
+/* Equivalent; the original computes the heap size as
+ * _ramsize - (_stacksize + 0x80000000) without folding the constant. */
+
+s32 func_80016234(s32 lid) {
+    s32 sectors;
+    u32 *last;
+    u32 checksum;
+    u8 *heap;
+
+    if (lid == 2 || lid == 60) {
+    retry:
+        if (use_cd) {
+            NSFileRead((CdFile *)&D_8006C4D8[61], D_8006EA78, 1, 0);
+            sectors = (((CdFile *)&D_8006C4D8[61])->size + 0x7FF) / 0x800;
+        }
+        last = (u32 *)(D_8006EA78 + (sectors << 11)) - 1;
+        checksum = *last;
+        *last = 0;
+        if (NSChecksum((u32 *)D_8006EA78, sectors << 11) != checksum) {
+            printf("fwc %d\n", D_800608F4++);
+            goto retry;
+        }
+        heap = D_80072230;
+        if (heap < (u8 *)D_800608E0) {
+            heap = (u8 *)D_800608E0;
+        }
+        EnterCriticalSection();
+        FlushCache();
+        InitHeap(heap, (u8 *)0x80000000 + _ramsize - _stacksize - heap);
+        ExitCriticalSection();
+        subsys[21].init = D_8006F64C;
+        subsys[21].kill = D_8006F780;
+        func_800716A0();
+    } else {
+        heap = D_8006EA80;
+        subsys[21].init = NULL;
+        subsys[21].kill = NULL;
+        if (heap < (u8 *)D_800608E0) {
+            heap = (u8 *)D_800608E0;
+        }
+        EnterCriticalSection();
+        InitHeap(heap, (u8 *)0x80000000 + _ramsize - _stacksize - heap);
+        ExitCriticalSection();
+    }
+    return -0xFF;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80016234);
+#endif
+
+#ifndef NON_MATCHING
+/* The "fwc %d\n" literal of func_80016234, which is still assembly. */
+char D_800608F8[] = "fwc %d\n";
+#endif
+
+/* .sdata continues after the literal of func_80016234 */
+s32 D_80060900 = 0;
+s32 D_80060904 = 0;
+s32 D_80060908 = 0;
+/* Not used by the game code (the overlays may use them). */
+s32 D_8006090C = 1;
+s32 D_80060910 = 0;
+s32 D_80060914 = 0;
+s32 D_80060918 = 0x808080;
+s32 D_8006091C = 0x8000;
 
 void *malloc(s32 size);
 void exit(s32 status);

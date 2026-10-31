@@ -91,4 +91,32 @@ typedef struct {
 
 extern NsState ns;
 
+/* A file on the disc, as stored in the file table. */
+typedef struct {
+    u32 sector : 23;
+    u32 unk0 : 9;
+    u32 size : 17;
+    u32 unk4 : 15;
+} CdFile;
+
+/* An entry of the file table: the NSD of a level, then the sector of its NSF.
+ * Entry 61 is the overlay S0/WARPSCUS.BIN. */
+typedef struct {
+    u32 sector;
+    u32 unk4;
+    u32 nsf_sector; /* 0x8 */
+} Unk8006C4D8;
+extern Unk8006C4D8 D_8006C4D8[];
+
+/* Per entry type: callbacks run when levels and pages are loaded and freed. */
+typedef struct {
+    u8 unk0[0x8];
+    void (*init)(void);
+    void (*init2)(void);
+    void (*on_load)(Entry *entry);
+    void (*on_free)(Entry *entry);
+    void (*kill)(void);
+} NsSubsystem;
+extern NsSubsystem subsys[22];
+
 #endif /* NS_H */

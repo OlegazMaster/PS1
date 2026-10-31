@@ -643,51 +643,48 @@ s32 func_800131B0(PageStruct *ps) {
     return -0x10;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_800131CC);
+/* Marks a run of pages as read (state 3) or to be decompressed (13) once
+ * their sectors are in; this version never uses compression. Returns the
+ * first page of the run. */
+PageStruct *NSPageTranslate(PageStruct *ps) {
+    PageStruct *head;
+    s32 state = ps->state;
+    s32 count = ps->unk1C;
+    s32 savings = 0;
+    s32 compressed;
+    s32 i;
 
-PageStruct *func_800131CC(PageStruct *ps);
-s32 func_800519C4(s32);
-s32 func_80013B8C(s32 type, s32 arg1);
-void func_80051934(s32);
-void func_800518D4(void *, s32);
-void func_800126D0(s32);
+    if (state == 3 || state == 13) {
+        ps->state = 4;
+        NSPageTranslateOffsets(ps->page);
+        return NULL;
+    }
+    compressed = 0;
+    for (i = 0; i < count; i++) {
+        if (state == 2) {
+            ps->unkA = compressed;
+            if (compressed) {
+                savings += 0x20 - (ns.nsd->page_offsets[ps->pgid >> 1] & 0x3F);
+                ps->unk8 = savings;
+            }
+            if (ps->state == 2) {
+                ps->state = 3;
+            } else {
+                ps->state = 13;
+                if (compressed) {
+                    ps->unk10 = (u16 *)((u8 *)ps->page + (((ns.nsd->page_offsets[ps->pgid >> 1] & 0x3F) + ps->unk8) << 11));
+                } else {
+                    ps->unk10 = ps[1].page;
+                }
+                *ps->unk10 = 0x8765;
+            }
+        }
+        head = ps;
+        ps--;
+    }
+    return head;
+}
 
-PageStruct *func_800131CC(PageStruct *ps);
-s32 func_800519C4(s32);
-s32 func_80013B8C(s32 type, s32 arg1);
-void func_80051934(s32);
-void func_800518D4(void *, s32);
-void func_800126D0(s32);
-
-PageStruct *func_800131CC(PageStruct *ps);
-s32 func_800519C4(s32);
-s32 func_80013B8C(s32 type, s32 arg1);
-void func_80051934(s32);
-void func_800518D4(void *, s32);
-void func_800126D0(s32);
-
-PageStruct *func_800131CC(PageStruct *ps);
-s32 func_800519C4(s32);
-s32 func_80013B8C(s32 type, s32 arg1);
-void func_80051934(s32);
-void func_800518D4(void *, s32);
-void func_800126D0(s32);
-
-PageStruct *func_800131CC(PageStruct *ps);
-s32 func_800519C4(s32);
-s32 func_80013B8C(s32 type, s32 arg1);
-void func_80051934(s32);
-void func_800518D4(void *, s32);
-void func_800126D0(s32);
-
-PageStruct *func_800131CC(PageStruct *ps);
-s32 func_800519C4(s32);
-s32 func_80013B8C(s32 type, s32 arg1);
-void func_80051934(s32);
-void func_800518D4(void *, s32);
-void func_800126D0(s32);
-
-PageStruct *func_800131CC(PageStruct *ps);
 s32 func_800519C4(s32);
 s32 func_80013B8C(s32 type, s32 arg1);
 void func_80051934(s32);
@@ -713,7 +710,7 @@ loop:
         if (*ps->unk10 == 0x8765) {
             return;
         }
-        if ((s32)func_800131CC(ps) == -0x10) {
+        if ((s32)NSPageTranslate(ps) == -0x10) {
             NSPrintRetrySlave(ps);
             goto loop;
         }
@@ -732,7 +729,7 @@ loop:
         if (CdSync(1, NULL) != 2 && pgid == -1) {
             return;
         }
-        head = func_800131CC(ps);
+        head = NSPageTranslate(ps);
         ns.cur_ps = ps;
     read:
         if (NSCdRead(head, ps->unk1C) >= -0xFE) {
@@ -746,7 +743,7 @@ loop:
         }
         status = func_80013000(0);
         if (status == 1) {
-            if ((s32)func_800131CC(ps) == -0x10) {
+            if ((s32)NSPageTranslate(ps) == -0x10) {
                 NSPrintRetryLoading(ps);
                 ns.cur_ps = NULL;
                 goto loop;

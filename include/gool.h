@@ -81,7 +81,7 @@ typedef struct GoolObject {
     s32 unk110;
     u8 unk114[0x4];
     s32 unk118;
-    u8 unk11C[0x4];
+    u32 event; /* 0x11C: the last event received */
     s32 unk120;
     u8 unk124[0x4];
     s32 hotspot_size; /* 0x128 */

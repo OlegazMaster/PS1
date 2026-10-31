@@ -23,6 +23,8 @@ typedef struct {
 } GoolBroadcast;
 s32 func_8001DDF4(GoolObject *obj, GoolBroadcast *msg);
 s32 func_8001D588(GoolObject *obj, s32 argc, u32 flags);
+s32 GoolObjectChangeState(GoolObject *obj, u32 state, s32 argc, u32 *argv);
+extern GoolObject *crash;
 s32 func_80038E28(GoolObject *obj, u32 flags, void *a); /* GoolObjectInterpret */
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001D16C);
@@ -135,7 +137,95 @@ s32 func_8001D5E8(GoolObject *obj, u32 *flags) {
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001D674);
 
+typedef struct {
+    u8 unk0[0x10];
+    s32 event_count; /* 0x10 */
+} GoolEventHeader;
+
+#ifdef NON_MATCHING
+/* Sends event with argc arguments from argv to recipient: runs its event
+ * handler, or changes its state by its event table (c1: GoolSendEvent).
+ * sender->unkD4 tells whether the event was accepted. Equivalent; the
+ * original swaps the registers of sender and event. */
+s32 GoolSendEvent(GoolObject *sender, GoolObject *recipient, u32 event, s32 argc, u32 *argv) {
+    s32 res = -0x1A;
+    u32 state;
+    u32 flags;
+    u32 blocked;
+    u32 sf;
+    s32 i;
+    s32 out[20];
+
+    if (recipient == NULL || recipient->type == 0 || (s32)event >> 8 >= ((GoolEventHeader *)recipient->global->items[0])->event_count) {
+        goto fail;
+    }
+    if (sender != NULL) {
+        sender->unkD4 = 1;
+    }
+    recipient->interrupter = sender;
+    if (recipient->epc != NULL) {
+        *recipient->sp++ = event;
+        *recipient->sp++ = (u32)argv;
+        func_8001D588(recipient, 2, 0xFFFF);
+        recipient->pc = recipient->epc;
+        res = func_80038E28(recipient, 8, out);
+        if (res != -0x1A) {
+            if (res > -0xFF) {
+                return res;
+            }
+            state = out[0];
+        }
+        if (sender != NULL) {
+            sender->unkD4 = out[1];
+        }
+    }
+    if (res > -0xFF) {
+        state = ((u16 *)recipient->global->items[3])[(s32)event >> 8];
+        if (sender != NULL) {
+            sender->unkD4 = state != 0xFF;
+        }
+        if (state & 0x8000) {
+            recipient->event = event;
+            for (i = 0; i < argc; i++) {
+                *recipient->sp++ = argv[i];
+            }
+            func_8001D588(recipient, argc, 0xFFFF);
+            recipient->pc = (u32 *)recipient->global->items[1] + (state & 0x3FFF);
+            return func_80038E28(recipient, 3, NULL);
+        }
+    }
+    if (state != 0xFF) {
+        flags = recipient->status_c;
+        if (event == 0x1800 || event == 0x2600 || event == 0x1900 || event == 0x2500) {
+            flags &= ~2;
+        }
+        sf = ((GoolState *)recipient->global->items[4])[state].flags;
+        if (recipient == crash && (u32)(recipient->invincibility_state - 2) < 3) {
+            blocked = (flags | 0x402) & sf;
+        } else {
+            blocked = flags & sf;
+        }
+        if (!blocked) {
+            recipient->event = event;
+            if (event == 0x1800 || event == 0x1900) {
+                recipient->status_a |= 0x10000;
+            }
+            GoolObjectChangeState(recipient, state, argc, argv);
+            return -0xFF;
+        }
+    }
+    if (state == 0xFF) {
+        return -0xFF;
+    }
+fail:
+    if (sender != NULL) {
+        sender->unkD4 = 0;
+    }
+    return -0xFF;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/interp", GoolSendEvent);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001DDF4);
 

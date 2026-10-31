@@ -187,16 +187,14 @@ typedef struct {
     s32 unk1C;
 } Unk80065C70;
 extern Unk80065C70 D_80065C70;
-void func_8004F724(s32 vol);
-void func_8004F704(s32 a, s32 b);
 void func_80018DA8(Transform *t);
 
 void func_800188EC(void) {
     Transform *t;
 
     D_80065C70.unk14 = D_80065C70.unk18 = D_80065C70.unk1C = 0;
-    func_8004F724(D_80065C90.unkC4 = 0x120);
-    func_8004F704(0, 0);
+    SetGeomScreen(D_80065C90.unkC4 = 0x120);
+    SetGeomOffset(0, 0);
     t = &D_80065C90.unk60;
     func_80018DA8(t);
     t->trans[0] = 0;

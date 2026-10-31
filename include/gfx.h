@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "libgpu.h"
+#include "libgte.h"
 
 /* Rotation, translation and scale of an object or camera. */
 typedef struct {

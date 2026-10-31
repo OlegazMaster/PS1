@@ -568,17 +568,16 @@ void func_800176A0(u32 fade) {
 }
 
 s32 func_80025C0C(void);
-void func_8004F724(s32 vol);
 
 #ifdef NON_MATCHING
-/* Shrinks the picture behind black borders (t steps) and lowers the volume
- * with it. Equivalent; the original swaps the registers of t2 and bar, and
+/* Shrinks the picture behind black borders (t steps) and moves the
+ * projection plane (GTE H) with it. Equivalent; the original swaps the registers of t2 and bar, and
  * schedules a few instructions differently because of it. */
 void func_80017834(u32 t, u32 t2) {
     POLY_F4 *p;
     u32 bar, x, y;
     s32 left, right, top, bottom, mid, w;
-    s32 vol;
+    s32 h;
 
     bar = t * 25;
     x = (bar * 4) >> 3;
@@ -646,11 +645,11 @@ void func_80017834(u32 t, u32 t2) {
         SetPolyF4(p);
         AddPrim(&context.cur->ot[0x7FF], p);
     }
-    vol = func_80025C0C();
-    vol -= (vol / 24) * t;
-    if (D_80065C90.unkC4 != vol) {
-        D_80065C90.unkC4 = vol;
-        func_8004F724(vol);
+    h = func_80025C0C();
+    h -= (h / 24) * t;
+    if (D_80065C90.unkC4 != h) {
+        D_80065C90.unkC4 = h;
+        SetGeomScreen(h);
     }
 }
 #else

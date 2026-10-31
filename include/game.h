@@ -77,6 +77,20 @@ typedef struct {
     s32 *unk10;
 } UnkCC;
 
+/* Render settings passed to the drawing functions (D_800676B0). */
+typedef struct {
+    u8 unk0[0xC];
+    MATRIX *unkC; /* the current model matrix */
+    u8 unk10[0x18];
+    void *unk28;
+    u8 unk2C[0x5C];
+    s32 unk88;
+    u8 unk8C[0xC];
+    s32 unk98;
+    u8 unk9C[0x2DC];
+    u32 unk378;
+} RenderState;
+
 typedef struct {
     u8 unk0[0x20];
     u16 unk20[9];
@@ -85,11 +99,13 @@ typedef struct {
     u8 unk84[0x24];
     s32 unkA8;
     u8 unkAC[0x18];
-    s32 unkC4;
+    s32 unkC4; /* GTE projection distance (H) */
     u8 unkC8[0x4];
     UnkCC *unkCC;
     u8 unkD0[0x74];
     u32 unk144;
+    u8 unk148[0x18D8];
+    RenderState render; /* 0x1A20 (D_800676B0) */
 } Unk80065C90;
 
 extern Unk80065C90 D_80065C90;

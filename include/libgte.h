@@ -20,4 +20,9 @@ typedef struct {
     s16 pad;
 } SVECTOR;
 
+void MulMatrix(MATRIX *m0, MATRIX *m1); /* m0 = m0 * m1 */
+void ReadGeomOffset(s32 *ofx, s32 *ofy);
+void SetGeomOffset(s32 ofx, s32 ofy);
+void SetGeomScreen(s32 h);
+
 #endif /* LIBGTE_H */

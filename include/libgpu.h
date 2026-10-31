@@ -100,6 +100,7 @@ s32 DrawSync(s32 mode);
 void DrawPrim(void *prim);
 void TermPrim(void *prim);
 void AddPrim(void *ot, void *prim);
+void SetDrawEnv(DR_ENV *dr_env, DRAWENV *env);
 s32 LoadImage(RECT *rect, u32 *data);
 u16 GetTPage(s32 tp, s32 abr, s32 x, s32 y);
 void SetPolyFT4(POLY_FT4 *p);

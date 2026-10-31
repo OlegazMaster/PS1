@@ -3,6 +3,7 @@
 #include "gfx.h"
 #include "game.h"
 #include "ns.h"
+#include "libgpu.h"
 
 /* Object models: animation frames, collision boxes, drawing. */
 
@@ -234,10 +235,129 @@ INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001C3F8);
 
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001C824);
 
-INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001CA60);
+void func_8001CA60(s16 *a) {
+    a[0x12] = 0;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001CA68);
 
-INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001CD28);
+void func_8001832C(s32 type, void *a, void *b, RECT *rect);
+extern RECT D_8006AEC8[];
+/* Uploads the texture of the animation of obj to slot idx of D_8006AEC8. */
 
-INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001CD80);
+void func_8001CD28(GoolObject *obj, s32 unused, s32 idx) {
+    func_8001832C(1, (void *)obj->unkE8, NULL, &D_8006AEC8[idx]);
+    D_80060920 |= 1 << idx;
+}
+
+s32 func_8003C2F0(s32 angle); /* sin */
+s32 func_8003C364(s32 angle); /* cos */
+typedef struct {
+    s32 unk0;
+    u8 unk4[0x4];
+    s32 unk8;
+    s32 unkC;
+    u8 unk10[0xC];
+    u32 flags; /* 0x1C */
+    u8 unk20[0x8];
+    s32 unk28;
+    s32 unk2C;
+} ObjDrawState;
+void func_8003F3AC(ObjDrawState *state, DrawContext *ctx, RenderState *rs);
+extern s32 D_8005C244[];
+extern s32 D_8005C264[];
+extern s32 D_8005C288[];
+extern s32 D_8005C28C[];
+extern s32 D_8005C310[];
+extern s32 D_8005C314[];
+/* Draws the model of obj (posed like model) into the texture slot idx of
+ * D_8006AEC8, e.g. for the counters of the interface. */
+
+void func_8001CD80(GoolObject *obj, GoolObject *model, ObjDrawState *state, s32 idx) {
+    BLK_FILL *fill = GpuAllocPrim(BLK_FILL);
+    DR_ENV *env_prim = GpuAllocPrim(DR_ENV);
+    DR_ENV *env_tex = GpuAllocPrim(DR_ENV);
+    RECT *rect = &D_8006AEC8[idx];
+    DRAWENV env;
+    MATRIX m;
+    MATRIX rot;
+    s32 s;
+    s32 c;
+    s32 s2;
+    s32 c2;
+    s32 ofx;
+    s32 ofy;
+    u32 status;
+
+    if (state == NULL || obj == NULL || obj->unkE8 == 0 || model == NULL || model->unkE8 == 0 || *(u8 *)model->unkE8 != 1 || (obj->status_b & 0x100)) {
+        return;
+    }
+    if (!((D_80060920 >> idx) & 1)) {
+        func_8001CD28(obj, (s32)model, idx);
+    }
+    SetDrawEnv(env_tex, &context.cur->draw);
+    AddPrim(context.cur->ot, env_tex);
+    s = func_8003C2F0(0x400);
+    c = func_8003C364(0x400);
+    m.m[0][0] = 0x1000;
+    m.m[0][1] = 0;
+    m.m[0][2] = 0;
+    m.m[1][0] = 0;
+    m.m[1][1] = c;
+    m.m[1][2] = -s;
+    m.m[2][0] = 0;
+    m.m[2][1] = s;
+    m.m[2][2] = c;
+    s2 = func_8003C2F0(-obj->xform.rot[1]);
+    c2 = func_8003C364(-obj->xform.rot[1]);
+    rot.m[0][0] = c2;
+    rot.m[0][1] = 0;
+    rot.m[0][2] = s2;
+    rot.m[1][0] = 0;
+    rot.m[1][1] = 0x1000;
+    rot.m[1][2] = 0;
+    rot.m[2][0] = -s2;
+    rot.m[2][1] = 0;
+    rot.m[2][2] = c2;
+    MulMatrix(&m, &rot);
+    m.t[0] = obj->xform.trans[0] >> 8;
+    if (model->state_flags & 0x10) {
+        m.t[1] = (obj->xform.trans[1] - 0x258000) >> 8;
+    } else {
+        m.t[1] = (obj->xform.trans[1] - 0x1A9000) >> 8;
+    }
+    m.t[2] = obj->xform.trans[2] >> 8;
+    ReadGeomOffset(&ofx, &ofy);
+    SetGeomOffset(rect->w / 2, rect->h / 2);
+    SetGeomScreen(0x1EB);
+    D_80065C90.render.unkC = &m;
+    status = model->status_a;
+    state->unk0 = 0;
+    state->unk28 = D_8005C244[0];
+    state->unk2C = D_8005C264[0];
+    if (state->flags & 0x20000000) {
+        state->unk8 = D_8005C314[0];
+        state->unkC = D_8005C28C[0];
+    } else {
+        state->unk8 = D_8005C310[0];
+        state->unkC = D_8005C288[0];
+    }
+    state->flags |= 0x10000000;
+    func_8003F3AC(state, context.cur, &D_80065C90.render);
+    SetGeomScreen(D_80065C90.unkC4);
+    SetGeomOffset(ofx, ofy);
+    model->status_a = status;
+    setBlockFill(fill);
+    fill->r0 = 0;
+    fill->g0 = 0;
+    fill->b0 = 0;
+    fill->w = rect->w;
+    fill->h = rect->h;
+    fill->x0 = rect->x;
+    fill->y0 = rect->y;
+    AddPrim(context.cur->ot, fill);
+    SetDefDrawEnv(&env, rect->x, rect->y, rect->w, rect->h);
+    env.dfe = 0;
+    SetDrawEnv(env_prim, &env);
+    AddPrim(context.cur->ot, env_prim);
+}

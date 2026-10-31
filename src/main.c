@@ -11,16 +11,6 @@
 
 
 
-typedef struct {
-    u8 unk0[0x28];
-    void *unk28;
-    u8 unk2C[0x5C];
-    s32 unk88;
-    u8 unk8C[0xC];
-    s32 unk98;
-    u8 unk9C[0x2DC];
-    u32 unk378;
-} RenderState;
 
 
 typedef struct {

@@ -235,11 +235,77 @@ INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001C3F8);
 
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001C824);
 
-void func_8001CA60(s16 *a) {
-    a[0x12] = 0;
+void func_8001CA60(GoolObject *obj, s32 unused) {
+    obj->colors.c = 0;
 }
 
+#ifdef NON_MATCHING
+/* Updates the invincibility of obj (its light) and picks the light source
+ * to show. Equivalent; in case 2 the original keeps the rounded counter in
+ * a0 and schedules the color stores before the shift. */
+s32 func_8001CA68(GoolObject *obj) {
+    ObjColors *c = &obj->colors;
+    u32 zero;
+    s32 v;
+
+    switch (obj->invincibility_state) {
+    case 6:
+        if (game.frames - obj->invincibility_stamp >= 0x10) {
+            obj->invincibility_state = 0;
+            obj->status_b |= 0x80;
+        }
+        break;
+    case 7:
+        if (game.frames - obj->invincibility_stamp >= 0x10 || (obj->status_a & 1)) {
+            obj->invincibility_state = 0;
+            obj->status_b |= 0x80;
+        }
+        break;
+    case 4:
+        if (game.frames - obj->invincibility_stamp >= 0x3D) {
+            obj->invincibility_state = 0;
+        }
+        break;
+    case 3:
+        if (obj->invincibility_state == 3 && game.frames - obj->invincibility_stamp >= 0x1C3) {
+            obj->invincibility_state = 0;
+        } else if (obj->invincibility_state == 4 && obj->collider != NULL && ((s32 *)obj->collider->global->items[0])[1] == 0x300) {
+            zero = 0;
+            GoolSendEvent(obj, obj->collider, 0xA00, 1, &zero);
+        }
+    case 5:
+        if (obj->invincibility_state == 5 && (game.frames - obj->invincibility_stamp >= 0x259 || (obj->state_flags & 0x2000000))) {
+            obj->invincibility_state = 0;
+        }
+    case 2:
+        c->c = (game.unk19C % 4) << 10;
+        c->color_c.r = 0x3C;
+        c->color_c.g = 0x3C;
+        c->color_c.b = 0x3C;
+        break;
+    case 1:
+        break;
+    default:
+        func_8001CA60(obj, 1);
+        break;
+    }
+    if (obj->unkE8 != 0 && *(u8 *)obj->unkE8 != 4) {
+        c->cur = c->b;
+        c->cur_color = c->color_b;
+        if ((v = c->a) != 0) {
+            c->cur = v;
+            c->cur_color = c->color_a;
+        }
+        if ((v = c->c) != 0) {
+            c->cur = v;
+            c->cur_color = c->color_c;
+        }
+    }
+    return -0xFF;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001CA68);
+#endif
 
 void func_8001832C(s32 type, void *a, void *b, RECT *rect);
 extern RECT D_8006AEC8[];

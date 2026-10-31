@@ -16,7 +16,9 @@ typedef struct {
     u8 unk4[0x4];
     GoolHandle handles[8]; /* 0x8: heads of the object lists */
     GoolHandle free_objects; /* 0x48 */
-    u8 unk50[0x10];
+    u8 unk50[0x4];
+    u32 frames; /* 0x54: frame counter */
+    u8 unk58[0x8];
     s32 unk60[4];
     u32 unk70;
     s32 unk74;

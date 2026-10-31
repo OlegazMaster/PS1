@@ -11,6 +11,23 @@ typedef struct ObjectLink {
     struct GoolObject *obj;
 } ObjectLink;
 
+typedef struct {
+    s16 r, g, b;
+} Rgb16;
+
+/* The light of an object: three sources (a, b, c), each an intensity and a
+ * color; the strongest one set is copied to cur. */
+typedef struct {
+    s16 a; /* 0x0 */
+    s16 b; /* 0x2 */
+    s16 c; /* 0x4 */
+    s16 cur; /* 0x6 */
+    Rgb16 color_a; /* 0x8 */
+    Rgb16 color_b; /* 0xE */
+    Rgb16 color_c; /* 0x14 */
+    Rgb16 cur_color; /* 0x1A */
+} ObjColors;
+
 /* An object, or a handle (type 2) that only heads a list of objects
  * (names follow c1's gool_object). */
 typedef struct GoolObject {
@@ -22,7 +39,7 @@ typedef struct GoolObject {
     u8 unk14[0x4];
     struct Entry *zone; /* 0x18 */
     u8 unk1C[0x4];
-    u8 unk20[0x20];
+    ObjColors colors; /* 0x20 */
     struct GoolObject *self; /* 0x40 */
     struct GoolObject *parent; /* 0x44 */
     struct GoolObject *sibling; /* 0x48 */
@@ -55,7 +72,7 @@ typedef struct GoolObject {
     u32 state_flags; /* 0x100 */
     s32 speed; /* 0x104 */
     s32 invincibility_state; /* 0x108 */
-    u8 unk10C[0x4];
+    u32 invincibility_stamp; /* 0x10C */
     s32 unk110;
     u8 unk114[0x4];
     s32 unk118;

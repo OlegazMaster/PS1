@@ -362,7 +362,7 @@ GoolObject *GoolObjectSpawn(Entry *zone, s32 idx) {
     GoolObjectAddChild(obj, (GoolObject *)&game.handles[list]);
     obj->subtype = 3;
     obj->pid_flags = EntityProp(entity, 0x9F) << 8;
-    memset(obj->unk20, 0, 0x20);
+    memset(&obj->colors, 0, sizeof(ObjColors));
     obj->unkF0 = entity;
     obj->unkF8 = func_80032EDC(entity, 0x4B, 0, 2) << 8;
     argv = (u32 *)func_80032710(entity, 0xA4, 0, 0, &argc, 2, 0, 0, 0);
@@ -444,7 +444,7 @@ GoolObject *GoolObjectCreate(GoolObject *parent, s32 exec, s32 subtype, s32 argc
     GoolObjectAddChild(obj, parent);
     obj->subtype = 3;
     res = GoolObjectInit(obj, exec, subtype, argc, argv, 0);
-    memset(obj->unk20, 0, 0x20);
+    memset(&obj->colors, 0, sizeof(ObjColors));
     if (res > -0xFF) {
         return (GoolObject *)res;
     }

@@ -153,7 +153,86 @@ GoolObject *GoolObjectHasPidFlags(GoolObject *obj, s32 pid_flags) {
     return NULL;
 }
 
+typedef struct {
+    u32 categories;
+    GoolObject *obj;
+    GoolObject *nearest_obj;
+    s32 dist;
+    u32 event;
+} GoolNearestQuery;
+u32 func_80031A54(s32 *a, s32 *b); /* ApxDist */
+s32 func_8001E42C(GoolObject *obj, u32 state, s32 argc, u32 *argv); /* GoolObjectInterrupt */
+#ifdef NON_MATCHING
+/* Keeps the nearest object that matches the categories of the query and
+ * would accept its event (c1: GoolFindNearestObject). Equivalent; the
+ * original loads status_c and the state flags into other registers. */
+
+s32 func_80019ACC(GoolObject *obj, GoolNearestQuery *query) {
+    s32 dist;
+    u32 state_idx;
+    u32 flag;
+    u32 sflags;
+    u32 status;
+    u32 st;
+    u32 arg;
+
+    if (obj == query->obj) {
+        return 0;
+    }
+    if (!((1 << (((s32 *)obj->global->items[0])[1] >> 8)) & query->categories)) {
+        return 0;
+    }
+    dist = func_80031A54(obj->trans, query->obj->trans);
+    if (dist >= query->dist) {
+        return 0;
+    }
+    if ((s32)query->event != 0xFF) {
+        state_idx = ((u16 *)obj->global->items[3])[(s32)query->event >> 8];
+        if (state_idx == 0xFF) {
+            if ((query->event != 0x300 || (st = obj->status_c, (u32)(obj->invincibility_state - 2) < 3) || (st & 2))
+                && (query->event != 0xA00 || (obj->state_flags & 0x200))) {
+                if (query->event == 0x1D00 && !(obj->state_flags & 0x800000)) {
+                    state_idx = 0xFE;
+                } else {
+                    return 0;
+                }
+            } else {
+                state_idx = 0xFE;
+            }
+        } else {
+            if (!(state_idx & 0x8000)) {
+                status = obj->status_c;
+                sflags = ((u32 *)obj->global->items[4])[state_idx * 4];
+                if ((u32)(obj->invincibility_state - 2) < 3) {
+                    flag = (status | 0x402) & sflags;
+                } else {
+                    flag = status & sflags;
+                }
+                if (flag) {
+                    return 0;
+                }
+            }
+            if ((state_idx & 0x8000) && query->event == 0xF00) {
+                arg = 0x100;
+                obj->interrupter = query->obj;
+                func_8001E42C(obj, state_idx, 1, &arg);
+                if (!query->obj->ack) {
+                    return 0;
+                }
+            }
+        }
+    } else {
+        state_idx = 0xFE;
+    }
+    if (state_idx != 0xFF) {
+        query->nearest_obj = obj;
+        query->dist = dist;
+    }
+    return 0;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019ACC);
+#endif
 
 GoolObject *GoolObjectTestStateFlags(GoolObject *obj, u32 flags) {
     if (obj->state_flags & flags) {

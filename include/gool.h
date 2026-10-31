@@ -14,22 +14,32 @@ typedef struct ObjectLink {
 typedef struct GoolObject {
     s32 type; /* 0: free, 2: handle */
     struct GoolObject *handle_children; /* 0x4: children of a handle */
-    u8 unk8[0x10];
+    u8 unk8[0x4];
+    struct Entry *global; /* 0xC: the GOOL executable of the object */
+    u8 unk10[0x8];
     struct Entry *zone; /* 0x18 */
     u8 unk1C[0x28];
     struct GoolObject *parent; /* 0x44 */
     struct GoolObject *sibling; /* 0x48 */
     struct GoolObject *children; /* 0x4C */
-    u8 unk50[0x5C];
+    u8 unk50[0xC];
+    struct GoolObject *interrupter; /* 0x5C */
+    s32 trans[3]; /* 0x60 */
+    u8 unk6C[0x40];
     u32 unkAC;
-    u8 unkB0[0x8];
+    u32 status_c; /* 0xB0 */
+    u8 unkB4[0x4];
     s32 pid_flags; /* 0xB8 */
     u32 *sp; /* 0xBC: top of the object's GOOL stack */
-    u8 unkC0[0x28];
+    u8 unkC0[0x18];
+    s32 ack; /* 0xD8 */
+    u8 unkDC[0xC];
     s32 unkE8;
     u32 unkEC;
     u8 unkF0[0x10];
     u32 state_flags; /* 0x100 */
+    u8 unk104[0x4];
+    s32 invincibility_state; /* 0x108 */
 } GoolObject;
 
 /* The head of an object list; shares type and children with GoolObject. */

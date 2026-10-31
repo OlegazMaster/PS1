@@ -53,10 +53,11 @@ typedef struct PageStruct {
 
 typedef struct {
     s32 inited;
-    u8 unk4[0x4];
+    s32 lid; /* 0x4 */
     NsdPte **pte_buckets; /* 0x8: 256 hash buckets of the NSD */
     NsdPte *ptes; /* 0xC */
-    u8 unk10[0x8];
+    u32 *unk10; /* 0x10 */
+    s32 *unk14; /* 0x14 */
     Nsd *nsd; /* 0x18 */
     u8 unk1C[0x4];
     s32 sector; /* 0x20: first sector of the NSF file */
@@ -95,14 +96,17 @@ extern PageStruct D_80060D70[16];
 
 typedef struct {
     u32 sector;
-    u8 unk4[0x8];
+    u32 unk4;
+    u32 nsf_sector; /* 0x8 */
 } Unk8006C4D8;
 
 extern Unk8006C4D8 D_8006C4D8[];
 
 /* Per entry type: callbacks run when levels and pages are loaded and freed. */
 typedef struct {
-    u8 unk0[0x10];
+    u8 unk0[0x8];
+    void (*init)(void);
+    void (*init2)(void);
     void (*on_load)(Entry *entry);
     void (*on_free)(Entry *entry);
     void (*kill)(void);
@@ -246,11 +250,11 @@ s32 NSAlphaNumIndex(char c) {
     return -14;
 }
 
-char *func_80012288(void) {
+char *func_80012288(s32 type, s32 lid) {
     return "";
 }
 
-char *func_80012294(void) {
+char *func_80012294(s32 type, s32 lid) {
     return "";
 }
 
@@ -329,7 +333,7 @@ void *realloc(void *ptr, s32 size);
 s32 CdControlB(s32 com, u8 *param, u8 *result);
 
 /* Reads a whole file from the disc into buf (allocated when NULL). */
-void *NSFileRead(CdFile *file, void *buf, s32 mode) {
+void *NSFileRead(CdFile *file, void *buf, s32 mode, s32 arg3) {
     u8 result[8];
     u8 loc[8];
     s32 alloc_size;
@@ -1536,7 +1540,173 @@ NsdPte *NSProbeSafe(u32 eid) {
     return pte;
 }
 
+extern s32 next_lid;
+extern void *D_80060A90;
+extern s32 D_80060ABC;
+extern char D_800100A8[];
+void func_80016234(s32 lid);
+char *strcpy(char *dst, const char *src);
+NsdPte *NSProbeSafe(u32 eid);
+void NSInitAudioPages(NsState *nss, s32 reserved, s32 size, s32 inst_size, s32 n);
+
+#ifdef NON_MATCHING
+/* Loads the NSD of a level, then sets up the page tables and the physical,
+ * virtual, texture and audio pages. Equivalent; the original keeps more copies
+ * of the NSD pointer, initializes the page counter before storing the page
+ * count, and builds the texture page info in another order. */
+s32 NSInit(NsState *nss, s32 lid) {
+    char filename[0x100];
+    PageStruct *ps;
+    NsdPte *pte;
+    Nsd *nsd;
+    s32 i;
+    s32 level = lid; /* a second copy of lid, as in the original */
+    s32 count;
+    s32 blx, bly, pagexy, info, clut;
+    s32 size, inst_size, n;
+
+    if (nss->inited) {
+        return -0xFF;
+    }
+    next_lid = -1;
+    D_80060A90 = NULL;
+    D_80060ABC = lid;
+    nss->inited = 1;
+    nss->cur_ps = NULL;
+    nss->page_count = 0;
+    nss->cur_audio_ps = NULL;
+    nss->lid = lid;
+    nss->unkA38 = 0;
+    nss->unkA40 = 1;
+    func_80016234(lid);
+    strcpy(filename, func_80012288(0, lid));
+    if (use_cd) {
+        nss->nsd = NSFileRead((CdFile *)&D_8006C4D8[lid], NULL, 1, 0);
+    } else {
+        nss->nsd = NSFileRead((CdFile *)filename, NULL, 0, 0);
+    }
+    nsd = nss->nsd;
+    nss->ptes = nsd->ptes;
+    nss->unk10 = (u32 *)nsd->unk408;
+    nss->pte_buckets = (NsdPte **)nsd;
+    nss->unk14 = (s32 *)&nsd->ptes[nsd->pte_count];
+    nss->nsd = realloc(nsd, sizeof(Nsd) - sizeof(NsdPte) + nsd->pte_count * sizeof(NsdPte) + 0x2F4 + (*nss->unk14 - 1) * 0x18);
+    for (i = 255; i >= 0; i--) {
+        nss->pte_buckets[i] = &nss->ptes[(s32)nss->pte_buckets[i]];
+    }
+    strcpy(filename, func_80012288(1, level));
+    if (use_cd) {
+        ns.sector = D_8006C4D8[level].nsf_sector & 0xFFFFFF;
+    }
+    nss->page_map = malloc(nss->nsd->unk400 * sizeof(PageStruct *));
+    for (i = 0; i < nss->nsd->unk400; i++) {
+        nss->page_map[i] = (PageStruct *)-0x12;
+    }
+    for (i = 0; i < 22; i++) {
+        if (subsys[i].init != NULL) {
+            subsys[i].init();
+        }
+    }
+    nss->physical_page_count = 21;
+    for (i = 21; i >= 0; i--) {
+        if ((nss->physical_pages[0].page = malloc(i << 16)) != NULL) {
+            break;
+        }
+    }
+    nss->physical_page_count = i;
+    for (i = count = 0; i < nss->physical_page_count; i++) {
+        count++;
+        nss->physical_pages[i].type = 1;
+        nss->physical_pages[i].page = (u8 *)nss->physical_pages[0].page + (i << 16);
+        nss->physical_pages[i].unkC = i;
+        nss->physical_pages[i].unkF = 0;
+        nss->physical_pages[i].state = 1;
+    }
+    nss->virtual_page_count = 37;
+    for (i = 0; i < nss->virtual_page_count; i++) {
+        nss->virtual_pages[i].state = 1;
+        nss->virtual_pages[i].type = 0;
+        nss->virtual_pages[i].page = NULL;
+        nss->virtual_pages[i].unkF = 0;
+    }
+    printf(D_800100A8, count, NSAlphaNumChar(level));
+    /* Texture pages: VRAM as 4x4 blocks of 256x128. The upper half holds the
+     * frame buffers; the lower half keeps textures still valid for this level. */
+    for (i = 0; i < 16; i++) {
+        ps = &D_80060D70[i];
+        ps->type = 2;
+        blx = i % 4;
+        bly = i / 4;
+        pagexy = blx << 2;
+        if (i >= 8) {
+            pagexy |= 0x10;
+        }
+        clut = (blx << 8) | (bly << 17);
+        if (bly & 1) {
+            info = pagexy | (clut | 0x80);
+        } else {
+            info = pagexy | clut;
+        }
+        ps->unk1C = info | 0x80000002;
+        if ((u32)i < 8) {
+            ps->state = 30;
+        } else if (ps->state == 20 || ps->state == 21) {
+            pte = NSProbeSafe(ps->eid);
+            if ((s32)pte < -0xFE && ps->eid != NSStringToEID("Cr30T")) {
+                ps->state = 20;
+                ps->pgid = pte->value;
+                ps->unk20 = (s32 *)pte;
+                ps->unkF = 0;
+                ps->ref_count = 0;
+                ns.page_map[ps->pgid >> 1] = ps;
+                pte->value = ps->unk1C;
+            } else {
+                ps->state = 21;
+                ps->unkF = 0;
+                ps->ref_count = 0;
+            }
+        } else {
+            ps->state = 1;
+        }
+    }
+    /* Audio pages: sound RAM per level, sized by the number of sound entries. */
+    inst_size = 0x10000;
+    n = -1;
+    size = NSCountEntries(nss, 14) * 0xFF90 - 0x1110;
+    switch (lid) {
+    case 41:
+    case 42:
+    case 58:
+    case 59:
+        inst_size = 0x10000;
+        n = 2;
+        break;
+    case 40:
+        inst_size = 0x10000;
+        n = 3;
+        break;
+    case 60:
+        n = 1;
+        break;
+    case 3:
+    case 4:
+    case 5:
+    case 7:
+        inst_size = 0x8000;
+        n = 2;
+        break;
+    }
+    NSInitAudioPages(nss, 0, size, inst_size, n);
+    for (i = 0; i < 22; i++) {
+        if (subsys[i].init2 != NULL) {
+            subsys[i].init2();
+        }
+    }
+    return -0xFF;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/ns", NSInit);
+#endif
 
 void free(void *ptr);
 s32 func_800519C4(s32);
@@ -1576,7 +1746,7 @@ s32 NSKill(NsState *nss) {
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
 /* Lays out the audio pages in sound RAM, downwards from 512 KB. */
-void NSInitAudioPages(s32 arg0, s32 reserved, s32 size, s32 inst_size, s32 n) {
+void NSInitAudioPages(NsState *nss, s32 reserved, s32 size, s32 inst_size, s32 n) {
     s32 addr = 0x80000 - reserved;
     s32 pages = (size + 0xFF8F) / 0xFF90;
     s32 saved;

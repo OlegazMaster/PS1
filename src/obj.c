@@ -6,6 +6,13 @@
 
 /* Object models: animation frames, collision boxes, drawing. */
 
+/* .sdata */
+s32 D_80060920 = 0;
+
+/* .sbss */
+s32 D_80060A98;
+s32 D_80060A9C;
+
 u32 func_80031A54(s32 *a, s32 *b); /* ApxDist */
 u32 func_8001B524(GoolObject *obj, u32 *frame_a, u32 *frame_b);
 
@@ -220,3 +227,17 @@ void func_8001B630(GoolObject *obj, s32 *out) {
 #else
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001B630);
 #endif
+
+INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001B7A0);
+
+INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001C3F8);
+
+INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001C824);
+
+INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001CA60);
+
+INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001CA68);
+
+INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001CD28);
+
+INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001CD80);

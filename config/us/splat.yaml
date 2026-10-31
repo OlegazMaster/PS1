@@ -66,7 +66,8 @@ segments:
       - [0x27D0, c, ns]           # NSF/NSD paging ("ns.c" in c1)
       - [0x5CAC, c, sys]          # system: CD, events, heap, overlays, video, memory card
       - [0x8808, c, gfx]          # textures, sprites (GTE)
-      - [0x9E24, asm, "9E24"]     # rest of the game C code (GOOL objects first), to be split into files
+      - [0x9E24, c, gool]         # GOOL objects (the end of the file is not known yet)
+      - [0xBFA0, asm, "BFA0"]     # rest of the game C code, to be split into files
       - [0x2A63C, asm, nd_asm]    # Naughty Dog's hand-written assembly (uses the GTE)
       - [0x35F50, asm, psyq]      # PSY-Q libraries (libcd, libgpu, libspu, libapi, ...)
       - [0x4C440, data, "4C440"]

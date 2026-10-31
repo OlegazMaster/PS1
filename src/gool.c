@@ -138,31 +138,21 @@ void func_80019A38(s32 (*func)(GoolObject *, GoolTraverseFunc, s32), GoolTravers
     }
 }
 
-#ifdef NON_MATCHING
-/* Equivalent; the original copies obj to the result register first. */
 GoolObject *GoolObjectHasPidFlags(GoolObject *obj, s32 pid_flags) {
-    if (obj->pid_flags != pid_flags) {
-        obj = NULL;
+    if (obj->pid_flags == pid_flags) {
+        return obj;
     }
-    return obj;
+    return NULL;
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectHasPidFlags);
-#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019ACC);
 
-#ifdef NON_MATCHING
-/* Equivalent; the original copies obj to the result register first. */
 GoolObject *GoolObjectTestStateFlags(GoolObject *obj, u32 flags) {
-    if (!(obj->state_flags & flags)) {
-        obj = NULL;
+    if (obj->state_flags & flags) {
+        return obj;
     }
-    return obj;
+    return NULL;
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectTestStateFlags);
-#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_80019CE4);
 

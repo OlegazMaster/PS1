@@ -62,6 +62,10 @@ typedef struct {
     s32 unk364;
     u8 unk368[0x4];
     s32 unk36C;
+    u8 unk370[0x8];
+    s32 unk378;
+    s32 unk37C;
+    s32 unk380;
 } GameState;
 
 extern GameState game;

@@ -518,4 +518,59 @@ void func_8001AD68(s32 a, s32 pos, s32 dir) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AE64);
+GoolObject *func_80019CE4(u32 zone, s32 idx); /* spawns entity idx of zone */
+
+/* Runs the queued entries (all, or those with id): 0x13C spawns the object
+ * of an entity (value: bits 0-7 neighbor zone, 8-23 pid, 24-31 entity) unless
+ * it was already spawned; 0x13B kills it and removes the entry. */
+void func_8001AE64(Entry *zone, s32 id) {
+    Unk80067A38 *e;
+    GoolObject *obj;
+    u32 value;
+    u32 pid;
+    s32 i;
+    s32 j;
+
+    game.unk378 = 0;
+    game.unk380 = 0;
+    game.unk37C = 0x19000;
+    for (i = D_80060A94 - 1; i >= 0; i--) {
+        e = &D_80067A38[i];
+        if (id != -1 && id != e->id) {
+            continue;
+        }
+        switch (e->id) {
+        case 0x13C:
+            value = e->value;
+            pid = value & 0xFFFF00;
+            if (!(spawns[pid >> 8] & 1) && (value & 0xFF) < 0x10) {
+                e->unk4 = (s32)func_80019CE4(NSOpen(&((ZoneHeader *)zone->items[0])->neighbors[value & 0xFF], 1, 0), *((u8 *)e + 3));
+                if (e->unk4 > -0xFF) {
+                    goto remove;
+                }
+            }
+            if (e->unk4 == 0) {
+                e->unk4 = (s32)func_8001ABF8(pid);
+            }
+            e->id = 0;
+            break;
+        case 0x13B:
+            pid = e->value & 0xFFFF00;
+            if (spawns[pid >> 8] & 1) {
+                if (e->unk4 == 0 && (e->unk4 = (s32)func_8001ABF8(pid)) == 0) {
+                    goto remove;
+                }
+                obj = (GoolObject *)e->unk4;
+                if (!(obj->status_b & 0x1000000) && !(obj->state_flags & 0x10000)) {
+                    GoolObjectKill(obj, 1);
+                }
+            }
+        remove:
+            for (j = i + 1; j < D_80060A94; j++) {
+                D_80067A38[j - 1] = D_80067A38[j];
+            }
+            D_80060A94--;
+            break;
+        }
+    }
+}

@@ -114,6 +114,11 @@ extern char eid_str_buf2[];
 
 int sprintf(char *buf, const char *fmt, ...);
 int printf(const char *fmt, ...);
+s32 CdSync(s32 mode, u8 *result);
+void CdIntToPos(s32 sector, u8 *loc);
+s32 CdControl(s32 com, u8 *param);
+s32 CdRead(s32 sectors, void *buf, s32 mode);
+s32 func_80013000(s32 arg0);
 void NSPageDelete(PageStruct *ps);
 NsdPte *NSProbe(u32 eid);
 PageStruct *NSEntryPageStruct(u32 ref);
@@ -250,15 +255,6 @@ char *func_80012294(void) {
 /* .sdata, in the order of the original. The strings stand in for the literals
  * of functions that are still assembly. */
 s32 use_cd = 1;
-char D_800608A8[] = "hrce\n";
-char D_800608B0[] = "hde\n";
-Rect16 tpage_rect = { 0, 0, 256, 128 };
-char D_800608C0[] = "de ls\n";
-char D_800608C8[] = "de l\n";
-#ifndef NON_MATCHING
-/* The "!mem\n" literal of NSPageAllocate, which is still assembly in matching builds. */
-char D_800608D0[] = "!mem\n";
-#endif
 
 s32 NSEIDType(NsdPte *pte) {
     if (!(pte->value & 3)) {
@@ -319,7 +315,65 @@ s32 NSEntryItemSize(Entry *entry, s32 idx) {
     return 0;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/ns", func_8001242C);
+typedef struct {
+    u32 sector : 23;
+    u32 unk0 : 9;
+    u32 size : 17;
+    u32 unk4 : 15;
+} CdFile;
+
+void *malloc(s32 size);
+void *realloc(void *ptr, s32 size);
+s32 CdControlB(s32 com, u8 *param, u8 *result);
+
+/* Reads a whole file from the disc into buf (allocated when NULL). */
+void *NSFileRead(CdFile *file, void *buf, s32 mode) {
+    u8 result[8];
+    u8 loc[8];
+    s32 alloc_size;
+    CdFile *f;
+    void *ret;
+
+    ret = (void *)use_cd;
+    if (ret != NULL) {
+        ret = (void *)1;
+        alloc_size = 0;
+        if (mode == 1) {
+            f = file;
+            if (buf == NULL) {
+                alloc_size = (f->size + 0x7FF) / 0x800 * 0x800;
+                buf = malloc(alloc_size);
+                if (buf == NULL) {
+                    return (void *)-0xF;
+                }
+            }
+        retry:
+            CdIntToPos(f->sector, loc);
+            if (!CdControlB(2, loc, result)) {
+                printf("hrce\n");
+                goto retry;
+            }
+            if (!CdRead((f->size + 0x7FF) / 0x800, buf, 0x80) || func_80013000(1) == -0x10) {
+                printf("hde\n");
+                goto retry;
+            }
+            if (alloc_size != 0 && alloc_size != f->size) {
+                buf = realloc(buf, f->size);
+            }
+            ret = buf;
+        }
+    }
+    return ret;
+}
+
+/* .sdata continues after the literals of NSFileRead. */
+Rect16 tpage_rect = { 0, 0, 256, 128 };
+char D_800608C0[] = "de ls\n";
+char D_800608C8[] = "de l\n";
+#ifndef NON_MATCHING
+/* The "!mem\n" literal of NSPageAllocate, which is still assembly in matching builds. */
+char D_800608D0[] = "!mem\n";
+#endif
 
 #ifdef NON_MATCHING
 /* Equivalent; the original stores the entry pointer from the register it is computed in. */
@@ -458,10 +512,6 @@ void func_80012EAC(void) {
     }
 }
 
-s32 CdSync(s32 mode, u8 *result);
-void CdIntToPos(s32 sector, u8 *loc);
-s32 CdControl(s32 com, u8 *param);
-s32 CdRead(s32 sectors, void *buf, s32 mode);
 
 void NSCdSeek(s32 idx) {
     u8 loc[4];

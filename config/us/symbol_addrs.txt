@@ -3,6 +3,8 @@ __SN_ENTRY_POINT = 0x800489F8; // type:func
 
 // Startup and memory (PSY-Q startup calls InitHeap(start, size), then main)
 InitHeap = 0x800112B8; // type:func
+malloc = 0x800112F8; // type:func
+realloc = 0x80011540; // type:func
 main = 0x80011628; // type:func
 CoreLoop = 0x8001166C; // type:func
 
@@ -27,6 +29,7 @@ CdReadyCallback = 0x80045A04; // type:func
 CdReadCallback = 0x80048010; // type:func
 CdSync = 0x800459AC; // type:func
 CdControl = 0x80045B54; // type:func
+CdControlB = 0x80045A1C; // type:func
 CdIntToPos = 0x80045E68; // type:func
 CdRead = 0x80047E40; // type:func
 
@@ -99,6 +102,7 @@ NSAlphaNumIndex = 0x8001223C; // type:func
 NSEIDType = 0x800122A0; // type:func
 NSCountEntries = 0x800122E4; // type:func
 NSEntryItemSize = 0x800123F4; // type:func
+NSFileRead = 0x8001242C; // type:func
 NSPageTranslateOffsets = 0x80012588; // type:func
 NSChecksum = 0x80012634; // type:func
 NSPageDecRef = 0x80013ECC; // type:func

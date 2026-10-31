@@ -1,12 +1,13 @@
 #include "common.h"
 #include "gfx.h"
+#include "game.h"
 
 /* System setup and teardown: CD, events, heap, overlays, video, memory card. */
 
 extern s32 D_80060ABC; /* current level */
 
 void free(void *ptr);
-void func_8004C600(s32 mode);
+
 void func_8007170C(void);
 s32 func_8005B730(void);
 void func_800165F8(DrawContext *dc);
@@ -21,20 +22,74 @@ INCLUDE_RODATA("asm/us/nonmatchings/sys", D_80010230);
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80015798);
 
-INCLUDE_ASM("asm/us/nonmatchings/sys", func_80016048);
+void GpuClearVram(void) {
+    DRAWENV env;
+    BLK_FILL bf;
 
-INCLUDE_ASM("asm/us/nonmatchings/sys", func_800160D8);
+    SetDefDrawEnv(&env, 0, 0, 1024, 512);
+    env.dfe = 1;
+    PutDrawEnv(&env);
+    TermPrim(&bf);
+    setBlockFill(&bf);
+    bf.w = 1023;
+    bf.h = 511;
+    bf.r0 = 0;
+    bf.g0 = 0;
+    bf.b0 = 0;
+    bf.x0 = 0;
+    bf.y0 = 0;
+    DrawPrim(&bf);
+}
+
+extern s32 D_80069034[];
+extern s32 ticks_elapsed;
+
+void GpuInit(void) {
+    DrawContext *dc;
+    s32 i;
+
+    D_80069034[0] = 0;
+    ResetGraph(0);
+    SetGraphDebug(0);
+    GpuClearVram();
+    context.count = 2;
+    for (i = 0; i < context.count; i++) {
+        dc = &context.buffers[i];
+        dc->idx = i;
+        dc->draw_stamp = 0;
+        SetDefDispEnv(&dc->disp, i << 9, 0, 512, 240);
+        game.unk1CC = 0;
+        dc->disp.screen.x = 0;
+        SetDefDrawEnv(&dc->draw, i << 9, 12, 512, 216);
+        dc->draw.ofs[1] = 12;
+        dc->draw.ofs[0] = i << 9;
+        dc->draw.dtd = 1;
+        dc->draw.dfe = 0;
+        if (i == 0) {
+            context.cur = dc;
+            context.c1_p = dc;
+        }
+        if (i == 1) {
+            context.c2_p = dc;
+        }
+        dc->ticks_per_frame = 34;
+        dc->draw_stamp = ticks_elapsed;
+    }
+    PutDispEnv(&context.c1_p->disp);
+    PutDrawEnv(&context.c2_p->draw);
+    SetDispMask(1);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80016234);
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_800163F8);
 
-s32 func_80016544(void) {
+s32 GpuKill(void) {
     DrawContext *dc;
     s32 i;
 
-    func_800165F8(context.c1_p);
-    func_8004C600(0);
+    func_800165F8(context.cur);
+    DrawSync(0);
     free(context.buffers[0].unk2094);
     for (i = 0; i < context.count; i++) {
         dc = &context.buffers[i];
@@ -52,7 +107,7 @@ void func_800165F8(DrawContext *dc) {
     dc->unk2098 = dc->unk2094;
 }
 
-void func_8001660C(DrawContext *dc) {
+void GpuResetPrims(DrawContext *dc) {
     dc->unkC = 0;
     dc->prims_tail = dc->prims_head;
     func_800165F8(dc);

@@ -1,5 +1,6 @@
 #include "common.h"
 #include "gfx.h"
+#include "game.h"
 
 /* Names follow the Crash 1 port "c1" where the code is clearly the same.
  * Structures only list the fields used so far, at their offsets. */
@@ -10,42 +11,6 @@ typedef struct {
     u8 unk5[0x23];
     u32 tapped; /* 0x28: buttons pressed this frame */
 } Pad;
-
-typedef struct {
-    u8 unk0[0x44];
-    s32 unk44;
-} Object;
-
-typedef struct {
-    u8 unk0[0x40];
-    u8 handles[0x34]; /* 0x40 */
-    s32 unk74;
-    u8 unk78[0xC];
-    u32 display_flags; /* 0x84 */
-    s32 unk88;
-    u8 unk8C[0x4];
-    s32 pause_obj; /* 0x90: a pointer or an error code */
-    u8 unk94[0x10];
-    s32 game_state; /* 0xA4 */
-    u8 unkA8[0xE0];
-    s32 unk188;
-    u8 unk18C[0x10];
-    s32 unk19C;
-    u8 unk1A0[0x64];
-    s32 unk204;
-    s32 unk208;
-    u8 unk20C[0x20];
-    Object *unk22C;
-    u8 unk230[0x3C];
-    s32 unk26C;
-    u8 unk270[0xD4];
-    s32 unk344;
-    Object *unk348;
-    u8 unk34C[0x10];
-    s32 unk35C;
-    u8 unk360[0x4];
-    s32 unk364;
-} GameState;
 
 typedef struct {
     u8 unk0[0x8];
@@ -154,7 +119,6 @@ extern s32 D_80060AA4;
 extern u8 D_80041550[];
 extern Pad pads;
 extern NsState ns;
-extern GameState game;
 extern RenderState D_800676B0;
 extern Unk80065C90 D_80065C90;
 extern u16 D_80065CB0[];
@@ -298,8 +262,8 @@ void CoreLoop(s32 lid) {
             func_80018A54();
         } else {
             if (!(game.display_flags & 1)) {
-                func_8003AC44(context.c1_p->ot, 0x800);
-                context.c1_p->unkC = 1;
+                func_8003AC44(context.cur->ot, 0x800);
+                context.cur->unkC = 1;
             }
             func_8001D16C(!paused);
         }
@@ -331,35 +295,35 @@ void CoreLoop(s32 lid) {
                 entry++;
             }
             if (D_800676B0.unk28 != D_80041550) {
-                func_8003AC44(context.c1_p->ot, 0x800);
+                func_8003AC44(context.cur->ot, 0x800);
             }
-            func_80040ED8(D_80060AA4, context.c1_p, &D_800676B0, game.unk19C);
-            context.c1_p->unkC = 1;
+            func_80040ED8(D_80060AA4, context.cur, &D_800676B0, game.unk19C);
+            context.cur->unkC = 1;
         } else {
             func_8004F674(D_80065CB0);
             if (!(game.display_flags & 0x40000000)) {
-                func_8003AC44(context.c1_p->ot, 0x800);
-                context.c1_p->unkC = 1;
+                func_8003AC44(context.cur->ot, 0x800);
+                context.cur->unkC = 1;
             }
         }
         if (game.display_flags & 0x20000001) {
             if (D_800676B0.unk88 != 0 && (D_800676B0.unk378 & 0x10)) {
-                func_80043050(D_800676B0.unk88, context.c1_p, &D_800676B0);
+                func_80043050(D_800676B0.unk88, context.cur, &D_800676B0);
             }
             if (D_800676B0.unk98 != 0 && (D_800676B0.unk378 & 0x400000)) {
-                func_80043310(D_800676B0.unk98, context.c1_p, &D_800676B0);
+                func_80043310(D_800676B0.unk98, context.cur, &D_800676B0);
             }
             if (D_800676B0.unk378 & 0x1000000) {
-                func_80043FFC(game.unk19C, context.c1_p, &D_800676B0);
+                func_80043FFC(game.unk19C, context.cur, &D_800676B0);
                 if (ns.ldat->lid != 0xE && ns.ldat->lid != 0x1C) {
-                    func_800452A0(game.unk19C, context.c1_p, &D_800676B0);
+                    func_800452A0(game.unk19C, context.cur, &D_800676B0);
                     if ((*(u32 *)((u8 *)D_80060A90 + 0x100) >> 28) == 0xA) {
-                        func_8005D370(game.unk19C, context.c1_p, &D_800676B0);
+                        func_8005D370(game.unk19C, context.cur, &D_800676B0);
                     }
                 }
             }
             if (D_800676B0.unk378 & 0x10000000) {
-                func_800435DC(context.c1_p, &D_800676B0);
+                func_800435DC(context.cur, &D_800676B0);
             }
         }
         if (!(game.display_flags & 0x40000000)) {
@@ -369,7 +333,7 @@ void CoreLoop(s32 lid) {
         for (i = 0; i < 8; i++) {
             saved[i] = ((s32 *)0x1F800040)[i];
         }
-        func_8003F3AC(context.c1_p->unk2090, context.c1_p, &D_800676B0);
+        func_8003F3AC(context.cur->unk2090, context.cur, &D_800676B0);
         if (game.unk364 == -1) {
             if (game.unk22C != NULL) {
                 func_8001CD80(game.unk22C, game.unk22C->unk44, D_80060A98, 0);
@@ -389,7 +353,7 @@ void CoreLoop(s32 lid) {
         {
             ObjectLink *link;
 
-            for (link = context.c1_p->unk209C; link != NULL; link = link->next) {
+            for (link = context.cur->unk209C; link != NULL; link = link->next) {
                 GoolObject *obj = link->obj;
                 s32 dir = 1;
 
@@ -399,7 +363,7 @@ void CoreLoop(s32 lid) {
                 if (obj->unkAC & 0x400) {
                     dir = 0;
                 }
-                func_8001C824(obj, obj->unkE8, obj->unkEC >> 8, context.c1_p->ot, dir);
+                func_8001C824(obj, obj->unkE8, obj->unkEC >> 8, context.cur->ot, dir);
             }
         }
         func_80016634(0);

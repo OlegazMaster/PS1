@@ -74,6 +74,16 @@ typedef struct {
     u32 code[2];
 } DR_MODE; /* 0xC */
 
+typedef struct {
+    u32 tag;
+    u32 code[2];
+} DR_STP; /* 0xC */
+
+typedef struct {
+    u32 tag;
+    u32 code[5];
+} DR_MOVE; /* 0x18 */
+
 #define setlen(p, len) (((u8 *)(p))[3] = (len))
 #define setcode(p, c) (((u8 *)(p))[7] = (c))
 #define setBlockFill(p) (setlen(p, 3), setcode(p, 0x02))
@@ -95,6 +105,7 @@ u16 GetTPage(s32 tp, s32 abr, s32 x, s32 y);
 void SetPolyFT4(POLY_FT4 *p);
 void SetSemiTrans(void *p, s32 abe);
 void SetPolyF4(POLY_F4 *p);
+void SetDrawMove(DR_MOVE *p, RECT *rect, s32 x, s32 y);
 void SetDrawMode(DR_MODE *p, s32 dfe, s32 dtd, s32 tpage, RECT *tw);
 
 #endif /* LIBGPU_H */

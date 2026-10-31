@@ -7,6 +7,10 @@
 
 extern s32 D_80060ABC; /* current level */
 
+typedef struct {
+    u16 c[16];
+} Clut16;
+
 void free(void *ptr);
 
 void func_8007170C(void);
@@ -43,7 +47,9 @@ void PadInit(s32 count) {
     }
 }
 
-INCLUDE_RODATA("asm/us/nonmatchings/sys", D_80010230);
+/* The CLUT of the screen fade (see func_8001742C). */
+const Clut16 D_80010230 = { { 0xFFFF, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000,
+                              0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000 } };
 
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80015798);
 
@@ -251,7 +257,71 @@ void func_80017204(s32 type) {
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80017204);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/sys", func_8001742C);
+void func_80016D8C(s32 count, Clut16 *clut);
+void func_80017204(s32 type);
+
+void func_8001742C(s32 fade) {
+    RECT move;
+    RECT rect;
+    Clut16 clut;
+    DR_STP *stp;
+    POLY_FT4 *p;
+    DR_MOVE *mv;
+
+    clut = D_80010230;
+    if (fade > 0) {
+        func_80016D8C(16, &clut);
+        func_80017204(fade);
+    } else {
+        rect.y = 256;
+        rect.w = 16;
+        rect.x = 0;
+        rect.h = 1;
+        LoadImage(&rect, (u32 *)&clut);
+        DrawSync(0);
+        stp = GpuAllocPrim(DR_STP);
+        setlen(stp, 2);
+        stp->code[0] = 0xE6000000;
+        stp->code[1] = 0;
+        AddPrim(&context.cur->ot[0x7FF], stp);
+        p = GpuAllocPrim(POLY_FT4);
+        p->r0 = 0;
+        p->g0 = 0;
+        p->b0 = 0;
+        p->tpage = GetTPage(2, 1, 0, 256);
+        p->x0 = 0;
+        p->y0 = 0;
+        p->x1 = 512;
+        p->y1 = 0;
+        p->x2 = 0;
+        p->y2 = 240;
+        p->x3 = 512;
+        p->y3 = 240;
+        p->u0 = 0;
+        p->v0 = 0;
+        p->u1 = 0;
+        p->v1 = 0;
+        p->u2 = 0;
+        p->v2 = 0;
+        p->u3 = 0;
+        p->v3 = 0;
+        SetPolyFT4(p);
+        SetSemiTrans(p, 1);
+        AddPrim(&context.cur->ot[0x7FF], p);
+        stp = GpuAllocPrim(DR_STP);
+        setlen(stp, 2);
+        stp->code[0] = 0xE6000001;
+        stp->code[1] = 0;
+        AddPrim(&context.cur->ot[0x7FF], stp);
+    }
+    mv = GpuAllocPrim(DR_MOVE);
+    move.x = context.c2_p->draw.clip.x;
+    move.y = 0;
+    move.w = 512;
+    move.h = 240;
+    SetDrawMove(mv, &move, context.cur->draw.clip.x, 0);
+    AddPrim(&context.cur->ot[0x7FF], mv);
+}
 
 extern u8 D_8005C000[];
 

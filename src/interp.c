@@ -801,3 +801,30 @@ s32 func_8001FD08(s32 cur, s32 target, s32 step) {
     }
     return cur - step;
 }
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FD58);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FE98);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FFF0);
+
+void func_80018DD4(s32 *v, MATRIX *m, s32 *out);
+/* Transforms the point in by the model matrix of obj (in 1/16 units) and
+ * puts it into world space at out. */
+
+void func_800200C8(GoolObject *obj, s32 unused, s32 *in, s32 *out) {
+    MATRIX *m = (MATRIX *)obj->unk8;
+    s32 r[3];
+    s32 v[3];
+
+    v[0] = in[0] >> 4;
+    v[1] = in[1] >> 4;
+    v[2] = in[2] >> 4;
+    func_80018DD4(v, m, r);
+    r[0] <<= 4;
+    r[1] <<= 4;
+    r[2] <<= 4;
+    out[0] = r[0] + obj->xform.trans[0];
+    out[1] = r[1] + obj->xform.trans[1];
+    out[2] = r[2] + obj->xform.trans[2];
+}

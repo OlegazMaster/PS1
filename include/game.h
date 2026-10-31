@@ -70,6 +70,7 @@ typedef struct {
     struct GoolObject *unk378;
     s32 unk37C;
     s32 unk380;
+    s32 unk384[3]; /* 0x384 */
 } GameState;
 
 extern GameState game;

@@ -27,7 +27,49 @@ s32 GoolObjectChangeState(GoolObject *obj, u32 state, s32 argc, u32 *argv);
 extern GoolObject *crash;
 s32 func_80038E28(GoolObject *obj, u32 flags, void *a); /* GoolObjectInterpret */
 
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001D16C);
+typedef struct {
+    u8 unk0[0x10];
+    u32 ticks; /* 0x10 */
+} Unk80061A80;
+extern Unk80061A80 *D_80061A80;
+extern s32 D_80060A98;
+extern s16 D_8005D120[];
+extern u8 D_80067E40[];
+void func_8002D8C8(void);
+void func_8001AB64(void);
+void func_8002B838(GoolObject *obj, Transform *xform, void *a);
+s32 func_8001D674(GoolObject *obj, s32 full);
+static inline void SetVec(s32 *v, s32 x, s32 y, s32 z) {
+    v[0] = x;
+    v[1] = y;
+    v[2] = z;
+}
+/* Updates all objects for a frame (c1: GoolObjectUpdateAll?). */
+
+void func_8001D16C(s32 full) {
+    game.frames = D_80061A80->ticks / 34;
+    func_8002D8C8();
+    switch (crash->state_flags >> 28) {
+    case 8:
+        SetVec(game.unk384, 0x9C4000, 0x9C4000, 0x9C4000);
+        break;
+    case 0xD:
+        SetVec(game.unk384, 0x1F4000, 0x1F4000, 0x1F4000);
+        break;
+    default:
+        SetVec(game.unk384, 0x96000, 0xAF000, 0x96000);
+        break;
+    }
+    func_8001AB64();
+    if (crash != NULL) {
+        D_80060A98 = 0;
+        GoolForEachHandle(GoolObjectHandleTraverseTreePreorder, (GoolTraverseFunc)func_8001D674, full);
+        if (crash->state_flags >> 28 == 0xA || (crash->state_flags >> 28 == 0xE && (game.display_flags & 0x40000000))) {
+            func_8002B838(crash, &crash->xform, D_80067E40);
+        }
+    }
+    *(s16 **)0x1F80005C = D_8005D120;
+}
 
 
 /* Code offset pc of a state as a pointer (see GoolState). */

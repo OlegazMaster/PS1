@@ -297,7 +297,95 @@ void func_800176A0(u32 fade) {
     }
 }
 
+s32 func_80025C0C(void);
+void func_8004F724(s32 vol);
+
+#ifdef NON_MATCHING
+/* Shrinks the picture behind black borders (t steps) and lowers the volume
+ * with it. Equivalent; the original swaps the registers of t2 and bar, and
+ * schedules a few instructions differently because of it. */
+void func_80017834(u32 t, u32 t2) {
+    POLY_F4 *p;
+    u32 bar, x, y;
+    s32 left, right, top, bottom, mid, w;
+    s32 vol;
+
+    bar = t * 25;
+    x = (bar * 4) >> 3;
+    y = (t * 60) >> 3;
+    p = GpuAllocPrim(POLY_F4);
+    if (context.c2_p->idx == 1) {
+        context.c2_p->draw.ofs[0] = 512 - x;
+    } else {
+        context.c2_p->draw.ofs[0] = -x;
+    }
+    context.c2_p->draw.ofs[1] = 12 - y;
+    if (t != 0) {
+        if (t2 == 0) {
+            y = 0;
+            x = 0;
+        } else {
+            x = (t2 * 100) >> 3;
+            y = (t2 * 60) >> 3;
+        }
+        right = x + 512;
+        left = right - bar;
+        top = y - 12;
+        bottom = y + 228;
+        p->x0 = left;
+        p->y0 = top;
+        p->x1 = right;
+        p->y1 = top;
+        p->x2 = left;
+        p->y2 = bottom;
+        p->x3 = right;
+        p->y3 = bottom;
+        p->r0 = 0;
+        p->g0 = 0;
+        p->b0 = 0;
+        SetPolyF4(p);
+        AddPrim(&context.cur->ot[0x7FF], p);
+        p = GpuAllocPrim(POLY_F4);
+        mid = bottom - t * 15;
+        p->x0 = x;
+        p->y0 = mid;
+        p->x1 = left;
+        p->y1 = mid;
+        p->x2 = x;
+        p->y2 = bottom;
+        p->x3 = left;
+        p->y3 = bottom;
+        p->r0 = 0;
+        p->g0 = 0;
+        p->b0 = 0;
+        SetPolyF4(p);
+        AddPrim(&context.cur->ot[0x7FF], p);
+        w = x + ((t * 9) >> 3);
+        p = GpuAllocPrim(POLY_F4);
+        p->x0 = x;
+        p->y0 = top;
+        p->x1 = w;
+        p->y1 = top;
+        p->x2 = x;
+        p->y2 = bottom;
+        p->x3 = w;
+        p->y3 = bottom;
+        p->r0 = 0;
+        p->g0 = 0;
+        p->b0 = 0;
+        SetPolyF4(p);
+        AddPrim(&context.cur->ot[0x7FF], p);
+    }
+    vol = func_80025C0C();
+    vol -= (vol / 24) * t;
+    if (D_80065C90.unkC4 != vol) {
+        D_80065C90.unkC4 = vol;
+        func_8004F724(vol);
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80017834);
+#endif
 
 void func_80017AC8(void) {
 }

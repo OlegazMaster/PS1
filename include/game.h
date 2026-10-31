@@ -54,4 +54,22 @@ typedef struct {
 
 extern GameState game;
 
+typedef struct {
+    u8 unk0[0x10];
+    s32 *unk10;
+} UnkCC;
+
+typedef struct {
+    u8 unk0[0x20];
+    u16 unk20[9];
+    u8 unk32[0x92];
+    s32 unkC4;
+    u8 unkC8[0x4];
+    UnkCC *unkCC;
+    u8 unkD0[0x74];
+    u32 unk144;
+} Unk80065C90;
+
+extern Unk80065C90 D_80065C90;
+
 #endif /* GAME_H */

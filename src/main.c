@@ -45,19 +45,6 @@ typedef struct {
     u32 unk378;
 } RenderState;
 
-typedef struct {
-    u8 unk0[0x10];
-    s32 *unk10;
-} UnkCC;
-
-typedef struct {
-    u8 unk0[0x20];
-    u16 unk20[9];
-    u8 unk32[0x9A];
-    UnkCC *unkCC;
-    u8 unkD0[0x74];
-    u32 unk144;
-} Unk80065C90;
 
 typedef struct {
     u8 unk0[0x10];
@@ -114,7 +101,6 @@ extern s32 D_80060AA4;
 extern u8 D_80041550[];
 extern NsState ns;
 extern RenderState D_800676B0;
-extern Unk80065C90 D_80065C90;
 extern u16 D_80065CB0[];
 extern Unk80065D5C *D_80065D5C;
 extern SaveState savestate;

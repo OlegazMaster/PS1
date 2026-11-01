@@ -1780,13 +1780,79 @@ s32 func_80026880(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out) {
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002697C);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002719C);
+/* Like func_80026880 with func_80027298: searches both directions of the
+ * path; sets loc[3] to the better one. */
+
+s32 func_8002719C(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out) {
+    s32 r;
+    s32 r2;
+    s32 dir = 2;
+    s32 p;
+    s32 p2;
+
+    loc[3] = 2;
+    r = func_80027298(loc, pos, a, c, s, n, &p);
+    if (r != 0) {
+        loc[3] = 1;
+        r2 = func_80027298(loc, pos, a, c, s, n, &p2);
+        if (r2 >= 0 && (r < 0 || r2 < r)) {
+            r = r2;
+            dir = 1;
+            p = p2;
+        }
+    }
+    loc[3] = dir;
+    *out = p;
+    return r;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027298);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027AB8);
 
+extern u32 D_80068F3C;
+void func_80028A78(void);
+void func_80018A54(void);
+#ifdef NON_MATCHING
+/* Queues the camera message type with its arguments (CamPostMessage);
+ * 0xB00 is handled at once.
+ * Equivalent; the original keeps the count in another register. */
+void func_80027D6C(s32 type, s32 *args) {
+    s32 n;
+    s32 *m;
+    s32 *dst;
+
+    if (D_8005C634.unk54 < 8) {
+        switch (type) {
+        case 0x500:
+        case 0x600:
+            n = 3;
+            break;
+        case 0x900:
+            n = 1;
+            break;
+        case 0xB00:
+            if (D_80068F3C <= 0x100) {
+                func_80028A78();
+                func_80018A54();
+            }
+            return;
+        default:
+            n = 1;
+            break;
+        }
+        m = D_8005C634.msgs[D_8005C634.unk54];
+        dst = &m[1];
+        m[0] = type;
+        while (--n >= 0) {
+            *dst++ = *args++;
+        }
+        D_8005C634.unk54++;
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027D6C);
+#endif
 
 void func_80027EC0(s32 *msg); /* CamProcessMessage */
 /* Handles the queued camera messages. */
@@ -1879,7 +1945,26 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029E40);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A22C);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A728);
+/* Sets the light b of obj from the surface type under it (property 0xF2
+ * of the entity at obj->unkF0). */
+
+void func_8002A728(GoolObject *obj) {
+    s32 v;
+    s32 c;
+    s32 e;
+
+    e = obj->unkF0;
+    if (e != 0) {
+        v = func_80032DF8(e, 0xF2, 0, 0, 0, 2, 0);
+        if ((v & 0xFFFF) != 0xFFFF) {
+            c = (u32)(v & 0x3F0) >> 4;
+            if (c < 0x30 || c >= 0x40) {
+                c = -1;
+            }
+            func_80029BBC(obj, c, 0);
+        }
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A7A8);
 
@@ -1924,4 +2009,21 @@ s32 func_8002A9DC(void) {
     return -0xFF;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002AA14);
+void func_8003A928(u16 *src, u16 *dst, s32 n);
+void func_80039E3C(u16 *src, s32 a, u16 *dst);
+void func_8003A234(u16 *src, s32 a, u16 *dst);
+/* Copies the list src into dst (bit 0 of src[1]: unpack it with
+ * func_80039E3C or func_8003A234). */
+
+u16 *func_8002AA14(u16 *src, s32 a, u16 *dst, s32 flag) {
+    if (!(src[1] & 1)) {
+        func_8003A928(src + 2, dst + 2, src[0]);
+        *dst = *src;
+        return dst;
+    } else if (flag) {
+        func_80039E3C(src, a, dst);
+    } else {
+        func_8003A234(src, a, dst);
+    }
+    return dst;
+}

@@ -142,7 +142,70 @@ void func_80022DA0(s32 count, u32 *refs, u32 flags, s32 n) {
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80022EB4);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80023170);
+/* Looks through the links at both ends of the current camera path (property
+ * 0x109) for a path whose property 0x309 is (a, b); puts its place into
+ * loc. Returns 1 when found at the start, 2 at the end, 0 if none. */
+
+/* Looks through the links at both ends of the current camera path (property
+ * 0x109) for a path whose property 0x309 is (a, b); puts its place into
+ * loc. Returns 1 when found at the start, 2 at the end, 0 if none. */
+
+/* Looks through the links at both ends of the current camera path (property
+ * 0x109) for a path whose property 0x309 is (a, b); puts its place into
+ * loc. Returns 1 when found at the start, 2 at the end, 0 if none. */
+
+/* Looks through the links at both ends of the current camera path (property
+ * 0x109) for a path whose property 0x309 is (a, b); puts its place into
+ * loc. Returns 1 when found at the start, 2 at the end, 0 if none. */
+
+s32 func_80023170(s32 a, s32 b, PathLoc *loc) {
+    s32 end;
+    u8 *link;
+    s32 n;
+    s32 i;
+    u32 *ref;
+    Entry *zone;
+    s32 path;
+    s32 *p;
+    s32 ret;
+
+    for (end = 0; end < 2; end++) {
+        if (end) {
+            link = (u8 *)func_80032710(D_80065C90.unkD4, 0x109, PathEnd(D_80065C90.unkD4), 0, NULL, 1, 0, 0, 0);
+        } else {
+            link = (u8 *)func_80032710(D_80065C90.unkD4, 0x109, 0, 0, NULL, 1, 0, 0, 0);
+        }
+        if (link != NULL) {
+            if (end) {
+                n = func_80032EDC(D_80065C90.unkD4, 0x109, PathEnd(D_80065C90.unkD4), 1);
+            } else {
+                n = func_80032EDC(D_80065C90.unkD4, 0x109, 0, 1);
+            }
+            for (i = 0; i < n; link += 4, i++) {
+                ref = (u32 *)(((Entry *)((u32 *)D_80065C90.unkD4)[1])->items[0] + 0x194) + link[2];
+                zone = (Entry *)NSOpen(ref, 1, 0);
+                path = (s32)zone->items[link[1] * 3 + *(s32 *)(zone->items[0] + 0x184)];
+                p = (s32 *)func_80032710(path, 0x309, 0, 0, NULL, 2, 0, 0, 0);
+                if (p != NULL && p[5] == b && p[4] == a) {
+                    ret = end ? 2 : 1;
+                    goto found;
+                }
+            }
+        }
+    }
+    return 0;
+found:
+    loc->zone = *ref;
+    loc->path = link[1];
+    if (link[0] == 1) {
+        loc->dir = 2;
+        loc->progress = 0;
+    } else {
+        loc->dir = 1;
+        loc->progress = PathEnd(path);
+    }
+    return ret;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800233DC);
 

@@ -343,7 +343,123 @@ void func_80018988(MATRIX *out, MATRIX *in) {
     out->t[2] = in->t[2];
 }
 
+void func_80021E94(void);
+s32 func_80032DF8(s32 a, s32 b, s32 c, s32 d, s32 e, s32 f, s32 g);
+void func_80018EBC();
+s32 func_8003C2F0(s32 angle); /* sin */
+s32 func_8003C364(s32 angle); /* cos */
+extern s32 paused;
+
+#ifdef NON_MATCHING
+/* Updates the camera for the frame: its matrices from unk60, the screen
+ * offset with the shake (game.unk60[2]), the saved position and the
+ * forward direction, then the lights of the current zone. Equivalent; the
+ * original schedules the matrix copy and the saved position differently. */
+void func_80018A54(void) {
+    Transform *cam;
+    MATRIX *m;
+    MATRIX r;
+    VECTOR v;
+    s32 s;
+    s32 c;
+    s32 s2;
+    s32 c2;
+    s32 s3;
+    s32 c3;
+    s32 x;
+    s32 a;
+    s32 t;
+    s32 *p;
+
+    func_80021E94();
+    cam = &D_80065C90.unk60;
+    s = func_8003C2F0(-cam->rot[2]);
+    c = func_8003C364(-cam->rot[2]);
+    m = &D_80065C90.unk0;
+    m->m[0][0] = c;
+    m->m[0][1] = -s;
+    m->m[0][2] = 0;
+    m->m[1][0] = s;
+    m->m[1][1] = c;
+    m->m[1][2] = 0;
+    m->m[2][0] = 0;
+    m->m[2][1] = 0;
+    m->m[2][2] = 0x1000;
+    s2 = func_8003C2F0(-cam->rot[0]);
+    c2 = func_8003C364(-cam->rot[0]);
+    r.m[0][0] = 0x1000;
+    r.m[0][1] = 0;
+    r.m[0][2] = 0;
+    r.m[1][0] = 0;
+    r.m[1][1] = c2;
+    r.m[1][2] = -s2;
+    r.m[2][0] = 0;
+    r.m[2][1] = s2;
+    r.m[2][2] = c2;
+    MulMatrix(m, &r);
+    s3 = func_8003C2F0(-cam->rot[1]);
+    c3 = func_8003C364(-cam->rot[1]);
+    r.m[0][0] = c3;
+    r.m[0][1] = 0;
+    r.m[0][2] = s3;
+    r.m[1][0] = 0;
+    r.m[1][1] = 0x1000;
+    r.m[1][2] = 0;
+    r.m[2][0] = -s3;
+    r.m[2][1] = 0;
+    r.m[2][2] = c3;
+    MulMatrix(m, &r);
+    v.vx = cam->trans[0] >> 8;
+    v.vy = cam->trans[1] >> 8;
+    v.vz = cam->trans[2] >> 8;
+    TransMatrix(m, &v);
+    func_80018988(&D_80065C90.unk20, m);
+    D_80065C90.unk40 = D_80065C90.unk20;
+    SetGeomOffset(game.unk110 + 0x100, game.unk114 + (game.unk60[2] >> 8) + 0x6C);
+    if (!paused) {
+        x = game.unk60[2] >> 8;
+        if (x == 0) {
+            game.unk60[2] = 0;
+        } else {
+            game.unk60[2] = (x > 0 ? -x + 1 : ~x) << 8;
+            if (game.unk220 == 0) {
+                game.unk220 = 1;
+                a = x;
+                if (a < 0) {
+                    a = -a;
+                }
+                a <<= 5;
+                if (a >= 0xFF) {
+                    game.unk224 = 0xFF;
+                } else if (a < 0xC8) {
+                    game.unk224 = 0xC8;
+                } else {
+                    game.unk224 = a;
+                }
+            }
+        }
+    }
+    cam = &D_80065C90.unk60;
+    game.cam_trans[0] = cam->trans[0];
+    game.cam_trans[1] = cam->trans[1];
+    game.cam_trans[2] = cam->trans[2];
+    game.cam_rot[0] = cam->rot[0];
+    game.cam_rot[1] = cam->rot[1];
+    game.cam_rot[2] = cam->rot[2];
+    t = func_80032DF8(D_80065C90.unkD4, 0x29, 0, 0, 0, 2, 0);
+    if (t != 8 && t != 0x800 && t != 0x1000) {
+        D_80065C90.unk114 = D_80065C90.unk94 & 0xFFF;
+    }
+    game.unk9C = D_80065C90.unk114;
+    p = D_80065C90.unk130;
+    p[0] = func_8003C2F0(D_80065C90.unk114) >> 4;
+    p[1] = 0;
+    p[2] = func_8003C364(D_80065C90.unk114) >> 4;
+    func_80018EBC((void *)((Entry *)D_80065C90.unkCC)->items[0]);
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/gfx", func_80018A54);
+#endif
 
 void func_80018DA8(Transform *t) {
     t->rot[0] = 0;

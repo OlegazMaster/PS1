@@ -216,3 +216,4 @@ SetTransMatrix = 0x8004F6A4; // type:func
 RotTrans = 0x8004F764; // type:func
 ReadSZfifo3 = 0x8004F6C4; // type:func
 RotTransPers = 0x8004F734; // type:func
+TransMatrix = 0x8004F514; // type:func

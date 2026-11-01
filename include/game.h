@@ -27,11 +27,16 @@ typedef struct {
     s32 unk88;
     u8 unk8C[0x4];
     s32 pause_obj; /* 0x90: a pointer or an error code */
-    u8 unk94[0x10];
+    u8 unk94[0x8];
+    s32 unk9C; /* 0x9C: camera yaw (copy) */
+    u8 unkA0[0x4];
     s32 game_state; /* 0xA4 */
     u8 unkA8[0x8];
     s32 unkB0;
-    u8 unkB4[0x5C];
+    u8 unkB4[0x40];
+    s32 cam_trans[3]; /* 0xF4: camera position of the last frame */
+    s32 cam_rot[3]; /* 0x100 */
+    u8 unk10C[0x4];
     s32 unk110;
     s32 unk114;
     u8 unk118[0x4C];
@@ -99,11 +104,13 @@ typedef struct {
 } RenderState;
 
 typedef struct {
-    u8 unk0[0x20];
-    MATRIX unk20; /* 0x20: camera rotation */
-    u8 unk40[0x20];
+    MATRIX unk0; /* 0x0: camera matrix */
+    MATRIX unk20; /* 0x20: camera rotation for the GTE */
+    MATRIX unk40; /* 0x40: copy of unk20 */
     Transform unk60;
-    u8 unk84[0x24];
+    u8 unk84[0x10];
+    s32 unk94; /* 0x94 */
+    u8 unk98[0x10];
     s32 unkA8;
     u8 unkAC[0x18];
     s32 unkC4; /* GTE projection distance (H) */
@@ -117,7 +124,9 @@ typedef struct {
     s32 unkE8;
     u8 unkEC[0x28];
     s32 unk114; /* 0x114: camera yaw */
-    u8 unk118[0x2C];
+    u8 unk118[0x18];
+    s32 unk130[3]; /* 0x130: camera forward direction */
+    u8 unk13C[0x8];
     u32 unk144;
     u8 unk148[0x18D8];
     RenderState render; /* 0x1A20 (D_800676B0) */

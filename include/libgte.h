@@ -29,6 +29,7 @@ void ReadGeomOffset(s32 *ofx, s32 *ofy);
 void SetGeomOffset(s32 ofx, s32 ofy);
 void SetGeomScreen(s32 h);
 void SetRotMatrix(MATRIX *m);
+MATRIX *TransMatrix(MATRIX *m, VECTOR *v);
 void SetTransMatrix(MATRIX *m);
 void RotTrans(SVECTOR *v0, VECTOR *v1, s32 *flag);
 s32 RotTransPers(SVECTOR *v0, s32 *sxy, s32 *p, s32 *flag);

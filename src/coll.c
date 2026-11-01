@@ -26,7 +26,43 @@ INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002AF70);
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002B1CC);
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002B394);
+/* The surfaces near an object (see camera.c's SurfaceQuery) with a second
+ * search box. */
+typedef struct {
+    u16 recs[0x200][4];
+    s32 unk1000;
+    s32 count; /* 0x1004 */
+    s32 box[6]; /* 0x1008 */
+    s32 box2[6]; /* 0x1020 */
+} CollQuery;
+s32 func_8002B1CC();
+s32 func_8003BD18(GoolObject *obj, CollQuery *q, s32 *box, s32 *box2, s32 top, s32 a, s32 best, s32 (*cb)());
+/* Searches the surfaces under obj moving from prev to pos: a box of
+ * 0x9600 / div around pos, from 0x4B00 below to the object's height above. */
+
+void func_8002B394(GoolObject *obj, s32 *prev, s32 *pos, CollQuery *q, s32 div, s32 a) {
+    s32 top;
+    s32 d;
+    s32 lo;
+    s32 hi;
+    s32 *b;
+
+    top = pos[1] + D_800609C0;
+    d = prev[1] - pos[1];
+    b = q->box2;
+    if (d > 0) {
+        top += d;
+    }
+    lo = -0x9600 / div;
+    hi = 0x9600 / div;
+    q->box2[0] = pos[0] + lo + 0xC80;
+    b[1] = pos[1] - 0x4B00;
+    b[2] = pos[2] + lo + 0xC80;
+    b[3] = pos[0] + hi - 0xC80;
+    b[4] = pos[1] + *(s32 *)((u8 *)obj->unk8 + 0x40);
+    b[5] = pos[2] + hi - 0xC80;
+    func_8003BD18(obj, q, q->box, b, top, a, -999999999, func_8002B1CC);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002B4E8);
 

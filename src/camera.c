@@ -549,7 +549,7 @@ s32 func_8003C364(s32 angle); /* cos */
 s32 func_8002616C(); /* (PathLoc *loc, s32 *pos, s32 *lo, s32 *hi, s32 *angle) */
 void func_80024590(s32 *pos);
 s32 func_8002697C(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out);
-void func_80028740(s32 path, s32 progress, void *a, void *b, s32 c);
+void func_80028740(); /* (u32 *path, s32 progress, s32 *out, s32 *extra) */
 /* Finds the progress on the path of loc (zone, path, ...) nearest to pos and
  * puts the camera state there into out; returns 1 if there is none. */
 
@@ -1960,7 +1960,70 @@ s32 func_800284E8(s32 *out, s32 *loc, s32 all) {
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800284E8);
 #endif
 
+#ifdef NON_MATCHING
+/* The camera state at progress on path: position (property 0x4B of the
+ * path point plus the zone origin, << 8) and rotation (property 0x4B of
+ * the camera path), interpolated by the low 8 bits of progress; extra gets
+ * the three values after the rotation.
+ * Equivalent; the original keeps the constant 2 in a register and shares more of the call. */
+void func_80028740(u32 *path, s32 progress, s32 *out, s32 *extra) {
+    Entry *zone;
+    s32 *origin;
+    s16 *p;
+    s16 *q;
+    s16 *np;
+    s16 *nq;
+    s32 frac;
+    s32 next[10];
+
+    zone = (Entry *)path[1];
+    origin = (s32 *)zone->items[1];
+    p = (s16 *)func_80032710((s32)path, 0x4B, 0, progress >> 8, NULL, 2, 0, 0, 0);
+    if (p == NULL) {
+        out[0] = out[1] = out[2] = 0;
+        out[3] = out[4] = out[5] = 0;
+        if (extra != NULL) {
+            extra[0] = extra[1] = extra[2] = 0;
+        }
+        return;
+    }
+    if ((s32)path == D_80065C90.unkD4) {
+        q = (s16 *)func_80032710(D_80065C90.unkD8, 0x4B, 0, (progress >> 8) * 2, NULL, 2, 0, 0, 0);
+    } else {
+        q = (s16 *)func_80032710((s32)zone->items[func_80032DF8((s32)path, 0x173, 0, 0, 0, 2, 0) * 3 + (*(s32 *)(zone->items[0] + 0x184) + 1)], 0x4B, 0, (progress >> 8) * 2, NULL, 2, 0, 0, 0);
+    }
+    out[0] = (origin[0] + p[0]) << 8;
+    out[1] = (origin[1] + p[1]) << 8;
+    out[2] = (origin[2] + p[2]) << 8;
+    out[3] = q[0];
+    out[4] = q[1];
+    out[5] = q[2];
+    if (extra != NULL) {
+        extra[0] = q[3];
+        extra[1] = q[4];
+        extra[2] = q[5];
+    }
+    frac = progress & 0xFF;
+    if (frac != 0 && (progress >> 8) + 1 < func_80032EDC((s32)path, 0x27F, 0, 2)) {
+        np = p + 3;
+        next[0] = (origin[0] + np[0]) << 8;
+        next[1] = (origin[1] + np[1]) << 8;
+        next[2] = (origin[2] + np[2]) << 8;
+        nq = q + 6;
+        next[3] = nq[0];
+        next[4] = nq[1];
+        next[5] = nq[2];
+        out[0] += ((next[0] - out[0]) * frac) >> 8;
+        out[1] += ((next[1] - out[1]) * frac) >> 8;
+        out[2] += ((next[2] - out[2]) * frac) >> 8;
+        out[3] = func_80031E10(out[3], next[3], frac);
+        out[4] = func_80031E10(out[4], next[4], frac);
+        out[5] = func_80031E10(out[5], next[5], frac);
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028740);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028A78);
 

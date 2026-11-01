@@ -1,0 +1,16 @@
+# Functions whose NON_MATCHING C code is longer than the original: in
+# NON_MATCHING builds they stay assembly, so that every function keeps its
+# original address (see tools/nm_place.py).
+func_80028740
+func_80028484
+func_80018EBC
+func_80018A54
+GoolZoneObjectTerminate
+func_8001FAC8
+func_800215E8
+func_8001235C
+NSPageTranslateOffsets
+NSPageCreateVirtual
+NSStringToEID
+NSPageCreatePhysical
+func_80017834

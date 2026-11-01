@@ -65,6 +65,12 @@ LD_SCRIPT := $(ASM_DIR)/main.ld
 ELF       := $(BUILD)/main.elf
 TARGET    := $(BUILD)/$(EXE_NAME)
 
+# NON_MATCHING builds keep every function at its original address, since the
+# overlays on the disc call them there (see tools/nm_place.py).
+ifneq ($(NON_MATCHING),0)
+NM_PLACE = | $(PYTHON) tools/nm_place.py $(notdir $*) config/$(VERSION)/nm_too_long.txt
+endif
+
 # NON_MATCHING builds link with every segment at its original address (see
 # tools/pad_ld.py), so that the game still runs.
 ifneq ($(NON_MATCHING),0)
@@ -113,7 +119,7 @@ $(LD_SCRIPT):
 
 $(BUILD)/%.c.o: %.c
 	@mkdir -p $(@D)
-	$(CPP) $(CPPFLAGS) -MMD -MP -MT $@ -MF $@.d $< | $(CC1) $(CC1FLAGS) | $(PYTHON) tools/comm_globl.py | $(MASPSX) $(MASPSXFLAGS) | $(AS) $(ASFLAGS) -o $@
+	$(CPP) $(CPPFLAGS) -MMD -MP -MT $@ -MF $@.d $< | $(CC1) $(CC1FLAGS) | $(PYTHON) tools/comm_globl.py | $(MASPSX) $(MASPSXFLAGS) $(NM_PLACE) | $(AS) $(ASFLAGS) -o $@
 
 $(BUILD)/%.s.o: %.s
 	@mkdir -p $(@D)

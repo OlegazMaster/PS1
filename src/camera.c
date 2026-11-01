@@ -383,9 +383,57 @@ void func_80024590(s32 *pos) {
     cam->trans[2] = z - ((d * k) >> 8);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_800246A0);
+/* Moves the camera along its path toward pos (snap: jump there). */
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_800247DC);
+void func_800246A0(s32 *pos, s32 snap) {
+    s32 loc[8];
+    s32 res[4];
+    s32 a;
+    s32 b;
+    s32 c;
+    s32 r;
+
+    loc[0] = (s32)D_80065C90.unkCC;
+    loc[1] = D_80065C90.unkD4;
+    loc[2] = D_80065C90.unkE0;
+    r = func_8002616C(loc, pos, &a, &b, &c);
+    if (r > 0) {
+        func_80025CE8(loc, func_80026464(loc, pos, b, 0, c, 1), res, snap ? 0x100 : -1);
+        func_800215E8((Entry *)res[0], (u32 *)res[1], res[2], 0);
+    } else if (r < 0) {
+        func_80025CE8(loc, func_80026464(loc, pos, a, 1, c, 1), res, snap ? 0x100 : -1);
+        func_800215E8((Entry *)res[0], (u32 *)res[1], res[2], 0);
+    } else {
+        func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
+    }
+    func_80025188(pos);
+}
+
+/* Moves the camera along its path toward pos (snap: jump there). */
+
+void func_800247DC(s32 *pos, s32 snap) {
+    s32 loc[8];
+    s32 res[4];
+    s32 a;
+    s32 b;
+    s32 c;
+    s32 r;
+
+    loc[0] = (s32)D_80065C90.unkCC;
+    loc[1] = D_80065C90.unkD4;
+    loc[2] = D_80065C90.unkE0;
+    r = func_8002616C(loc, pos, &a, &b, &c);
+    if (r > 0) {
+        func_80025CE8(loc, func_80026464(loc, pos, b, 0, c, 1), res, snap ? 0x100 : -1);
+        func_800215E8((Entry *)res[0], (u32 *)res[1], res[2], 0);
+    } else if (r < 0) {
+        func_80025CE8(loc, func_80026464(loc, pos, a, 1, c, 1), res, snap ? 0x100 : -1);
+        func_800215E8((Entry *)res[0], (u32 *)res[1], res[2], 0);
+    } else {
+        func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
+    }
+    func_80025188(pos);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024918);
 

@@ -232,9 +232,6 @@ void func_8002FF3C(GoolObject *obj, void *state, s32 a, s32 b);
 void func_80021E60(s32 *a, s32 flags);
 GoolObject *GoolObjectCreate(GoolObject *parent, s32 exec, s32 subtype, s32 argc, u32 *argv, s32 interrupt);
 typedef struct {
-    s32 w[17];
-} CamState;
-typedef struct {
     s32 v[3];
 } Vec3i;
 
@@ -423,7 +420,7 @@ void func_800215E8(Entry *zone, u32 *path, s32 progress, u32 flags) {
             }
             func_8001AE64(cur_zone, -1);
         }
-        *(CamState *)&D_80065C90.unk60 = *(CamState *)&D_80065C90.unk84;
+        D_80065C90.unk60 = D_80065C90.unk84;
         r = func_80025C0C();
         if (D_80065C90.unkC4 != r) {
             D_80065C90.unkC4 = r;

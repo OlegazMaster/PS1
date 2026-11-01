@@ -8,7 +8,10 @@
 
 /* The header of a zone entry (item 0); see also gool.c. */
 typedef struct {
-    u8 unk0[0x190];
+    u8 unk0[0x184];
+    s32 first_item; /* 0x184: index of the first path item */
+    s32 path_items; /* 0x188: 3 per camera path */
+    s32 entity_count; /* 0x18C */
     s32 neighbor_count; /* 0x190 */
     u32 neighbors[(0x2BC - 0x194) / 4]; /* 0x194: references to the neighbor zones */
     u32 flags; /* 0x2BC: 1 loaded, 2 ... */
@@ -16,6 +19,9 @@ typedef struct {
 
 void GoolZoneObjectsTerminate(s32 zone);
 void func_8002157C(Entry *zone);
+s32 func_800214B8(Entry *zone, Entry *other);
+void func_80021530(Entry *zone);
+extern Entry *cur_zone;
 extern GoolObject *crash;
 
 /* .sdata */
@@ -33,7 +39,39 @@ s32 D_80060ABC;
 
 INCLUDE_ASM("asm/us/nonmatchings/level", func_80021084);
 
+#define ZoneHdrOf(zone) ((ZoneHdr *)(zone)->items[0])
+
+#ifdef NON_MATCHING
+/* When zone is loaded: links its camera paths (3 items each) and entities
+ * to it, and resets the crate stacking if it is next to the current zone.
+ * Equivalent; the original uses other argument registers for i and first. */
+s32 func_80021330(Entry *zone) {
+    s32 n = ZoneHdrOf(zone)->path_items / 3;
+    s32 i;
+    s32 j;
+    u32 *first;
+    u32 *item;
+
+    for (i = 0; i < n; i++) {
+        first = (u32 *)zone->items[i * 3 + ZoneHdrOf(zone)->first_item];
+        first[1] = (u32)zone;
+        for (j = 1; j < 3; j++) {
+            item = (u32 *)zone->items[i * 3 + j + ZoneHdrOf(zone)->first_item];
+            item[1] = (u32)zone;
+            item[2] = (u32)first;
+        }
+    }
+    for (i = 0; i < ZoneHdrOf(zone)->entity_count; i++) {
+        ((u32 *)zone->items[i + ZoneHdrOf(zone)->first_item + ZoneHdrOf(zone)->path_items])[1] = (u32)zone;
+    }
+    if (D_80065C90.unkCC != NULL && func_800214B8((Entry *)D_80065C90.unkCC, zone)) {
+        func_80021530(zone);
+    }
+    return -0xFF;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/level", func_80021330);
+#endif
 
 /* Unloads zone while it is the current one (c1: zone on_free?). */
 

@@ -1077,12 +1077,11 @@ typedef struct {
     s32 unk4;
     s32 unk8;
 } LevelHeader;
-extern LevelHeader *D_80061044;
+/* ns.ldat (D_80061044), seen as its header. */
+#define D_80061044 ((LevelHeader *)ns.ldat)
 
-#ifdef NON_MATCHING
 /* Reads the parameters of the level header: game.unk60[0]; fails without
- * unk4. Equivalent; the original loads the high part of D_80061044 into
- * another register. */
+ * unk4. */
 s32 func_80020638(void) {
     LevelHeader *h = D_80061044;
 
@@ -1092,9 +1091,6 @@ s32 func_80020638(void) {
     }
     return -0xFF;
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020638);
-#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020670);
 
@@ -1111,17 +1107,14 @@ void func_80020F04(s32 zone) {
     }
 }
 
-#ifdef NON_MATCHING
 /* Adds the object with pid_flags pid to the list D_8006AEE8 of the level
- * (in the first hole, or at the end), unless the zone forbids it.
- * Equivalent; the original loads the high part of cur_zone into another
- * register. */
+ * (in the first hole, or at the end), unless the current zone forbids it. */
 void func_80020F68(s32 pid) {
     u16 *p = D_8006AEE8;
     u16 *free = NULL;
     u16 key = (pid >> 8) | ((u16)D_80061044->unk8 << 9);
 
-    if (*(u32 *)(cur_zone->items[0] + 0x2DC) & 0x2000) {
+    if (*(u32 *)(((Entry *)D_80065C90.unkCC)->items[0] + 0x2DC) & 0x2000) {
         return;
     }
     for (; *p != 0; p++) {
@@ -1137,14 +1130,9 @@ void func_80020F68(s32 pid) {
     }
     *free = key;
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020F68);
-#endif
 
-#ifdef NON_MATCHING
 /* Removes the object with pid_flags pid from the list D_8006AEE8 of the
- * level (values: level << 9 | pid >> 8; 1 marks a hole).
- * Equivalent; the original loads the high part of D_80061044 earlier. */
+ * level (values: level << 9 | pid >> 8; 1 marks a hole). */
 void func_80021008(s32 pid) {
     u16 *p = D_8006AEE8;
     u16 key = (pid >> 8) | ((u16)D_80061044->unk8 << 9);
@@ -1160,6 +1148,3 @@ void func_80021008(s32 pid) {
         }
     }
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_80021008);
-#endif

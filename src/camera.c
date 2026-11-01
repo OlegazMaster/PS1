@@ -285,7 +285,30 @@ void func_80024E80(s32 *v) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024F54);
+s32 func_800284E8(s32 *out, s32 *loc, s32 a);
+/* Moves the camera along the linked paths until the transition ends. */
+
+void func_80024F54(s32 *v) {
+    s32 out[24];
+    s32 loc[4];
+
+    do {
+        loc[0] = (s32)D_80065C90.unkCC;
+        loc[1] = D_80065C90.unkD4;
+        loc[2] = D_80065C90.unkE0;
+        loc[3] = D_80065C90.unkF8;
+        if (func_800284E8(out, loc, 1) == 1) {
+            if (func_80032DF8(out[1], 0x29, 0, 0, 0, 2, 0) != D_80065C90.unkF0) {
+                D_8005C634.unk0 = 0x10;
+            }
+            func_800215E8((Entry *)out[0], (u32 *)out[1], out[2], 0);
+        } else {
+            func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, (func_80032EDC(D_80065C90.unkD4, 0x27F, 0, 2) - 1) << 8, 0);
+            D_8005C634.unk0 = 0x10;
+        }
+        func_80025188(v);
+    } while (D_8005C634.unk0 != 0x10);
+}
 
 /* Sends the player the events listed in property 0x198 of path at pos
  * (each: length, event, arguments; a negative event calls func_80012EAC). */

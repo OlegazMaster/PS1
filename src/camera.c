@@ -220,7 +220,7 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_80023B68);
 
 s32 func_8003C2F0(s32 angle); /* sin */
 s32 func_8003C364(s32 angle); /* cos */
-s32 func_8002616C(s32 *loc, s32 *pos, s32 *a, s32 *b, s32 *angle);
+s32 func_8002616C(); /* (PathLoc *loc, s32 *pos, s32 *lo, s32 *hi, s32 *angle) */
 void func_80024590(s32 *pos);
 s32 func_8002697C(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out);
 void func_80028740(s32 path, s32 progress, void *a, void *b, s32 c);
@@ -939,7 +939,91 @@ s32 func_80026140(u32 flags) {
     return (flags & 0x80) ? 2 : 0;
 }
 
+s32 func_80026140(u32 flags);
+
+#ifdef NON_MATCHING
+/* Where pos is relative to the allowed range around the place loc on a
+ * camera path: 1 beyond the far edge, -1 before the near edge, 0 inside.
+ * Also returns the range and the angle of the path there. Equivalent; the
+ * original schedules the arguments of the second lookup differently. */
+s32 func_8002616C(PathLoc *loc, s32 *pos, s32 *out_lo, s32 *out_hi, s32 *out_angle) {
+    s32 lo;
+    s32 hi;
+    s32 d[3];
+    s32 path;
+    s32 progress;
+    s32 dir;
+    s32 angle;
+    s16 *pt;
+    s32 *origin;
+    s32 k;
+    s32 c;
+    s32 s;
+    s32 x;
+    s32 z;
+    s32 v;
+    Transform *cam;
+
+    func_800259A0(loc, &lo, &hi);
+    if (out_lo != NULL) {
+        *out_lo = lo;
+    }
+    if (out_hi != NULL) {
+        *out_hi = hi;
+    }
+    path = loc->path;
+    progress = loc->progress;
+    dir = func_80026140(func_80032DF8(path, 0x29, 0, 0, 0, 2, 0));
+    if (path == D_80065C90.unkD4) {
+        cam = &D_80065C90.unk60;
+        d[0] = pos[0] - cam->trans[0];
+        d[1] = pos[1] - cam->trans[1];
+        d[2] = pos[2] - cam->trans[2];
+        angle = D_80065C90.unk94;
+    } else {
+        progress >>= 8;
+        pt = (s16 *)func_80032710(path, 0x4B, 0, progress, NULL, 2, 0, 0, 0);
+        origin = (s32 *)((Entry *)((s32 *)path)[1])->items[1];
+        d[0] = pos[0] - ((origin[0] + pt[0]) << 8);
+        d[1] = pos[1] - ((origin[1] + pt[1]) << 8);
+        d[2] = pos[2] - ((origin[2] + pt[2]) << 8);
+        if (dir == 2) {
+            goto vertical;
+        }
+        k = func_80032DF8(path, 0x173, 0, 0, 0, 2, 0);
+        pt = (s16 *)func_80032710((s32)((Entry *)loc->zone)->items[k * 3 + (*(s32 *)(((Entry *)loc->zone)->items[0] + 0x184) + 1)], 0x4B, 0, progress * 2, NULL, 2, 0, 0, 0);
+        angle = pt[1];
+    }
+    if (dir == 2) {
+    vertical:
+        v = -d[1];
+    } else {
+        angle = -angle;
+        if (out_angle != NULL) {
+            *out_angle = angle;
+        }
+        c = func_8003C364(angle);
+        s = func_8003C2F0(angle);
+        x = d[0] >> 8;
+        z = d[2] >> 8;
+        if (dir == 1) {
+            v = ((z * s) >> 4) + ((x * c) >> 4);
+        } else {
+            v = ((x * s) >> 4) - ((z * c) >> 4);
+        }
+    }
+    if (v > hi) {
+        k = 1;
+    } else if (v < lo) {
+        k = -1;
+    } else {
+        k = 0;
+    }
+    return k;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002616C);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80026464);
 

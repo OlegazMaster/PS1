@@ -1020,7 +1020,48 @@ s32 func_800203A4(s32 *in, s32 *out) {
     return -0xFF;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_8002049C);
+extern GoolHandle D_80068EA0[8]; /* game.handles, addressed on its own here */
+void *malloc(s32 size);
+/* Allocates the objects and the player and links all objects into the free
+ * list (c1: GoolInitAllocTable). */
+
+s32 func_8002049C(void) {
+    s32 i;
+    GoolObject *obj;
+
+    crash = NULL;
+    game.objects = malloc(96 * 0x23C);
+    game.player = malloc(0x33C);
+    if (game.objects == NULL || game.player == NULL) {
+        return -0xF;
+    }
+    game.unk50 = NULL;
+    game.frames = 0;
+    game.player->unk8 = (u8 *)&game + 0xDB0;
+    game.free_objects.type = 2;
+    game.free_objects.children = game.objects;
+    for (i = 0; i < 96; i++) {
+        obj = (GoolObject *)((u8 *)game.objects + i * 0x23C);
+        obj->unk8 = (u8 *)&game + 0xE1C + i * 0x30;
+        obj->type = 0;
+        obj->parent = (GoolObject *)&game.free_objects;
+        obj->children = NULL;
+        if (i < 95) {
+            obj->sibling = (GoolObject *)((u8 *)game.objects + (i + 1) * 0x23C);
+        } else {
+            obj->sibling = NULL;
+        }
+    }
+    for (i = 0; i < 8; i++) {
+        D_80068EA0[i].type = 2;
+        GoolObjectSetChildren((GoolObject *)&D_80068EA0[i], NULL);
+    }
+    game.player->type = 0;
+    game.player->parent = NULL;
+    game.player->children = NULL;
+    game.player->sibling = NULL;
+    return -0xFF;
+}
 
 void free(void *p);
 /* Frees the objects and the player (c1: GoolKill). */

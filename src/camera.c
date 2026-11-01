@@ -1777,3 +1777,59 @@ s32 func_80026880(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out) {
     *out = p;
     return r;
 }
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002697C);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002719C);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027298);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027AB8);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027D6C);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027E68);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027EC0);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_800280A4);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_800281F8);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028484);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_800284E8);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028740);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028A78);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028D8C);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028ED8);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_800296F8);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029B10);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029B5C);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029BBC);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029C1C);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029E40);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A22C);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A728);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A7A8);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A950);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A97C);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A9DC);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002AA14);

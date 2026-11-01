@@ -61,7 +61,8 @@ segments:
       - [0xA30, .rodata, sys]
       - [0xB6C, .rodata, obj]
       - [0xBE0, .rodata, interp]
-      - [0xBF8, rodata, "BF8"]
+      - [0xBF8, .rodata, camera]
+      - [0xC48, rodata, "C48"]
       - [0x181C, asm, heap]       # memory allocator: InitHeap, malloc, free, ...
       - [0x1E28, c, main]
       - [0x2768, asm, "2768"]     # render setup + empty stubs
@@ -73,7 +74,7 @@ segments:
       - [0xD96C, c, interp]       # GOOL interpreter: state changes, events, opcodes
       - [0x11884, c, level]        # level start: checkpoints, spawn flags
       - [0x12694, c, camera]       # camera along its path
-      - [0x1717C, asm, "1717C"]   # rest of the game C code, to be split into files
+      - [0x1B294, asm, "1B294"]   # rest of the game C code, to be split into files
       - [0x2A63C, asm, nd_asm]    # Naughty Dog's hand-written assembly (uses the GTE)
       - [0x35F50, asm, psyq]      # PSY-Q libraries (libcd, libgpu, libspu, libapi, ...)
       - [0x4C440, data, "4C440"]

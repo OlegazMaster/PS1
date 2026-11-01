@@ -1869,7 +1869,60 @@ void func_80027E68(void) {
     D_8005C634.unk54 = 0;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027EC0);
+int printf(const char *fmt, ...);
+void func_800280A4(s32 mask);
+/* Handles a queued camera message msg (type, arguments). */
+
+void func_80027EC0(s32 *msg) {
+    s32 *p;
+    s32 *q;
+    s32 i;
+
+    switch (msg[0]) {
+    case 0x0:
+        func_800280A4(msg[1] >> 8);
+        break;
+    case 0x100:
+        if (D_80065C90.unkFC != msg[1] >> 8) {
+            func_8002437C(msg[1] >> 8);
+            func_8002513C();
+        }
+        break;
+    case 0x200:
+        D_8005C634.unk58 |= msg[1] >> 8;
+        break;
+    case 0x300:
+        D_8005C634.unk58 &= ~(msg[1] >> 8);
+        break;
+    case 0x400:
+        D_8005C634.unkB = 1;
+        break;
+    case 0x500:
+        q = &D_8005C634.unk5C + msg[1] * 3;
+        q[0] = msg[2];
+        q[1] = msg[3];
+        break;
+    case 0x600:
+        i = msg[1] * 3;
+        p = &D_8005C634.unk68 + i;
+        if (msg[2] != 0) {
+            p[2] = 1;
+            (&D_8005C634.unk64)[i] = msg[3];
+        } else {
+            p[2] = -1;
+        }
+        p[1] = 0;
+        break;
+    case 0x900:
+        break;
+    case 0xA00:
+        D_8005C634.target = (GoolObject *)msg[1];
+        break;
+    default:
+        printf("ERROR CamProcessMessage():  Unknown opcode (%d)\n", msg[0]);
+        break;
+    }
+}
 
 void func_800281F8(s8 *ev, s32 end); /* runs a path end event */
 /* Runs the events (property 0x1A8) at the end and at the start of the

@@ -43,10 +43,6 @@ CPPFLAGS  := -undef -nostdinc -Iinclude -DVERSION_$(VERSION_UPPER) -DTARGET_PSX
 # NM_FILES="camera gfx" limits NON_MATCHING=1 to those source files (to find
 # which one breaks the game).
 NM_FILES ?=
-# JUMP_HACK=1: a test build where Crash jumps much higher (see camera.c).
-ifneq ($(JUMP_HACK),)
-CPPFLAGS  += -DJUMP_HACK
-endif
 ifneq ($(NON_MATCHING),0)
 ifeq ($(NM_FILES),)
 CPPFLAGS  += -DNON_MATCHING

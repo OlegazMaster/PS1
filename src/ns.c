@@ -1482,7 +1482,7 @@ s32 NSInit(NsState *nss, s32 lid) {
     nss->unk10 = (u32 *)nsd->unk408;
     nss->pte_buckets = (NsdPte **)nsd;
     nss->ldat = (LevelData *)&nsd->ptes[nsd->pte_count];
-    nss->nsd = realloc(nsd, sizeof(Nsd) - sizeof(NsdPte) + nsd->pte_count * sizeof(NsdPte) + 0x2F4 + (nss->ldat->unk0 - 1) * 0x18);
+    nss->nsd = realloc(nsd, sizeof(Nsd) - sizeof(NsdPte) + nsd->pte_count * sizeof(NsdPte) + 0x2F4 + (nss->ldat->checkpoint_count - 1) * 0x18);
     for (i = 255; i >= 0; i--) {
         nss->pte_buckets[i] = &nss->ptes[(s32)nss->pte_buckets[i]];
     }

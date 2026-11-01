@@ -29,7 +29,9 @@ typedef struct {
     s32 pause_obj; /* 0x90: a pointer or an error code */
     u8 unk94[0x10];
     s32 game_state; /* 0xA4 */
-    u8 unkA8[0x68];
+    u8 unkA8[0x8];
+    s32 unkB0;
+    u8 unkB4[0x5C];
     s32 unk110;
     s32 unk114;
     u8 unk118[0x4C];
@@ -41,7 +43,9 @@ typedef struct {
     s32 unk18C;
     u8 unk190[0xC];
     s32 unk19C;
-    u8 unk1A0[0x2C];
+    u8 unk1A0[0x24];
+    s32 unk1C4;
+    s32 unk1C8;
     s32 unk1CC;
     u8 unk1D0[0x20];
     s32 unk1F0;
@@ -107,7 +111,9 @@ typedef struct {
     UnkCC *unkCC; /* 0xCC: the current zone (cur_zone) */
     void *unkD0; /* 0xD0: the previous zone */
     s32 unkD4; /* 0xD4: entity of the current zone */
-    u8 unkD8[0x10];
+    u8 unkD8[0x8];
+    s32 unkE0;
+    u8 unkE4[0x4];
     s32 unkE8;
     u8 unkEC[0x28];
     s32 unk114; /* 0x114: camera yaw */

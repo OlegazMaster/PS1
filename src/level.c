@@ -37,7 +37,106 @@ s32 D_80060AB4;
 s32 D_80060AB8;
 s32 D_80060ABC;
 
+typedef struct {
+    u8 unk0[0x24];
+    s32 unk24; /* 0x24: checkpoint zone */
+    s32 unk28; /* 0x28: checkpoint path */
+    s32 progress; /* 0x2C */
+} SaveStateView;
+extern SaveStateView savestate;
+extern s32 D_80060A64;
+extern s8 D_8005C5E8[]; /* (level, checkpoint) pairs, ended by a negative level */
+void *memset(void *dst, s32 c, s32 n);
+extern u32 spawns[];
+void func_80020F04(s32 lid);
+void func_800188EC(void);
+void func_80030940(s32 *a);
+s32 func_800215E8(Entry *zone, u32 *path, s32 progress, s32 a);
+
+#ifdef NON_MATCHING
+/* Starts the level: clears the spawn flags, picks the checkpoint (for level 2
+ * by game.unk1C4 through D_8005C5E8), loads its zone and starts there.
+ * Equivalent; the original swaps the registers of &ns and &game, and of
+ * &ns and cp * 0x18, and schedules two stores earlier. */
+s32 func_80021084(void) {
+    s32 cp;
+    s32 progress;
+    s32 a;
+    s8 *e;
+    s32 lv;
+    Entry *zone;
+
+    game.unk204 = 0;
+    if (*ns.unk10 != 0x6396347F) {
+        D_80060AB0 = 0;
+        D_80060AB4 = 0;
+        game.unk70 = 0xC01FFFF;
+        game.display_flags = 0xC01FFFF;
+        cp = game.unk26C;
+        progress = 0;
+        if (ns.ldat->lid != D_80060ABC) {
+            for (;;) {
+            }
+        }
+        if (ns.ldat->lid == 2) {
+            cp = 2;
+            if (!(game.unk1C8 & 1)) {
+                a = game.unk1C4;
+                if (a == 0x63) {
+                    a = game.unkB0;
+                }
+                if (a != 0x63) {
+                    a >>= 8;
+                }
+                e = D_8005C5E8;
+                do {
+                    lv = *e++;
+                    cp = *e++;
+                    if (lv < 0) {
+                        goto none;
+                    }
+                } while (lv != a);
+            }
+        }
+    set:
+        game.unk26C = cp;
+        if (cp >= ns.ldat->checkpoint_count) {
+            cp = 0;
+            game.unk26C = 0;
+        }
+        memset(spawns, 0, 0xC00);
+        func_80020F04(ns.ldat->lid);
+        func_800188EC();
+        if (bonus_return == 1) {
+            bonus_return = 0;
+            ns.ldat->checkpoints[cp].zone = savestate.unk24;
+            ns.ldat->checkpoints[cp].path = savestate.unk28;
+            progress = savestate.progress;
+        }
+        D_80065C90.unkCC = NULL;
+        D_80065C90.unkD4 = 0;
+        D_80065C90.unkE0 = 0;
+        zone = (Entry *)NSOpen(&ns.ldat->checkpoints[cp].zone, 1, 1);
+        D_80060A64 = 0x6396347F;
+        if (game.game_state == 0x600) {
+            func_80030940(&D_80060A64);
+        }
+        func_800215E8(zone, (u32 *)zone->items[ns.ldat->checkpoints[cp].path * 3 + ((ZoneHdr *)zone->items[0])->first_item], progress, 0);
+        func_8001440C(&ns.ldat->checkpoints[cp].zone, 1);
+        goto end;
+    none:
+        cp = 1;
+        goto set;
+    } else {
+        ns.ldat->unk4 = 0;
+    }
+end:
+    D_8006092C = 0;
+    return -0xFF;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/level", func_80021084);
+#endif
 
 #define ZoneHdrOf(zone) ((ZoneHdr *)(zone)->items[0])
 

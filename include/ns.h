@@ -31,12 +31,22 @@ typedef struct {
 } Nsd;
 
 /* Level header stored after the NSD page table. */
+/* A checkpoint (start point) of a level. */
 typedef struct {
-    s32 unk0; /* count of 0x18-byte records that follow the header */
-    u8 unk4[0x4];
+    u32 zone; /* reference to the zone */
+    s32 path; /* camera path in the zone */
+    s32 progress; /* 0x8 */
+    s32 pos[3]; /* 0xC */
+} Checkpoint; /* 0x18 */
+
+typedef struct {
+    s32 checkpoint_count; /* 0x0 */
+    s32 unk4;
     s32 lid; /* 0x8: level id */
     u8 unkC[0x4];
     u32 exec_map[64]; /* 0x10: EIDs of the GOOL executables */
+    u8 unk110[0x1CC];
+    Checkpoint checkpoints[1]; /* 0x2DC */
 } LevelData;
 
 typedef struct PageStruct {

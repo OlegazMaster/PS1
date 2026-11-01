@@ -18,7 +18,7 @@ typedef struct {
     GoolHandle free_objects; /* 0x48 */
     struct GoolObject *unk50;
     u32 frames; /* 0x54: frame counter */
-    u8 unk58[0x4];
+    u8 *unk58; /* 0x58: end of the records (from game + 0x4B0) */
     s32 unk5C; /* 0x5C: count of unk390 */
     s32 unk60[4];
     u32 unk70;

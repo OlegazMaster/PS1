@@ -104,8 +104,8 @@ typedef struct {
     u8 unkAC[0x18];
     s32 unkC4; /* GTE projection distance (H) */
     u8 unkC8[0x4];
-    UnkCC *unkCC;
-    u8 unkD0[0x4];
+    UnkCC *unkCC; /* 0xCC: the current zone (cur_zone) */
+    void *unkD0; /* 0xD0: the previous zone */
     s32 unkD4; /* 0xD4: entity of the current zone */
     u8 unkD8[0x10];
     s32 unkE8;

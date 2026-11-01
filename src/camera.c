@@ -33,11 +33,14 @@ typedef struct {
     u8 unk4[0x3];
     s8 unk7; /* 0x7: 0 follow the path, 1 keep the path rotation, 2 look at the target */
     u8 unk8[0x2];
-    u8 unkA;
+    s8 unkA; /* 0xA: in the middle of the arena */
     s8 unkB;
     GoolObject *target; /* 0xC: object the camera follows */
-    u8 unk10[0x10];
-    s32 unk20;
+    s32 unk10; /* 0x10: blend toward the kept yaw (with unk14, unk18) */
+    s32 unk14;
+    s32 unk18;
+    s32 unk1C; /* 0x1C: kept yaw */
+    s32 unk20; /* 0x20: smoothed yaw, 0x1001 none */
     u8 unk24[0xC];
     s32 unk30;
     s32 unk34;
@@ -49,8 +52,9 @@ typedef struct {
     s32 unk54;
     s32 unk58;
     s32 unk5C;
-    u8 unk60[0x8];
-    s32 unk68;
+    s32 unk60;
+    s32 unk64;
+    s32 unk68; /* 0x68: blend (with unk6C, unk70) */
     s32 unk6C;
     s32 unk70;
     s32 unk74; /* 0x74: frames left of the return */
@@ -270,7 +274,196 @@ found:
     return ret;
 }
 
+extern s32 D_8005C794[4];
+extern s32 D_8005C7A4[4];
+s32 func_8004F794(s32 x, s32 z); /* angle of (x, z) */
+void func_80030A34(s32 *out, s32 dist, s32 rx, s32 ry);
+s32 func_8003D9DC(s32 x); /* sqrt */
+s32 func_80023B68(s32 type, u32 *out, s32 mask); /* linked path of a type */
+void func_80024E80(s32 *v); /* end of transition */
+void func_8002513C(void); /* start of transition */
+void func_80023A94(s32 *v, s32 a); /* arena entry */
+s32 func_80023DBC(u32 *loc, s32 *pos, void *out); /* camera state nearest to pos */
+s32 func_80031E10(s32 a, s32 b, s32 t); /* blend */
+
+#ifdef NON_MATCHING
+/* Camera of the round arenas: turns around the origin toward v, leaves
+ * for a linked path (property 0x400) when v is far out between two of
+ * the six sectors, and backs away with the distance.
+ * Equivalent; the original also computes a dead unk1C - yaw and schedules
+ * a few loads differently. */
+void func_800233DC(s32 *v, s32 reset) {
+    s32 loc[4];
+    s32 next[4];
+    s32 pos[3];
+    s32 off[3];
+    s32 saved[3];
+    s32 cs[10];
+    s32 progress;
+    s32 x;
+    s32 z;
+    s32 a;
+    s32 yaw;
+    s32 dist;
+    s32 d;
+    s32 left;
+    s32 frac;
+    s32 r;
+    s32 mask;
+    s32 k;
+    s32 m;
+    u32 *ref;
+    Transform *rot;
+    Transform *cam;
+    Transform *t;
+    Unk80065C90 *g;
+
+    if (reset) {
+        D_8005C634.unk20 = 0x1001;
+    }
+    func_800255BC(&D_8005C634.unk68, D_8005C794, 0);
+    func_800255BC(&D_8005C634.unk10, D_8005C7A4, 0);
+    pos[0] = v[0];
+    pos[1] = v[1];
+    pos[2] = v[2];
+    x = -pos[0];
+    z = -pos[2];
+    a = func_8004F794(x, z) & 0xFFF;
+    yaw = a;
+    dist = func_8003D9DC((z >> 8) * (z >> 8) + (x >> 8) * (x >> 8)) << 8;
+    if (dist > 0x138800 && (a % 682 < 0xE4 || a % 682 > 0x1C6)) {
+        mask = 1;
+        if (D_80065C90.unkE0 >= D_80065C90.unkE4 >> mask) {
+            mask = 2;
+        }
+        if (func_80023B68(0x400, &D_8005C634.zone, mask)) {
+            D_8005C634.unkB = 1;
+            func_80024E80(v);
+            func_8002513C();
+            func_80023A94(v, 1);
+            return;
+        }
+    }
+    if (D_8005C634.unkA) {
+        if (dist > 0x209E0) {
+            D_8005C634.unk10 = 0x400;
+            D_8005C634.unkA = 0;
+            D_8005C634.unk14 = 0;
+            D_8005C634.unk18 = -1;
+        }
+    } else if (dist <= 0x1404F) {
+        D_8005C634.unkA = 1;
+        D_8005C634.unk1C = yaw;
+    }
+    if (D_8005C634.unkA) {
+        yaw = D_8005C634.unk1C;
+    } else if (D_8005C634.unk10 != 0) {
+        yaw = func_80031E10(yaw, D_8005C634.unk1C, D_8005C634.unk10 >> 2);
+        D_8005C634.unk1C = yaw;
+    }
+    if (D_8005C634.unk68 != 0) {
+        yaw = func_80031E10(yaw, D_8005C634.unk60, D_8005C634.unk68 >> 2);
+    }
+    D_80065C90.unk114 = yaw;
+    if (D_8005C634.unk20 != 0x1001) {
+        yaw = func_80031E10(D_8005C634.unk20, yaw, 0x80);
+    }
+    D_8005C634.unk20 = yaw;
+    d = yaw - (func_8004F794(D_80065C90.unk84.trans[0], D_80065C90.unk84.trans[2]) & 0xFFF);
+    if (d > 0x800) {
+        d -= 0x1000;
+    }
+    if (d < -0x800) {
+        d += 0x1000;
+    }
+    if (d < -2 || d > 2) {
+        if (d < 0) {
+            D_80065C90.unkF8 = 1;
+        } else {
+            D_80065C90.unkF8 = 2;
+        }
+    } else {
+        D_80065C90.unkF8 = 0;
+    }
+    if (D_80065C90.unkF8 != 0) {
+        if (d < 0) {
+            d = -d;
+        }
+        d = (d * 9 << 9) >> 8;
+        g = &D_80065C90;
+        loc[0] = (s32)g->unkCC;
+        loc[1] = g->unkD4;
+        loc[2] = g->unkE0;
+        loc[3] = g->unkF8;
+        left = func_800260B4(loc, d, &progress);
+        if (left != 0 && func_80028484(loc, next)) {
+            g->unkF8 = next[3];
+            func_800260B4(next, left, &progress);
+            func_800215E8((Entry *)next[0], (u32 *)next[1], progress, 0);
+        } else {
+            func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, progress, 0);
+        }
+    } else {
+        func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
+    }
+    if (D_8005C634.unk68 != 0) {
+        t = &D_80065C90.unk60;
+        t->trans[1] -= (D_8005C634.unk68 * 0x194B0) >> 10;
+    }
+    frac = 0;
+    if (dist > 0xC7FFF && (a % 682 < 0xE4 || a % 682 > 0x1C6)) {
+        ref = &D_8005C634.zone;
+        mask = 1;
+        if (D_80065C90.unkE0 >= D_80065C90.unkE4 >> mask) {
+            mask = 2;
+        }
+        if (func_80023B68(0x400, ref, mask) && !func_80023DBC(ref, v, cs)) {
+            frac = dist - 0xC8000;
+            if (frac > 0x64000) {
+                frac = 0x64000;
+            }
+            frac = (frac << 8) / 0x64000;
+        }
+    }
+    if (frac != 0) {
+        rot = &D_80065C90.unk84;
+        saved[0] = rot->rot[0];
+        saved[1] = rot->rot[1];
+        rot->rot[0] = func_80031E10(rot->rot[0], cs[3], frac);
+        rot->rot[1] = func_80031E10(rot->rot[1], cs[4], frac);
+        func_80025188(pos);
+        rot->rot[0] = saved[0];
+        rot->rot[1] = saved[1];
+    } else {
+        func_80025188(pos);
+    }
+    r = dist;
+    if (r > 0xEB1B8) {
+        r = 0xEB1B8;
+    }
+    r -= 0x416E0;
+    if (r < 0) {
+        r = 0;
+    }
+    k = D_8005C634.unk68;
+    m = D_8005C634.unk64;
+    if (k != 0 && m >= 0) {
+        r += ((m - r) * k) >> 10;
+    }
+    cam = &D_80065C90.unk60;
+    func_80030A34(off, -r, cam->rot[0], cam->rot[1]);
+    cam->trans[0] += off[0];
+    cam->trans[1] += off[1];
+    cam->trans[2] += off[2];
+    if (frac != 0) {
+        cam->trans[0] += ((cs[0] - cam->trans[0]) * frac) >> 8;
+        cam->trans[1] += ((cs[1] - cam->trans[1]) * frac) >> 8;
+        cam->trans[2] += ((cs[2] - cam->trans[2]) * frac) >> 8;
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800233DC);
+#endif
 
 s32 func_8003D9DC(s32 x); /* square root */
 s32 func_80023B68(s32 type, u32 *out, s32 mask);

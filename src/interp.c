@@ -803,7 +803,20 @@ s32 func_8001FD08(s32 cur, s32 target, s32 step) {
     return cur - step;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001FD58);
+/* Eases x (12-bit) within each period: the position in the period follows a
+ * sine curve of amplitude amp (clamped to one). */
+
+s32 func_8001FD58(s32 x, s32 period, s32 amp) {
+    s32 sh;
+    s32 v;
+
+    x &= 0xFFF;
+    sh = (period > 0xFFFF) * 2;
+    v = (func_8003C2F0(((x % period) << 11) / period - 0x400) * amp) >> 12;
+    v = v >= 0x1000 ? 0x1000 : (v < -0x1000 ? -0x1000 : v);
+    v = (((v + 0x1000) >> sh) * period) >> (13 - sh);
+    return (x / period) * period + v;
+}
 
 void func_8004F544(MATRIX *m, s32 *scale); /* ScaleMatrix */
 /* Builds m from the angles rot (y, x, then y relative to z) and the scale

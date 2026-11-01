@@ -2273,11 +2273,28 @@ s32 func_80028A78(void) {
     s32 *pos;
     s32 snap;
 
+#ifdef JUMP_HACK
+    /* Test build (make JUMP_HACK=1): when Crash starts going up, his vertical
+     * speed is doubled once, so he jumps about four times as high. The flag
+     * lives in an unused byte of D_8005C634; this replaces the debug button
+     * combination below to keep the function at its original size. */
+    if (crash != NULL) {
+        if (crash->misc_a[1] > 0) {
+            if (D_8005C634.unk8[0] == 0) {
+                crash->misc_a[1] *= 2;
+                D_8005C634.unk8[0] = 1;
+            }
+        } else {
+            D_8005C634.unk8[0] = 0;
+        }
+    }
+#else
     if ((u32)ns.ldat->lid < 8 && D_800690A0[0] == 0 && (pads.pads[0].held & 0x10) && (D_80067A28[0] & 0x400)) {
         arg = 0x8000;
         func_80027D6C(0, &arg);
         func_8001E34C(NULL, 0x4300, 0, 0, NULL);
     }
+#endif
     if (crash == NULL) {
         return 0;
     }

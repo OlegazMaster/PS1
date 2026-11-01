@@ -185,8 +185,6 @@ s32 func_80021474(Entry *zone) {
 
 /* Whether other is a neighbor of zone. */
 
-/* Whether other is a neighbor of zone. */
-
 s32 func_800214B8(Entry *zone, Entry *other) {
     ZoneHdr *h = (ZoneHdr *)zone->items[0];
     s32 i;

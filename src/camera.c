@@ -144,70 +144,6 @@ void func_80022DA0(s32 count, u32 *refs, u32 flags, s32 n) {
  * size, cell of the path, origin): moves one cell at a time toward the cell
  * of the target and takes its position and rotation. */
 
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
-/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
- * size, cell of the path, origin): moves one cell at a time toward the cell
- * of the target and takes its position and rotation. */
-
 void func_80022EB4(void) {
     GoolObject *obj = D_8005C634.target;
     PathLoc loc;
@@ -277,18 +213,6 @@ void func_80022EB4(void) {
         func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
     }
 }
-
-/* Looks through the links at both ends of the current camera path (property
- * 0x109) for a path whose property 0x309 is (a, b); puts its place into
- * loc. Returns 1 when found at the start, 2 at the end, 0 if none. */
-
-/* Looks through the links at both ends of the current camera path (property
- * 0x109) for a path whose property 0x309 is (a, b); puts its place into
- * loc. Returns 1 when found at the start, 2 at the end, 0 if none. */
-
-/* Looks through the links at both ends of the current camera path (property
- * 0x109) for a path whose property 0x309 is (a, b); puts its place into
- * loc. Returns 1 when found at the start, 2 at the end, 0 if none. */
 
 /* Looks through the links at both ends of the current camera path (property
  * 0x109) for a path whose property 0x309 is (a, b); puts its place into
@@ -455,22 +379,6 @@ s32 func_80023DBC(u32 *loc, s32 *pos, void *out) {
     func_80028740(q[1], progress, out, NULL, 0);
     return 0;
 }
-
-/* Follows the target object sideways: moves along the path when the target
- * leaves the band 0xE1000..0xE5E20 across the path direction, and takes its
- * position and rotation. */
-
-/* Follows the target object sideways: moves along the path when the target
- * leaves the band 0xE1000..0xE5E20 across the path direction, and takes its
- * position and rotation. */
-
-/* Follows the target object sideways: moves along the path when the target
- * leaves the band 0xE1000..0xE5E20 across the path direction, and takes its
- * position and rotation. */
-
-/* Follows the target object sideways: moves along the path when the target
- * leaves the band 0xE1000..0xE5E20 across the path direction, and takes its
- * position and rotation. */
 
 /* Follows the target object sideways: moves along the path when the target
  * leaves the band 0xE1000..0xE5E20 across the path direction, and takes its
@@ -881,46 +789,6 @@ s32 func_80031E34(s32 a, s32 b, s32 c, s32 d);
  * property 0x183), during a transition blended from its start rotation,
  * limited by property 0x119 around the path rotation. */
 
-void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
-/* Sets the camera rotation: toward v, from the path point (blended by
- * property 0x183), during a transition blended from its start rotation,
- * limited by property 0x119 around the path rotation. */
-
-void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
-/* Sets the camera rotation: toward v, from the path point (blended by
- * property 0x183), during a transition blended from its start rotation,
- * limited by property 0x119 around the path rotation. */
-
-void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
-/* Sets the camera rotation: toward v, from the path point (blended by
- * property 0x183), during a transition blended from its start rotation,
- * limited by property 0x119 around the path rotation. */
-
-void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
-/* Sets the camera rotation: toward v, from the path point (blended by
- * property 0x183), during a transition blended from its start rotation,
- * limited by property 0x119 around the path rotation. */
-
-void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
-/* Sets the camera rotation: toward v, from the path point (blended by
- * property 0x183), during a transition blended from its start rotation,
- * limited by property 0x119 around the path rotation. */
-
-void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
-/* Sets the camera rotation: toward v, from the path point (blended by
- * property 0x183), during a transition blended from its start rotation,
- * limited by property 0x119 around the path rotation. */
-
-void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
-/* Sets the camera rotation: toward v, from the path point (blended by
- * property 0x183), during a transition blended from its start rotation,
- * limited by property 0x119 around the path rotation. */
-
-void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
-/* Sets the camera rotation: toward v, from the path point (blended by
- * property 0x183), during a transition blended from its start rotation,
- * limited by property 0x119 around the path rotation. */
-
 void func_80025188(s32 *v) {
     s32 ang[3];
     s32 d[3];
@@ -1093,26 +961,6 @@ extern s32 D_8005C7B4[2][4]; /* speeds of the two blends */
  * faces relative to the camera (or from the held buttons) and moves the
  * blends toward them. */
 
-extern s32 D_8005C7B4[2][4]; /* speeds of the two blends */
-/* Picks the parameter sets of the two blends from the direction Crash
- * faces relative to the camera (or from the held buttons) and moves the
- * blends toward them. */
-
-extern s32 D_8005C7B4[2][4]; /* speeds of the two blends */
-/* Picks the parameter sets of the two blends from the direction Crash
- * faces relative to the camera (or from the held buttons) and moves the
- * blends toward them. */
-
-extern s32 D_8005C7B4[2][4]; /* speeds of the two blends */
-/* Picks the parameter sets of the two blends from the direction Crash
- * faces relative to the camera (or from the held buttons) and moves the
- * blends toward them. */
-
-extern s32 D_8005C7B4[2][4]; /* speeds of the two blends */
-/* Picks the parameter sets of the two blends from the direction Crash
- * faces relative to the camera (or from the held buttons) and moves the
- * blends toward them. */
-
 void func_800256D4(void) {
     s32 locked;
     s32 input;
@@ -1265,8 +1113,6 @@ s32 func_80025C0C(void) {
 }
 
 s32 func_80031E10(s32 a, s32 b, s32 t); /* blends a and b by t */
-/* Property 0x16E of the camera path point, blended by D_8005C634.blends[1].t. */
-
 /* Property 0x16E of the camera path point, blended by D_8005C634.blends[1].t. */
 
 s32 func_80025C54(void) {
@@ -1450,18 +1296,6 @@ s32 func_800260B4(s32 *loc, s32 dist, s32 *progress) {
 
 /* The direction of the camera path for the flags: 4, 1, 2 or 0. */
 
-/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
-
-/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
-
-/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
-
-/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
-
-/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
-
-/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
-
 s32 func_80026140(u32 flags) {
     if (flags & 0x3E01) {
         return 4;
@@ -1560,21 +1394,6 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002616C);
 
 s32 func_80027298(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out);
 s32 func_8002719C(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out);
-/* Finds where on the camera paths the camera should go to keep pos at
- * distance dist: searches the path of locs[n - 1] (backward or forward)
- * and, when the path ends, the paths linked to it; the result goes into
- * locs[1]. Returns the number of locations in locs. */
-
-/* Finds where on the camera paths the camera should go to keep pos at
- * distance dist: searches the path of locs[n - 1] (backward or forward)
- * and, when the path ends, the paths linked to it; the result goes into
- * locs[1]. Returns the number of locations in locs. */
-
-/* Finds where on the camera paths the camera should go to keep pos at
- * distance dist: searches the path of locs[n - 1] (backward or forward)
- * and, when the path ends, the paths linked to it; the result goes into
- * locs[1]. Returns the number of locations in locs. */
-
 /* Finds where on the camera paths the camera should go to keep pos at
  * distance dist: searches the path of locs[n - 1] (backward or forward)
  * and, when the path ends, the paths linked to it; the result goes into

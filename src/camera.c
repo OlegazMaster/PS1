@@ -3,6 +3,7 @@
 #include "gfx.h"
 #include "game.h"
 #include "ns.h"
+#include "pad.h"
 
 /* The camera: follows its path in the zone. */
 
@@ -18,9 +19,12 @@ typedef struct {
 
 /* A blend between two sets of path parameters. */
 typedef struct {
-    u8 unk0[0xC];
+    s32 state; /* 0: set being blended to (0 or 1) */
+    s32 want; /* 0x4: requested set */
+    s32 delay; /* 0x8: frames since the request */
     s32 t; /* 0xC: 0 first set, 0x400 second set */
-    u8 unk10[0x8];
+    s32 vel; /* 0x10 */
+    s32 dir; /* 0x14: last direction */
 } CamBlend; /* 0x18 */
 
 /* The camera transition state (D_8005C634). */
@@ -656,7 +660,108 @@ s32 func_800255BC(s32 *s, s32 *p, s32 dir) {
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800255BC);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_800256D4);
+extern s32 D_8005C7B4[2][4]; /* speeds of the two blends */
+/* Picks the parameter sets of the two blends from the direction Crash
+ * faces relative to the camera (or from the held buttons) and moves the
+ * blends toward them. */
+
+extern s32 D_8005C7B4[2][4]; /* speeds of the two blends */
+/* Picks the parameter sets of the two blends from the direction Crash
+ * faces relative to the camera (or from the held buttons) and moves the
+ * blends toward them. */
+
+extern s32 D_8005C7B4[2][4]; /* speeds of the two blends */
+/* Picks the parameter sets of the two blends from the direction Crash
+ * faces relative to the camera (or from the held buttons) and moves the
+ * blends toward them. */
+
+extern s32 D_8005C7B4[2][4]; /* speeds of the two blends */
+/* Picks the parameter sets of the two blends from the direction Crash
+ * faces relative to the camera (or from the held buttons) and moves the
+ * blends toward them. */
+
+extern s32 D_8005C7B4[2][4]; /* speeds of the two blends */
+/* Picks the parameter sets of the two blends from the direction Crash
+ * faces relative to the camera (or from the held buttons) and moves the
+ * blends toward them. */
+
+void func_800256D4(void) {
+    s32 locked;
+    s32 input;
+    s32 angle;
+    s32 i;
+    CamBlend *b;
+    s32 (*p)[4];
+    u32 st;
+
+    locked = 0;
+    if (!(crash->status_b & 0x80) || (st = crash->state_flags >> 28) == 8 || st == 1) {
+        locked = 1;
+    }
+    input = 0;
+    if (!locked) {
+        angle = ((crash->xform.rot[1] - D_80065C90.unk114) << 20) >> 20;
+        if ((u32)(angle - 0x71) < 0x71E) {
+            input = 2;
+        } else if ((u32)(angle + 0x78E) < 0x71E) {
+            input = 8;
+        }
+        if ((u32)(angle + 0x38D) < 0x71B) {
+            input |= 4;
+        } else if ((u32)(angle + 0x471) >= 0x8E3) {
+            input |= 1;
+        }
+        if (D_8005C634.unk30 != input) {
+            D_8005C634.unk30 = input;
+            input = 0;
+            D_8005C634.unk34 = 0;
+        } else if (++D_8005C634.unk34 >= 0x10) {
+            D_8005C634.unk34 = 0xF;
+        } else {
+            input = 0;
+        }
+        if (pads.pads[0].held & 0x1000) {
+            input |= 1;
+        } else if (pads.pads[0].held & 0x4000) {
+            input |= 4;
+        }
+        if (pads.pads[0].held & 0x2000) {
+            input |= 2;
+        } else if (pads.pads[0].held & 0x8000) {
+            input |= 8;
+        }
+    }
+    b = D_8005C634.blends;
+    p = D_8005C7B4;
+    for (i = 0; i < 2; b++, i++, p++) {
+        if (!locked) {
+            if (i == 1) {
+                if (input & 1) {
+                    if (b->want == i) {
+                        b->want = 0;
+                        b->delay = 0;
+                    }
+                } else if ((input & 4) && b->want == 0) {
+                    b->want = i;
+                    b->delay = 0;
+                }
+            } else if (input & 2) {
+                if (b->want == 1) {
+                    b->want = 0;
+                    b->delay = 0;
+                }
+            } else if ((input & 8) && b->want == 0) {
+                b->want = 1;
+                b->delay = 0;
+            }
+        }
+        if (b->want != b->state && ++b->delay > 0) {
+            b->state = b->want;
+            b->vel = 0;
+        }
+        func_800255BC(&b->t, *p, b->state == 0 ? -1 : 1);
+    }
+}
 
 #ifdef NON_MATCHING
 /* The two parameters of property 0x142 at the place loc on a camera path

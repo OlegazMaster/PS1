@@ -72,7 +72,8 @@ segments:
       - [0xB8BC, c, obj]          # object models: animation frames, collision, drawing
       - [0xD96C, c, interp]       # GOOL interpreter: state changes, events, opcodes
       - [0x11884, c, level]        # level start: checkpoints, spawn flags
-      - [0x12660, asm, "12660"]   # rest of the game C code, to be split into files
+      - [0x12694, c, camera]       # camera along its path
+      - [0x1349C, asm, "1349C"]   # rest of the game C code, to be split into files
       - [0x2A63C, asm, nd_asm]    # Naughty Dog's hand-written assembly (uses the GTE)
       - [0x35F50, asm, psyq]      # PSY-Q libraries (libcd, libgpu, libspu, libapi, ...)
       - [0x4C440, data, "4C440"]
@@ -83,7 +84,8 @@ segments:
       - [0x51120, .sdata, obj]
       - [0x51124, .sdata, interp]
       - [0x51128, .sdata, level]
-      - [0x51130, sdata, "51130"]
+      - [0x51130, .sdata, camera]
+      - [0x511C0, sdata, "511C0"]
       - { start: 0x51238, type: sbss, vram: 0x80060A38, name: heap_sbss }
       - { type: .sbss, vram: 0x80060A58, name: main }
       - { type: .sbss, vram: 0x80060A60, name: sys }

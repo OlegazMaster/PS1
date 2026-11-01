@@ -227,3 +227,5 @@ void func_8002157C(Entry *zone) {
 }
 
 INCLUDE_ASM("asm/us/nonmatchings/level", func_800215E8);
+
+INCLUDE_ASM("asm/us/nonmatchings/level", func_80021E60);

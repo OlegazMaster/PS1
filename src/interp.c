@@ -27,6 +27,9 @@ s32 func_8001D588(GoolObject *obj, s32 argc, u32 flags);
 void func_80018DD4(s32 *v, MATRIX *m, s32 *out);
 s32 GoolObjectChangeState(GoolObject *obj, u32 state, s32 argc, u32 *argv);
 extern GoolObject *crash;
+extern u32 spawns[];
+extern Entry *cur_zone;
+extern u16 D_8006AEE8[];
 s32 func_80038E28(GoolObject *obj, u32 flags, void *a); /* GoolObjectInterpret */
 
 typedef struct {
@@ -921,14 +924,103 @@ INCLUDE_ASM("asm/us/nonmatchings/interp", func_800203A4);
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8002049C);
 
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_800205F4);
+void free(void *p);
+/* Frees the objects and the player (c1: GoolKill). */
 
+void func_800205F4(void) {
+    free(game.objects);
+    crash = NULL;
+    free(game.player);
+}
+
+typedef struct {
+    u8 unk0[0x4];
+    s32 unk4;
+    s32 unk8;
+} LevelHeader;
+extern LevelHeader *D_80061044;
+
+#ifdef NON_MATCHING
+/* Reads the parameters of the level header: game.unk60[0]; fails without
+ * unk4. Equivalent; the original loads the high part of D_80061044 into
+ * another register. */
+s32 func_80020638(void) {
+    LevelHeader *h = D_80061044;
+
+    game.unk60[0] = h->unk8 << 8;
+    if (h->unk4 == 0) {
+        return -0xE;
+    }
+    return -0xFF;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020638);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020670);
 
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020F04);
+/* Sets spawn flag 8 of the entities listed for zone in D_8006AEE8 (each
+ * value: zone << 9 | entity). */
 
+void func_80020F04(s32 zone) {
+    u16 *p;
+
+    for (p = D_8006AEE8; *p != 0; p++) {
+        if (*p >> 9 == zone) {
+            spawns[*p & 0x1FF] |= 8;
+        }
+    }
+}
+
+#ifdef NON_MATCHING
+/* Adds the object with pid_flags pid to the list D_8006AEE8 of the level
+ * (in the first hole, or at the end), unless the zone forbids it.
+ * Equivalent; the original loads the high part of cur_zone into another
+ * register. */
+void func_80020F68(s32 pid) {
+    u16 *p = D_8006AEE8;
+    u16 *free = NULL;
+    u16 key = (pid >> 8) | ((u16)D_80061044->unk8 << 9);
+
+    if (*(u32 *)(cur_zone->items[0] + 0x2DC) & 0x2000) {
+        return;
+    }
+    for (; *p != 0; p++) {
+        if (*p == key) {
+            return;
+        }
+        if (*p == 1) {
+            free = p;
+        }
+    }
+    if (free == NULL) {
+        free = p;
+    }
+    *free = key;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020F68);
+#endif
 
+#ifdef NON_MATCHING
+/* Removes the object with pid_flags pid from the list D_8006AEE8 of the
+ * level (values: level << 9 | pid >> 8; 1 marks a hole).
+ * Equivalent; the original loads the high part of D_80061044 earlier. */
+void func_80021008(s32 pid) {
+    u16 *p = D_8006AEE8;
+    u16 key = (pid >> 8) | ((u16)D_80061044->unk8 << 9);
+
+    for (; *p != 0; p++) {
+        if (*p == key) {
+            if (p[1] != 0) {
+                *p = 1;
+            } else {
+                *p = 0;
+            }
+            return;
+        }
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_80021008);
+#endif

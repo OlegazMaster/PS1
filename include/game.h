@@ -115,6 +115,9 @@ typedef struct {
     u32 unk144;
     u8 unk148[0x18D8];
     RenderState render; /* 0x1A20 (D_800676B0) */
+    u8 unk1D9C[0x4];
+    s32 unk1DA0; /* default model type for animation types 2 and 5 */
+    s32 unk1DA4; /* default model type for animation type 1 */
 } Unk80065C90;
 
 extern Unk80065C90 D_80065C90;

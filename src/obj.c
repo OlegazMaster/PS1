@@ -207,14 +207,10 @@ INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001B524);
 
 extern s32 D_8005C1F0[];
 extern void (*D_8005C1B0[])(void *, s32 *, s32 *, s32);
-extern s32 D_80067A30;
 int abs(int x);
-extern s32 D_80067A34;
 
-#ifdef NON_MATCHING
 /* Calls the drawing function for the model type of obj (an index at 0x120,
- * with a default). Equivalent; the original loads the default index with the
- * high part of its address in another register. */
+ * with a default in D_80065C90). */
 void func_8001B630(GoolObject *obj, s32 *out) {
     u8 *anim = (u8 *)obj->unkE8;
     u32 idx;
@@ -227,7 +223,7 @@ void func_8001B630(GoolObject *obj, s32 *out) {
             out[1] = abs(obj->xform.scale[0]) / 27279;
             idx = (u8)obj->unk120;
             if ((out[0] = D_8005C1F0[idx]) == 0) {
-                idx = D_80067A30;
+                idx = D_80065C90.unk1DA0;
                 out[0] = D_8005C1F0[idx];
             }
             D_8005C1B0[idx](obj->unk8, obj->xform.rot, obj->xform.scale, 0);
@@ -235,7 +231,7 @@ void func_8001B630(GoolObject *obj, s32 *out) {
         case 1:
             idx2 = (u8)obj->unk120;
             if ((out[0] = D_8005C1F0[idx2]) == 0) {
-                idx2 = D_80067A34;
+                idx2 = D_80065C90.unk1DA4;
                 out[0] = D_8005C1F0[idx2];
             }
             D_8005C1B0[idx2](obj->unk8, obj->xform.rot, obj->xform.scale, *(s32 *)(*(u8 **)((u8 *)obj->unk8 + 0x28) + 0x10));
@@ -243,9 +239,6 @@ void func_8001B630(GoolObject *obj, s32 *out) {
         }
     }
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001B630);
-#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001B7A0);
 

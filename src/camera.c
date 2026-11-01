@@ -2255,12 +2255,49 @@ void func_8002A728(GoolObject *obj) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A7A8);
+/* The surfaces near an object: records of 8 bytes ended by 0xFFFF, their
+ * count and the box searched. */
+typedef struct {
+    u16 recs[0x200][4];
+    s32 unk1000;
+    s32 count; /* 0x1004 */
+    s32 box[6]; /* 0x1008: min x, y, z, max x, y, z */
+} SurfaceQuery;
+s32 func_80031FB4(s32 *box, void *item); /* whether box overlaps item */
+s32 func_8003AF78(void *item, s32 *box, u16 *out, s32 n);
+/* Collects into q the surfaces of the neighbor zones (flag 4) of the current
+ * zone near pos (a box around pos sized by the object's height). */
 
-void func_8002A7A8(Transform *xform, GoolObject *obj, s32 a);
+s32 func_8002A7A8(s32 *pos, GoolObject *obj, SurfaceQuery *q) {
+    ZoneHdr *hdr;
+    void *item;
+    s32 i;
+    s32 unused[6]; /* takes stack space in the original */
 
-void func_8002A950(GoolObject *obj, s32 a) {
-    func_8002A7A8(&obj->xform, obj, a);
+    q->count = 0;
+    q->unk1000 = 1;
+    q->box[0] = pos[0] - 0x12C00;
+    q->box[1] = pos[1] + *(s32 *)((u8 *)obj->unk8 + 0x40) / 2 - 0x25800;
+    q->box[2] = pos[2] - 0x12C00;
+    q->box[3] = pos[0] + 0x12C00;
+    q->box[4] = pos[1] + *(s32 *)((u8 *)obj->unk8 + 0x40) / 2 + 0x25800;
+    q->box[5] = pos[2] + 0x12C00;
+    hdr = (ZoneHdr *)((Entry *)D_80065C90.unkCC)->items[0];
+    for (i = 0; i < hdr->neighbor_count; i++) {
+        if (hdr->neighbor_flags[i] & 4) {
+            item = ((Entry *)NSOpen(&hdr->neighbors[i], 1, 0))->items[1];
+            if (func_80031FB4(q->box, item)) {
+                q->count = func_8003AF78(item, q->box, q->recs[q->count], q->count);
+            }
+        }
+    }
+    q->recs[q->count][0] = 0xFFFF;
+    return q->count;
+}
+
+
+void func_8002A950(GoolObject *obj, SurfaceQuery *q) {
+    func_8002A7A8(obj->xform.trans, obj, q);
 }
 
 extern s32 D_80060AA4; /* level.c */

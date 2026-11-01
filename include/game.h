@@ -120,13 +120,15 @@ typedef struct {
     UnkCC *unkCC; /* 0xCC: the current zone (cur_zone) */
     void *unkD0; /* 0xD0: the previous zone */
     s32 unkD4; /* 0xD4: entity of the current zone */
-    u8 unkD8[0x8];
+    s32 unkD8; /* 0xD8: camera path item */
+    s32 unkDC;
     s32 unkE0; /* 0xE0: progress along the path */
     s32 unkE4; /* 0xE4: last progress of the path */
     s32 unkE8; /* 0xE8: path point */
     s32 unkEC; /* 0xEC: path length */
     s32 unkF0; /* 0xF0: property 0x29 of the path */
-    u8 unkF4[0x8];
+    s32 unkF4;
+    s32 unkF8;
     s32 unkFC;
     s32 unk100;
     s32 unk104;

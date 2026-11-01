@@ -93,7 +93,6 @@ void func_80043310(s32, DrawContext *, RenderState *);
 void func_800435DC(DrawContext *, RenderState *);
 void func_80043FFC(s32, DrawContext *, RenderState *);
 void func_800452A0(s32, DrawContext *, RenderState *);
-void func_8004F674(u16 *);
 void func_8005D370(s32, DrawContext *, RenderState *);
 int printf(const char *fmt, ...);
 
@@ -213,7 +212,7 @@ void CoreLoop(s32 lid) {
             s32 count;
             Unk30 *entry;
 
-            func_8004F674(D_80065CB0);
+            SetRotMatrix((MATRIX *)D_80065CB0);
             for (i = 0; i < 9; i++) {
                 D_80065CB0[i] &= ~3;
             }
@@ -239,7 +238,7 @@ void CoreLoop(s32 lid) {
             func_80040ED8(D_80060AA4, context.cur, &D_800676B0, game.unk19C);
             context.cur->unkC = 1;
         } else {
-            func_8004F674(D_80065CB0);
+            SetRotMatrix((MATRIX *)D_80065CB0);
             if (!(game.display_flags & 0x40000000)) {
                 func_8003AC44(context.cur->ot, 0x800);
                 context.cur->unkC = 1;

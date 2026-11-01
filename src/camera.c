@@ -6,6 +6,19 @@
 
 /* The camera: follows its path in the zone. */
 
+/* The camera transition state (D_8005C634). */
+typedef struct {
+    u8 unk0[0xB];
+    s8 unkB;
+    u8 unkC[0x2C];
+    s32 unk38; /* 0x38: transition running */
+    s32 unk3C; /* 0x3C: start time */
+    s32 unk40; /* 0x40: duration */
+    s32 unk44[3]; /* 0x44: start rotation */
+} CamTransition;
+extern CamTransition D_8005C634;
+extern s32 ticks_elapsed;
+
 /* .sdata: names of the water and terrain entries (string literals of
  * func_80021E94 while it is still assembly) */
 char D_80060930[] = "Wat1R";
@@ -87,6 +100,7 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_800233DC);
 
 s32 func_8003D9DC(s32 x); /* square root */
 s32 func_80023B68(s32 type, u32 *out, s32 mask);
+void func_8002513C(void);
 void func_80024E80(s32 *v);
 void func_8002513C(void);
 void func_800233DC(s32 *v, s32 a);
@@ -193,3 +207,75 @@ s32 func_80023DBC(u32 *loc, s32 *pos, void *out) {
     func_80028740(q[1], progress, out, NULL, 0);
     return 0;
 }
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80023EBC);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024124);
+
+/* On a change of the path type: stops or starts a camera transition. */
+void func_80024330(s32 type) {
+    D_80065C90.unkF8 = 0;
+    if (D_8005C634.unkB) {
+        D_8005C634.unk38 = 0;
+    } else if (type != 0x10) {
+        func_8002513C();
+    }
+}
+
+#ifdef NON_MATCHING
+/* Selects the camera path items for the mode n. Equivalent; the original
+ * adds the index terms in another order. */
+void func_8002437C(s32 n) {
+    s32 k;
+    Entry *zone;
+    s32 item;
+
+    D_80065C90.unkFC = n;
+    if (D_80065C90.unkD4 != 0 && D_80065C90.unkCC != NULL) {
+        k = func_80032DF8(D_80065C90.unkD4, 0x173, 0, 0, 0, 2, 0);
+        zone = (Entry *)D_80065C90.unkCC;
+        item = (s32)zone->items[k * 3 + (*(s32 *)(zone->items[0] + 0x184) + 1)];
+        D_80065C90.unkD8 = item;
+        if (n != 1) {
+            D_80065C90.unkDC = (s32)zone->items[k * 3 + n + *(s32 *)(zone->items[0] + 0x184)];
+        } else {
+            D_80065C90.unkDC = item;
+        }
+    }
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002437C);
+#endif
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002444C);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024590);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_800246A0);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_800247DC);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024918);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024AD4);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024E80);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024F54);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025070);
+
+#ifdef NON_MATCHING
+/* Starts a camera transition from the current rotation. Equivalent; the
+ * original schedules the stores differently. */
+void func_8002513C(void) {
+    D_8005C634.unk38 = 1;
+    D_8005C634.unk40 = 0x154;
+    D_8005C634.unk3C = ticks_elapsed;
+    D_8005C634.unk44[0] = D_80065C90.unk118[0];
+    D_8005C634.unk44[1] = D_80065C90.unk118[1];
+    D_8005C634.unk44[2] = D_80065C90.unk118[2];
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002513C);
+#endif

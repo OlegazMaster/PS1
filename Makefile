@@ -60,8 +60,16 @@ LD_SCRIPT := $(ASM_DIR)/main.ld
 ELF       := $(BUILD)/main.elf
 TARGET    := $(BUILD)/$(EXE_NAME)
 
+# NON_MATCHING builds link with every segment at its original address (see
+# tools/pad_ld.py), so that the game still runs.
+ifneq ($(NON_MATCHING),0)
+LINK_SCRIPT := $(BUILD)/main_nm.ld
+else
+LINK_SCRIPT := $(LD_SCRIPT)
+endif
+
 LDFLAGS := -EL -nostdlib --no-check-sections -Map $(BUILD)/main.map \
-           -T $(LD_SCRIPT) \
+           -T $(LINK_SCRIPT) \
            -T $(ASM_DIR)/undefined_syms_auto.txt \
            -T $(ASM_DIR)/undefined_funcs_auto.txt \
            -T config/$(VERSION)/undefined_syms.txt
@@ -87,8 +95,12 @@ $(TARGET): $(ELF)
 	$(OBJCOPY) -O binary $< $@
 	truncate -s %2048 $@
 
-$(ELF): $(OBJECTS) $(LD_SCRIPT) config/$(VERSION)/undefined_syms.txt
+$(ELF): $(OBJECTS) $(LINK_SCRIPT) config/$(VERSION)/undefined_syms.txt
 	$(LD) $(LDFLAGS) -o $@
+
+$(BUILD)/main_nm.ld: $(LD_SCRIPT) $(CONFIG) tools/pad_ld.py
+	@mkdir -p $(BUILD)
+	$(PYTHON) tools/pad_ld.py $(CONFIG) $(LD_SCRIPT) $@
 
 $(LD_SCRIPT):
 	@echo "$(LD_SCRIPT) не найден: сначала выполните 'make extract'"
@@ -121,6 +133,12 @@ extract: $(CONFIG)
 	@# GNU as gives .bss a 16-byte alignment, so ld would move the NOLOAD bss
 	@# section; the PSY-Q linker put it right after the data.
 	sed -i -E 's/^(\s*\.\w+_bss) \(NOLOAD\) :/\1 . (NOLOAD) :/' $(LD_SCRIPT)
+	@# The entry point and $$gp follow the code and data, so that a build whose
+	@# code differs in size (NON_MATCHING=1) still starts.
+	sed -i -E 's/^(\s*_gp = )0x[0-9A-Fa-f]+;/\1main_SDATA_START;/' $(LD_SCRIPT)
+	sed -i -E 's/^\.word 0x[0-9A-F]+( +\/\* Initial PC \*\/)/.word __SN_ENTRY_POINT\1/' asm/us/header.s
+	@# The heap starts right after .bss (the startup code clears .bss up to it).
+	sed -i -E 's/^D_8006EA78 = 0x8006EA78;/D_8006EA78 = main_BSS_END;/' $(ASM_DIR)/undefined_syms_auto.txt
 	@# The C objects include the asm of their functions (INCLUDE_ASM), which the
 	@# dependency files do not track: rebuild them from the new asm.
 	rm -rf $(BUILD)/src

@@ -1442,6 +1442,8 @@ NsdPte *NSProbeSafe(u32 eid);
 void NSInitAudioPages(NsState *nss, s32 reserved, s32 size, s32 inst_size, s32 n);
 
 #ifdef NON_MATCHING
+/* "Cr30T": the literal stays in the .sdata of the file after ns.c. */
+extern char D_800608D8[];
 /* Loads the NSD of a level, then sets up the page tables and the physical,
  * virtual, texture and audio pages. Equivalent; the original keeps more copies
  * of the NSD pointer, initializes the page counter before storing the page
@@ -1544,7 +1546,7 @@ s32 NSInit(NsState *nss, s32 lid) {
             ps->state = 30;
         } else if (ps->state == 20 || ps->state == 21) {
             pte = NSProbeSafe(ps->eid);
-            if ((s32)pte < -0xFE && ps->eid != NSStringToEID("Cr30T")) {
+            if ((s32)pte < -0xFE && ps->eid != NSStringToEID(D_800608D8)) {
                 ps->state = 20;
                 ps->pgid = pte->value;
                 ps->unk20 = (s32 *)pte;

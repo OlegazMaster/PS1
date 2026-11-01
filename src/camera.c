@@ -140,7 +140,143 @@ void func_80022DA0(s32 count, u32 *refs, u32 flags, s32 n) {
     } while (--count != 0);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80022EB4);
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+/* Camera on a grid of paths (property 0x309 of the path: cell size, grid
+ * size, cell of the path, origin): moves one cell at a time toward the cell
+ * of the target and takes its position and rotation. */
+
+void func_80022EB4(void) {
+    GoolObject *obj = D_8005C634.target;
+    PathLoc loc;
+    Entry *zone;
+    s32 path;
+    s32 *grid;
+    s32 row;
+    s32 x;
+    s32 cur_row;
+    s32 cur_col;
+    s32 col;
+    s32 n;
+    s32 m;
+    s32 rem;
+    Transform *cam;
+
+    if (obj != NULL) {
+        zone = (Entry *)D_80065C90.unkCC;
+        path = D_80065C90.unkD4;
+        grid = (s32 *)func_80032710(D_80065C90.unkD4, 0x309, 0, 0, NULL, 2, 0, 0, 0);
+        row = ((obj->xform.trans[2] >> 8) - grid[7]) / grid[1];
+        m = grid[3];
+        if (row < 0) {
+            row = 0;
+        }
+        if (row >= m) {
+            row = m - 1;
+        }
+        x = ((obj->xform.trans[0] >> 8) - grid[6]) / grid[0];
+        cur_row = grid[5];
+        m = grid[2];
+        if (x < 0) {
+            x = 0;
+        }
+        if (x >= m) {
+            x = m - 1;
+        }
+        n = func_80032EDC(path, 0x27F, 0, 2);
+        cur_col = grid[4];
+        col = x / n;
+        rem = x % n;
+        if (row != cur_row || col != cur_col) {
+            if (row > cur_row) {
+                row = cur_row + 1;
+            } else if (row < cur_row) {
+                row = cur_row - 1;
+            }
+            if (col > cur_col) {
+                col = cur_col + 1;
+            } else if (col < cur_col) {
+                col = cur_col - 1;
+            }
+            func_80023170(col, row, &loc);
+            zone = (Entry *)NSOpen((u32 *)&loc.zone, 1, 0);
+            path = (s32)zone->items[loc.path * 3 + *(s32 *)(zone->items[0] + 0x184)];
+        }
+        func_800215E8(zone, (u32 *)path, rem << 8, 0);
+        cam = &D_80065C90.unk60;
+        cam->trans[0] = obj->xform.trans[0];
+        cam->trans[1] = obj->xform.trans[1];
+        cam->trans[2] = obj->xform.trans[2];
+        cam->rot[0] = obj->xform.rot[0] & 0xFFF;
+        cam->rot[1] = (obj->xform.rot[1] + 0x800) & 0xFFF;
+        cam->rot[2] = obj->xform.rot[2] & 0xFFF;
+        D_80065C90.unk114 = cam->rot[1];
+    } else {
+        func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
+    }
+}
 
 /* Looks through the links at both ends of the current camera path (property
  * 0x109) for a path whose property 0x309 is (a, b); puts its place into

@@ -86,7 +86,7 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_80023170);
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800233DC);
 
 s32 func_8003D9DC(s32 x); /* square root */
-s32 func_80023B68(s32 a, u8 *b, s32 c);
+s32 func_80023B68(s32 type, u32 *out, s32 mask);
 void func_80024E80(s32 *v);
 void func_8002513C(void);
 void func_800233DC(s32 *v, s32 a);
@@ -97,7 +97,7 @@ extern u8 D_8005C63F[];
 
 void func_80023A94(s32 *v, s32 a) {
     if (func_8003D9DC((-v[2] >> 8) * (-v[2] >> 8) + (-v[0] >> 8) * (-v[0] >> 8)) << 8 <= 0x12C000) {
-        if (func_80023B68(8, D_8005C63F + 0x12D, 3)) {
+        if (func_80023B68(8, (u32 *)(D_8005C63F + 0x12D), 3)) {
             D_8005C63F[0] = 1;
             func_80024E80(v);
             func_8002513C();
@@ -108,7 +108,60 @@ void func_80023A94(s32 *v, s32 a) {
     func_800247DC(v, a);
 }
 
+s32 func_80032EDC(s32 entity, s32 tag, s32 a, s32 b);
+s32 func_80032DF8(s32 a, s32 b, s32 c, s32 d, s32 e, s32 f, s32 g);
+
+#ifdef NON_MATCHING
+/* Looks at the paths linked to the start (mask 1) and the end (mask 2) of
+ * the current camera path for one of type type; puts its zone, path and
+ * end into out and returns the end found, or 0. Equivalent; the original
+ * keeps &D_80065C90 in s7 and out on the stack. */
+s32 func_80023B68(s32 type, u32 *out, s32 mask) {
+    s32 end;
+    s32 bit;
+    u8 *links;
+    u8 *p;
+    s32 count;
+    s32 i;
+    u32 *ref;
+    Entry *zone;
+    s32 other;
+
+    for (end = 0, bit = 1; end < 2; end++, bit = 2) {
+        if (!(mask & bit)) {
+            continue;
+        }
+        links = (u8 *)func_80032710(D_80065C90.unkD4, 0x109, end ? (func_80032EDC(D_80065C90.unkD4, 0x27F, 0, 2) - 1) << 8 : 0, 0, NULL, 1, 0, 0, 0);
+        if (links == NULL) {
+            continue;
+        }
+        count = func_80032EDC(D_80065C90.unkD4, 0x109, end ? (func_80032EDC(D_80065C90.unkD4, 0x27F, 0, 2) - 1) << 8 : 0, 1);
+        for (i = 0; i < count; i++, links += 4) {
+            p = links + 1;
+            ref = (u32 *)(((Entry *)((u32 *)D_80065C90.unkD4)[1])->items[0] + 0x194 + p[1] * 4);
+            zone = (Entry *)NSOpen(ref, 1, 0);
+            other = (s32)zone->items[p[0] * 3 + *(s32 *)(zone->items[0] + 0x184)];
+            if (func_80032DF8(other, 0x29, 0, 0, 0, 2, 0) == type) {
+                goto found;
+            }
+        }
+    }
+    return 0;
+found:
+    out[0] = *ref;
+    out[1] = links[1];
+    if (links[0] == 1) {
+        out[3] = 2;
+        out[2] = 0;
+    } else {
+        out[3] = 1;
+        out[2] = (func_80032EDC(other, 0x27F, 0, 2) - 1) << 8;
+    }
+    return bit;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80023B68);
+#endif
 
 s32 func_8003C2F0(s32 angle); /* sin */
 s32 func_8003C364(s32 angle); /* cos */

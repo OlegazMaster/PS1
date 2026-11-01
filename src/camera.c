@@ -580,7 +580,64 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002513C);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025188);
 
+#ifdef NON_MATCHING
+/* Moves the blend s[0] toward 0x400 (dir > 0) or 0 (dir < 0; 0 keeps s[2])
+ * with speed s[1]: p = {slow-down range, max speed, acceleration, shift}.
+ * Equivalent; the original negates the copy ad instead of d. */
+s32 func_800255BC(s32 *s, s32 *p, s32 dir) {
+    s32 v = s[0];
+    s32 target;
+    s32 d;
+    s32 ad;
+    s32 vel;
+
+    if (dir != 0 || (dir = s[2]) != 0) {
+        target = (~dir >> 31) & 0x400;
+        if (v != target) {
+            d = target - v;
+            ad = d;
+            if (ad < 0) {
+                ad = -ad;
+            }
+            vel = s[1];
+            if (ad <= p[0]) {
+                ad >>= p[3];
+                if (ad == 0) {
+                    ad = 1;
+                }
+                d = d < 0 ? -ad : ad;
+            }
+            if (p[1] < ad) {
+                d = d < 0 ? -p[1] : p[1];
+            }
+            if (vel < d) {
+                vel += p[2];
+                if (d < vel) {
+                    vel = d;
+                }
+            } else if (d < vel) {
+                vel -= p[2];
+                if (vel < d) {
+                    vel = d;
+                }
+            }
+            v += vel;
+            if (v < 0) {
+                v = 0;
+            } else if (v > 0x400) {
+                v = 0x400;
+            }
+            s[1] = vel;
+            s[0] = v;
+        } else {
+            s[1] = 0;
+        }
+    }
+    return v;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800255BC);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800256D4);
 

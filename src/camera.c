@@ -1901,7 +1901,88 @@ void func_800280A4(s32 mask) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_800281F8);
+void func_8002437C(s32 a);
+/* Runs the path end event ev (end 1: start of the path, 2: its end):
+ * 1 and 3 leave for the linked path ev[1] (3 also moves the camera there
+ * over 16 frames), 2 sets the allowed links, 4 changes the path parameter
+ * set, 5 switches to mode 0x100, 6 sets unkB. */
+
+void func_800281F8(s8 *ev, s32 end) {
+    s32 pos;
+    s32 mask;
+    u8 *link;
+    u32 *ref;
+    Entry *zone;
+    s32 path;
+    Transform *cam;
+    Unk80065C90 *g;
+
+    switch (ev[2]) {
+    case 4:
+        if (D_80065C90.unkFC != ev[1]) {
+            func_8002437C(ev[1]);
+            func_8002513C();
+        }
+        break;
+    case 2:
+        mask = (u8)ev[1];
+        if (end == 1) {
+            D_80065C90.unk100 = mask;
+        } else {
+            D_80065C90.unk104 = mask;
+        }
+        break;
+    case 6:
+        D_8005C634.unkB = 1;
+        break;
+    case 1:
+        if (D_8005C634.unk0 == 0x40) {
+            break;
+        }
+        D_8005C634.unk0 = 0x40;
+        goto leave;
+    case 3:
+        if (D_8005C634.unk0 == 0x20) {
+            break;
+        }
+        D_8005C634.unk0 = 0x20;
+    leave:
+        pos = 0;
+        g = &D_80065C90;
+        if (end != 1) {
+            pos = g->unkE4;
+        }
+        link = (u8 *)func_80032710(g->unkD4, 0x109, pos, 0, NULL, 1, 0, 0, 0) + ev[1] * 4;
+        ref = &((ZoneHdr *)((Entry *)((u32 *)g->unkD4)[1])->items[0])->neighbors[link[2]];
+        zone = (Entry *)NSOpen(ref, 1, 0);
+        path = (s32)zone->items[link[1] * 3 + ((ZoneHdr *)zone->items[0])->first_item];
+        D_8005C634.zone = *ref;
+        D_8005C634.path = link[1];
+        if (link[0] == 1) {
+            D_8005C634.progress = 0;
+        } else {
+            D_8005C634.progress = PathEnd(path);
+        }
+        D_8005C634.dir = end;
+        if (ev[2] == 3 && ev[0] != 0) {
+            cam = &D_80065C90.unk60;
+            D_8005C634.unk74 = D_8005C634.unk78 = 0x10;
+            D_8005C634.unk7C[0] = cam->trans[0];
+            D_8005C634.unk7C[1] = cam->trans[1];
+            D_8005C634.unk7C[2] = cam->trans[2];
+        }
+        if (ev[2] == 1) {
+            func_80025070(path, D_8005C634.progress);
+        }
+        break;
+    case 5:
+        if (D_8005C634.unk0 != 0x100) {
+            D_8005C634.unk0 = 0x100;
+            D_80065C90.unkF8 = end;
+        }
+        break;
+    }
+}
 
 #ifdef NON_MATCHING
 /* The first place linked to the end of the path at loc (see func_800284E8);

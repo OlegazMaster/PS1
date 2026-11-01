@@ -66,7 +66,47 @@ void func_8002B394(GoolObject *obj, s32 *prev, s32 *pos, CollQuery *q, s32 div, 
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002B4E8);
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002B838);
+s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
+/* Collides the box of obj at pos with the objects of the collision records. */
+
+s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
+s32 func_8001B328(GoolObject *obj, s32 *box, GoolObject *other, s32 *other_box);
+
+s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
+
+s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
+
+s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
+
+s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
+
+s32 func_8002B838(GoolObject *obj, s32 *pos, CollQuery *q) {
+    s32 *box;
+    s32 *rec;
+    s32 *rbox;
+    GoolObject *other;
+    s32 i;
+
+    box = q->box2;
+    if (game.unk5C == 0) {
+        return 0;
+    }
+    q->box2[0] = pos[0] + *(s32 *)((u8 *)obj->unk8 + 0x30);
+    box[1] = pos[1];
+    box[2] = pos[2] + *(s32 *)((u8 *)obj->unk8 + 0x38);
+    box[3] = pos[0] + *(s32 *)((u8 *)obj->unk8 + 0x3C);
+    box[4] = pos[1] + *(s32 *)((u8 *)obj->unk8 + 0x40);
+    box[5] = pos[2] + *(s32 *)((u8 *)obj->unk8 + 0x44);
+    for (i = 0; i < game.unk5C; i++) {
+        rec = game.unk390[i];
+        rbox = rec + 2;
+        other = (GoolObject *)rec[1];
+        if (func_8003191C(box, rbox)) {
+            func_8001B328(obj, box, other, (rec[0] & 7) == 0 ? rbox : NULL);
+        }
+    }
+    return 0;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002B9A4);
 

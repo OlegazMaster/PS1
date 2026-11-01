@@ -435,7 +435,50 @@ void func_800247DC(s32 *pos, s32 snap) {
     func_80025188(pos);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024918);
+s32 func_800260B4(s32 *loc, s32 dist, s32 *progress);
+s32 func_80028484(s32 *loc, s32 *next);
+void func_80025070(s32 path, s32 pos);
+/* Moves the camera along its path at the speed of the path point (property
+ * 0x160, its sign flips the direction), going on to the linked path at the
+ * end; then adjusts its distance to pos. */
+
+void func_80024918(s32 *pos) {
+    s32 loc[4];
+    s32 next[4];
+    s32 progress;
+    s32 speed;
+    s32 left;
+    Unk80065C90 *g;
+
+    if (D_80065C90.unkF8 == 0) {
+        D_80065C90.unkF8 = D_80065C90.unkEC < D_80065C90.unkE8 * 2 ? 1 : 2;
+    }
+    speed = func_80032DF8(D_80065C90.unkDC, 0x160, D_80065C90.unkE0, 0, 0, 3, 0x100);
+    if (speed < 0) {
+        speed = -speed;
+        D_80065C90.unkF8 = D_80065C90.unkF8 == 1 ? 2 : 1;
+    }
+    g = &D_80065C90;
+    loc[0] = (s32)g->unkCC;
+    loc[1] = g->unkD4;
+    loc[2] = g->unkE0;
+    loc[3] = g->unkF8;
+    left = func_800260B4(loc, speed, &progress);
+    if (left != 0 && func_80028484(loc, next)) {
+        g->unkF8 = next[3];
+        progress = next[2];
+        if (func_80032DF8(next[1], 0x29, 0, 0, 0, 2, 0) == 2) {
+            func_800260B4(next, left, &progress);
+        } else {
+            func_80025070(next[1], next[2]);
+        }
+        func_800215E8((Entry *)next[0], (u32 *)next[1], progress, 0);
+    } else {
+        func_800215E8((Entry *)g->unkCC, (u32 *)g->unkD4, progress, 0);
+    }
+    func_80024590(pos);
+    func_80025188(pos);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024AD4);
 

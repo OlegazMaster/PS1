@@ -78,3 +78,65 @@ void func_80022DA0(s32 count, u32 *refs, u32 flags, s32 n) {
         refs++;
     } while (--count != 0);
 }
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80022EB4);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80023170);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_800233DC);
+
+s32 func_8003D9DC(s32 x); /* square root */
+s32 func_80023B68(s32 a, u8 *b, s32 c);
+void func_80024E80(s32 *v);
+void func_8002513C(void);
+void func_800233DC(s32 *v, s32 a);
+void func_800247DC(s32 *v, s32 a);
+extern u8 D_8005C63F[];
+/* Within 0x12C000 of the origin (x, z of v) and if func_80023B68 allows it,
+ * switches the camera mode; otherwise updates it normally. */
+
+void func_80023A94(s32 *v, s32 a) {
+    if (func_8003D9DC((-v[2] >> 8) * (-v[2] >> 8) + (-v[0] >> 8) * (-v[0] >> 8)) << 8 <= 0x12C000) {
+        if (func_80023B68(8, D_8005C63F + 0x12D, 3)) {
+            D_8005C63F[0] = 1;
+            func_80024E80(v);
+            func_8002513C();
+            func_800233DC(v, 1);
+            return;
+        }
+    }
+    func_800247DC(v, a);
+}
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80023B68);
+
+s32 func_8003C2F0(s32 angle); /* sin */
+s32 func_8003C364(s32 angle); /* cos */
+void func_8002616C(s32 *loc, s32 *pos, s32 *a, s32 *b, s32 *angle);
+s32 func_8002697C(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out);
+void func_80028740(s32 path, s32 progress, void *a, void *b, s32 c);
+/* Finds the progress on the path of loc (zone, path, ...) nearest to pos and
+ * puts the camera state there into out; returns 1 if there is none. */
+
+s32 func_80023DBC(u32 *loc, s32 *pos, void *out) {
+    s32 q[4];
+    s32 a;
+    s32 b;
+    s32 angle;
+    s32 progress;
+    s32 c;
+    Entry *zone;
+
+    q[0] = NSOpen(loc, 1, 0);
+    zone = (Entry *)q[0];
+    q[1] = (s32)zone->items[loc[1] * 3 + *(s32 *)(zone->items[0] + 0x184)];
+    q[2] = loc[2];
+    q[3] = loc[3];
+    func_8002616C(q, pos, &a, &b, &angle);
+    c = func_8003C364(angle);
+    if (func_8002697C(q, pos, a, c, func_8003C2F0(angle), 4, &progress)) {
+        return 1;
+    }
+    func_80028740(q[1], progress, out, NULL, 0);
+    return 0;
+}

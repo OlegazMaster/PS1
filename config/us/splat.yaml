@@ -73,7 +73,7 @@ segments:
       - [0xD96C, c, interp]       # GOOL interpreter: state changes, events, opcodes
       - [0x11884, c, level]        # level start: checkpoints, spawn flags
       - [0x12694, c, camera]       # camera along its path
-      - [0x136B4, asm, "136B4"]   # rest of the game C code, to be split into files
+      - [0x146BC, asm, "146BC"]   # rest of the game C code, to be split into files
       - [0x2A63C, asm, nd_asm]    # Naughty Dog's hand-written assembly (uses the GTE)
       - [0x35F50, asm, psyq]      # PSY-Q libraries (libcd, libgpu, libspu, libapi, ...)
       - [0x4C440, data, "4C440"]

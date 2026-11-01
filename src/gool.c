@@ -276,7 +276,8 @@ typedef struct {
     u8 unk0[0x2E8];
     Unk80061044Pos unk2E8[1]; /* 0x2E8 */
 } Unk80061044;
-extern Unk80061044 *D_80061044;
+/* ns.ldat (D_80061044). */
+#define D_80061044 ((Unk80061044 *)ns.ldat)
 /* A property of an entity: 0x9F id, 0xA9 exec, 0xAA subtype, 0x342 flags. */
 #define EntityProp(e, tag) func_80032DF8(e, tag, 0, 0, 0, 2, 0)
 /* The spawn flags of an entity (1: spawned, 2: removed); the original reads
@@ -286,8 +287,7 @@ extern Unk80061044 *D_80061044;
 #ifdef NON_MATCHING
 /* Spawns the object of entity idx of zone (c1: GoolObjectSpawn); crates
  * (exec 0x22) right above the previous one are stacked on it. Equivalent;
- * the original keeps the list index in s0 and loads the high part of
- * D_80061044 into another register. */
+ * the original keeps the list index in s0. */
 GoolObject *GoolObjectSpawn(Entry *zone, s32 idx) {
     ZoneHeader *header;
     s32 entity;

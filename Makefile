@@ -40,8 +40,13 @@ DIFF      := $(PYTHON) $(TOOLCHAIN)/asm-differ/diff.py
 
 VERSION_UPPER := $(shell echo $(VERSION) | tr a-z A-Z)
 CPPFLAGS  := -undef -nostdinc -Iinclude -DVERSION_$(VERSION_UPPER) -DTARGET_PSX
+# NM_FILES="camera gfx" limits NON_MATCHING=1 to those source files (to find
+# which one breaks the game).
+NM_FILES ?=
 ifneq ($(NON_MATCHING),0)
+ifeq ($(NM_FILES),)
 CPPFLAGS  += -DNON_MATCHING
+endif
 endif
 # -funsigned-char follows the PSY-Q convention used by other PS1 decompilations.
 CC1FLAGS  := -quiet -O2 -G$(GP_SIZE) -g -mips1 -mcpu=3000 -mgas -msoft-float \
@@ -185,3 +190,7 @@ diff:
 
 test:
 	$(PYTHON) -m unittest discover -s tests
+
+ifneq ($(NON_MATCHING),0)
+$(foreach f,$(NM_FILES),$(eval $(BUILD)/src/$(f).c.o: CPPFLAGS += -DNON_MATCHING))
+endif

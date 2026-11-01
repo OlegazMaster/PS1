@@ -256,7 +256,7 @@ s32 func_80023DBC(u32 *loc, s32 *pos, void *out) {
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80023EBC);
 
-s32 func_80026464(s32 *loc, s32 *pos, s32 dist, s32 a, s32 b, s32 c);
+s32 func_80026464(); /* (PathLoc *locs, s32 *pos, s32 dist, s32 backward, s32 angle, s32 n) */
 void func_80025CE8(); /* (PathLoc *locs, s32 n, PathLoc *out, s32 frac) */
 /* Follows the target object: moves along the path when it gets too far or
  * too near, and takes its position and rotation. */
@@ -1130,7 +1130,114 @@ s32 func_8002616C(PathLoc *loc, s32 *pos, s32 *out_lo, s32 *out_hi, s32 *out_ang
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002616C);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80026464);
+s32 func_80027298(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out);
+s32 func_8002719C(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out);
+/* Finds where on the camera paths the camera should go to keep pos at
+ * distance dist: searches the path of locs[n - 1] (backward or forward)
+ * and, when the path ends, the paths linked to it; the result goes into
+ * locs[1]. Returns the number of locations in locs. */
+
+/* Finds where on the camera paths the camera should go to keep pos at
+ * distance dist: searches the path of locs[n - 1] (backward or forward)
+ * and, when the path ends, the paths linked to it; the result goes into
+ * locs[1]. Returns the number of locations in locs. */
+
+/* Finds where on the camera paths the camera should go to keep pos at
+ * distance dist: searches the path of locs[n - 1] (backward or forward)
+ * and, when the path ends, the paths linked to it; the result goes into
+ * locs[1]. Returns the number of locations in locs. */
+
+/* Finds where on the camera paths the camera should go to keep pos at
+ * distance dist: searches the path of locs[n - 1] (backward or forward)
+ * and, when the path ends, the paths linked to it; the result goes into
+ * locs[1]. Returns the number of locations in locs. */
+
+s32 func_80026464(PathLoc *locs, s32 *pos, s32 dist, s32 backward, s32 angle, s32 n) {
+    PathLoc cands[7];
+    s32 progress;
+    s32 lo;
+    s32 hi;
+    s32 a;
+    s32 type;
+    s32 ret;
+    PathLoc *cur;
+    PathLoc *c;
+    s32 c_cos;
+    s32 c_sin;
+    s32 best;
+    s32 d;
+    s32 i;
+    s32 t;
+
+    ret = n;
+    cur = &locs[n - 1];
+    type = func_80026140(func_80032DF8(cur->path, 0x29, 0, 0, 0, 2, 0));
+    if (type != 2) {
+        c_cos = func_8003C364(angle);
+        c_sin = func_8003C2F0(angle);
+    }
+    if (ret == 1) {
+        if (backward) {
+            best = func_8002719C((s32 *)cur, pos, dist, c_cos, c_sin, type, &progress);
+        } else {
+            best = func_80026880((s32 *)cur, pos, dist, c_cos, c_sin, type, &progress);
+        }
+    } else if (backward) {
+        best = func_80027298((s32 *)cur, pos, dist, c_cos, c_sin, type, &progress);
+    } else {
+        best = func_8002697C((s32 *)cur, pos, dist, c_cos, c_sin, type, &progress);
+    }
+    if (n == 1) {
+        ret = 2;
+        cur++;
+        locs[1].zone = locs[0].zone;
+        locs[1].path = locs[0].path;
+        locs[1].dir = locs[0].dir;
+    }
+    cur->progress = progress;
+    if (best == 0 || n != 1) {
+        return ret;
+    }
+    i = func_800284E8((s32 *)cands, (s32 *)locs, 0);
+    c = cands;
+    while (i-- != 0) {
+        t = func_80026140(func_80032DF8(c->path, 0x29, 0, 0, 0, 2, 0));
+        if (type == t) {
+            if (backward) {
+                d = func_80027298((s32 *)c, pos, dist, c_cos, c_sin, t, &progress);
+            } else {
+                d = func_8002697C((s32 *)c, pos, dist, c_cos, c_sin, t, &progress);
+            }
+            if (best < 0 || (d >= 0 && d < best)) {
+                c->progress = progress;
+                locs[1] = *c;
+                best = d;
+            }
+        } else if (t != 0) {
+            backward = func_8002616C(c, pos, &lo, &hi, &a);
+            if (backward == 0) {
+                locs[1] = *c;
+                break;
+            }
+            if (t != 2) {
+                c_cos = func_8003C364(a);
+                c_sin = func_8003C2F0(a);
+            }
+            if (backward < 0) {
+                d = func_80027298((s32 *)c, pos, hi, c_cos, c_sin, t, &progress);
+            } else {
+                d = func_8002697C((s32 *)c, pos, lo, c_cos, c_sin, t, &progress);
+            }
+            if (best < 0 || (d >= 0 && d < best)) {
+                c->progress = progress;
+                best = d;
+                locs[1] = *c;
+            }
+        }
+        c++;
+    }
+    return ret;
+}
 
 /* Searches the path of loc in both directions for the progress nearest to
  * pos; sets loc[3] to the better direction. */

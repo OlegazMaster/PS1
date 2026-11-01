@@ -1810,8 +1810,8 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027298);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027AB8);
 
-extern u32 D_80068F3C;
-void func_80028A78(void);
+extern u32 D_80068F3C[];
+s32 func_80028A78(void);
 void func_80018A54(void);
 #ifdef NON_MATCHING
 /* Queues the camera message type with its arguments (CamPostMessage);
@@ -1832,7 +1832,7 @@ void func_80027D6C(s32 type, s32 *args) {
             n = 1;
             break;
         case 0xB00:
-            if (D_80068F3C <= 0x100) {
+            if (D_80068F3C[0] <= 0x100) {
                 func_80028A78();
                 func_80018A54();
             }
@@ -2187,7 +2187,94 @@ void func_80028740(u32 *path, s32 progress, s32 *out, s32 *extra) {
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028740);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028A78);
+extern s32 D_800690A0[];
+extern u32 D_80067A28[];
+s32 func_8001E34C(GoolObject *sender, u32 event, s32 type, s32 argc, u32 *argv);
+void func_80027AB8(s32 *pos);
+void func_800256D4(void);
+/* Updates the camera for the frame: handles the messages, then moves it
+ * by its transition (unk0) and, when it follows its path (0x10), by the
+ * type of the path. Returns 1 if it was updated. The path modes take
+ * (pos, snap); those that use neither are declared (void). */
+s32 func_80028A78(void) {
+    s32 arg;
+    s32 *pos;
+    s32 snap;
+
+    if ((u32)ns.ldat->lid < 8 && D_800690A0[0] == 0 && (pads.pads[0].held & 0x10) && (D_80067A28[0] & 0x400)) {
+        arg = 0x8000;
+        func_80027D6C(0, &arg);
+        func_8001E34C(NULL, 0x4300, 0, 0, NULL);
+    }
+    if (crash == NULL) {
+        return 0;
+    }
+    if (!(game.display_flags & 2)) {
+        return 0;
+    }
+    D_8005C634.unkB = 0;
+    snap = 0;
+    if (game.display_flags & 0x20000) {
+        pos = game.unk260;
+    } else {
+        pos = crash->xform.trans;
+    }
+    func_80027AB8(pos);
+    func_800256D4();
+    func_80027E68();
+    D_80068F3C[0] = ((D_80067A28[0] & 0x400) == 0) << 8;
+    if (D_8005C634.unk0 != 0x10) {
+        switch (D_8005C634.unk0) {
+        case 0x20:
+            func_80024AD4(pos);
+            break;
+        case 0x40:
+            func_80024E80(pos);
+            snap = 1;
+            break;
+        case 0x100:
+            func_80024F54(pos);
+            snap = 1;
+            break;
+        }
+        if (D_8005C634.unk0 != 0x10) {
+            return 1;
+        }
+    }
+    switch (D_80065C90.unkF0) {
+    case 1:
+        func_800247DC(pos, snap);
+        break;
+    case 2:
+        func_80024918(pos);
+        break;
+    case 8:
+        func_800233DC(pos, snap);
+        break;
+    case 4:
+        func_8002444C(pos, snap);
+        break;
+    case 0x80:
+        func_800246A0(pos, snap);
+        break;
+    case 0x200:
+        ((void (*)(s32 *, s32))func_80023EBC)(pos, snap);
+        break;
+    case 0x1000:
+        ((void (*)(s32 *, s32))func_80022EB4)(pos, snap);
+        break;
+    case 0x800:
+        ((void (*)(s32 *, s32))func_80024124)(pos, snap);
+        break;
+    case 0x400:
+        func_80023A94(pos, snap);
+        break;
+    default:
+        func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
+        break;
+    }
+    return 1;
+}
 
 s32 func_80031868(Entry *zone, s32 *pos); /* whether pos is in zone */
 /* The neighbor zone (with flag 4) of zone, or else of the current zone, in

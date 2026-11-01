@@ -80,7 +80,7 @@ void func_8001C824(GoolObject *, s32, u32, void *, s32);
 void func_8001CD80(Object *, s32, s32, s32);
 void func_8001D16C(s32);
 void func_8001E34C(s32, s32, s32, s32, s32);
-void func_80028A78(void);
+s32 func_80028A78(void);
 void func_8002FA1C(void);
 void func_8002FBD0(void);
 void func_80030388(SaveState *);

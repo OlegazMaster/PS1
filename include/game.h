@@ -66,7 +66,8 @@ typedef struct {
     s32 unk224;
     u8 unk228[0x4];
     Object *unk22C;
-    u8 unk230[0x3C];
+    u8 unk230[0x30];
+    s32 unk260[3]; /* 0x260: point the camera follows instead of Crash */
     s32 unk26C;
     u8 unk270[0x18];
     s32 unk288; /* 0x288: camera zoom factor (0x100 = 1) */

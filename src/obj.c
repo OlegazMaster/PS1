@@ -251,7 +251,7 @@ INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001B7A0);
 
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001C3F8);
 
-s32 func_8003C3D0(Transform *xform, Transform *cam, s32 flag, s32 scale, u16 *a, s32 h, s32 b, s32 flag2);
+s32 func_8003C3D0(Transform *xform, Transform *cam, s32 flag, s32 scale, MATRIX *rot, s32 h, s32 b, s32 flag2);
 int sprintf(char *buf, const char *fmt, ...);
 typedef struct {
     u8 unk0[0x8];
@@ -277,7 +277,7 @@ void func_8001C824(GoolObject *obj, char *str, s32 idx, s32 flags, s32 align) {
     char buf[200];
 
     scale = abs(obj->xform.scale[0]) / 27279;
-    if (!func_8003C3D0(&obj->xform, &D_80065C90.unk60, (u32)((u8)obj->unk120 - 6) < 2, scale, D_80065C90.unk20, D_80065C90.unkC4, 0x3C00, !((obj->status_b >> 18) & 1))) {
+    if (!func_8003C3D0(&obj->xform, &D_80065C90.unk60, (u32)((u8)obj->unk120 - 6) < 2, scale, &D_80065C90.unk20, D_80065C90.unkC4, 0x3C00, !((obj->status_b >> 18) & 1))) {
         return;
     }
     text = (TextData *)str;

@@ -603,7 +603,7 @@ typedef struct {
 } Unk80061A7C;
 extern Unk80061A7C *D_80061A7C;
 s32 func_8001FAC8(s32 angle, s32 target, s32 speed, GoolObject *obj); /* turns angle toward target */
-void func_80020184(s32 *in, s32 *out);
+s32 func_80020184(s32 *in, s32 *out);
 s32 func_8003D9DC(s32 x); /* square root */
 s32 func_8003C2F0(s32 angle); /* sin */
 s32 func_8003C364(s32 angle); /* cos */
@@ -916,9 +916,78 @@ void func_800200C8(GoolObject *obj, s32 unused, s32 *in, s32 *out) {
     out[2] = r[2] + obj->xform.trans[2];
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020184);
+/* Rotates the camera-space vector in to world space at out (by the inverse
+ * of the camera's roll and yaw). */
 
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_800202CC);
+s32 func_80020184(s32 *in, s32 *out) {
+    MATRIX m;
+    MATRIX r;
+    s32 s;
+    s32 c;
+    s32 s2;
+    s32 c2;
+    Transform *cam = &D_80065C90.unk60;
+
+    s = func_8003C2F0(-cam->rot[2]);
+    c = func_8003C364(-cam->rot[2]);
+    m.m[0][0] = c;
+    m.m[0][1] = -s;
+    m.m[0][2] = 0;
+    m.m[1][0] = s;
+    m.m[1][1] = c;
+    m.m[1][2] = 0;
+    m.m[2][0] = 0;
+    m.m[2][1] = 0;
+    m.m[2][2] = 0x1000;
+    s2 = func_8003C2F0(-D_80065C90.unk114);
+    c2 = func_8003C364(-D_80065C90.unk114);
+    r.m[0][0] = c2;
+    r.m[0][1] = 0;
+    r.m[0][2] = s2;
+    r.m[1][0] = 0;
+    r.m[1][1] = 0x1000;
+    r.m[1][2] = 0;
+    r.m[2][0] = -s2;
+    r.m[2][1] = 0;
+    r.m[2][2] = c2;
+    MulMatrix(&m, &r);
+    r.m[0][0] = m.m[0][0];
+    r.m[0][1] = m.m[1][0];
+    r.m[0][2] = m.m[2][0];
+    r.m[1][0] = m.m[0][1];
+    r.m[1][1] = m.m[1][1];
+    r.m[1][2] = m.m[2][1];
+    r.m[2][0] = m.m[0][2];
+    r.m[2][1] = m.m[1][2];
+    r.m[2][2] = m.m[2][2];
+    func_80018DD4(in, &r, out);
+    return -0xFF;
+}
+
+extern MATRIX D_80065C70;
+/* Projects the world point in to camera space at out (y up). */
+
+s32 func_800202CC(s32 *in, s32 *out) {
+    SVECTOR sv;
+    s32 v[3];
+    s32 flag;
+    s32 *t;
+
+    v[0] = in[0];
+    v[1] = in[1];
+    v[2] = in[2];
+    SetRotMatrix(&D_80065C90.unk20);
+    SetTransMatrix(&D_80065C70);
+    t = D_80065C90.unk60.trans;
+    sv.vx = (v[0] - t[0]) >> 8;
+    sv.vy = (v[1] - t[1]) >> 8;
+    sv.vz = (v[2] - t[2]) >> 8;
+    RotTrans(&sv, (VECTOR *)out, &flag);
+    out[0] <<= 8;
+    out[1] = -(out[1] << 8);
+    out[2] <<= 8;
+    return -0xFF;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_800203A4);
 

@@ -96,8 +96,8 @@ typedef struct {
 
 typedef struct {
     u8 unk0[0x20];
-    u16 unk20[9];
-    u8 unk32[0x2E];
+    MATRIX unk20; /* 0x20: camera rotation */
+    u8 unk40[0x20];
     Transform unk60;
     u8 unk84[0x24];
     s32 unkA8;

@@ -8,16 +8,25 @@
 
 /* The camera transition state (D_8005C634). */
 typedef struct {
-    u8 unk0[0xB];
+    s32 unk0;
+    u8 unk4[0x7];
     s8 unkB;
     u8 unkC[0x2C];
     s32 unk38; /* 0x38: transition running */
     s32 unk3C; /* 0x3C: start time */
     s32 unk40; /* 0x40: duration */
     s32 unk44[3]; /* 0x44: start rotation */
+    u8 unk50[0xE8];
+    u32 zone; /* 0x138: where to return */
+    s32 path; /* 0x13C */
+    s32 progress; /* 0x140 */
 } CamTransition;
 extern CamTransition D_8005C634;
 extern s32 ticks_elapsed;
+extern GoolObject *crash;
+void func_800215E8(Entry *zone, u32 *path, s32 progress, u32 flags);
+void func_80025188(s32 *v);
+void func_80012EAC(void);
 
 /* .sdata: names of the water and terrain entries (string literals of
  * func_80021E94 while it is still assembly) */
@@ -259,11 +268,49 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024918);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024AD4);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024E80);
+/* Ends a camera transition: returns to the saved place, or moves on. */
+
+void func_80024E80(s32 *v) {
+    Entry *zone;
+
+    if (D_8005C634.unkB) {
+        zone = (Entry *)NSOpen(&D_8005C634.zone, 1, 0);
+        func_800215E8(zone, (u32 *)zone->items[D_8005C634.path * 3 + *(s32 *)(zone->items[0] + 0x184)], D_8005C634.progress, 0);
+        D_8005C634.unk0 = 0x10;
+        D_80065C90.unkF8 = 0;
+        crash->zone = (Entry *)D_80065C90.unkCC;
+    } else {
+        func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
+        func_80025188(v);
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024F54);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025070);
+/* Sends the player the events listed in property 0x198 of path at pos
+ * (each: length, event, arguments; a negative event calls func_80012EAC). */
+
+void func_80025070(s32 path, s32 pos) {
+    s32 *ev;
+    s32 n;
+    s32 len;
+    s32 event;
+
+    ev = (s32 *)func_80032710(path, 0x198, pos, 0, NULL, 1, 0, 0, 0);
+    if (ev != NULL && (n = func_80032EDC(path, 0x198, pos, 1)) != 0) {
+        do {
+            event = ev[1];
+            len = ev[0];
+            if (event >= 0) {
+                GoolSendEvent(NULL, crash, event, len - 2, (u32 *)(ev + 2));
+            } else {
+                func_80012EAC();
+            }
+            ev += len;
+            n -= len;
+        } while (n != 0);
+    }
+}
 
 #ifdef NON_MATCHING
 /* Starts a camera transition from the current rotation. Equivalent; the

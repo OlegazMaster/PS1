@@ -1875,7 +1875,21 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_800280A4);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800281F8);
 
+#ifdef NON_MATCHING
+/* The first place linked to the end of the path at loc (see func_800284E8);
+ * 0 if there is none. Equivalent; the original puts the copy last. */
+s32 func_80028484(s32 *loc, s32 *next) {
+    PathLoc cands[6];
+
+    if (func_800284E8((s32 *)cands, loc, 0) == 0) {
+        return 0;
+    }
+    *(PathLoc *)next = cands[0];
+    return 1;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028484);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800284E8);
 

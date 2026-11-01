@@ -989,7 +989,36 @@ s32 func_800202CC(s32 *in, s32 *out) {
     return -0xFF;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/interp", func_800203A4);
+/* Projects the world point in to the screen: out = x, y (from the screen
+ * center) and depth. */
+
+s32 func_800203A4(s32 *in, s32 *out) {
+    SVECTOR sv;
+    VECTOR v;
+    s32 sxy;
+    s32 p;
+    s32 flag;
+    s32 sz0;
+    s32 sz1;
+    s32 sz2;
+    s32 *t;
+
+    v.vx = in[0];
+    v.vy = in[1];
+    v.vz = in[2];
+    SetRotMatrix(&D_80065C90.unk20);
+    SetTransMatrix(&D_80065C70);
+    t = D_80065C90.unk60.trans;
+    sv.vx = (v.vx - t[0]) >> 8;
+    sv.vy = (v.vy - t[1]) >> 8;
+    sv.vz = (v.vz - t[2]) >> 8;
+    RotTransPers(&sv, &sxy, &p, &flag);
+    out[0] = ((s16)sxy - 0x100) << 8;
+    out[1] = (0x6C - (sxy >> 16)) << 8;
+    ReadSZfifo3(&sz0, &sz1, &sz2);
+    out[2] = sz2 << 8;
+    return -0xFF;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8002049C);
 

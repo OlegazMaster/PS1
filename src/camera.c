@@ -563,3 +563,31 @@ void func_8002513C(void) {
 #else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002513C);
 #endif
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025188);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_800255BC);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_800256D4);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_800259A0);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025C0C);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025C54);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025CE8);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80026018);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80026038);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_800260B4);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80026140);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002616C);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80026464);
+
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80026880);

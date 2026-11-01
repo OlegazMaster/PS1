@@ -1891,7 +1891,74 @@ s32 func_80028484(s32 *loc, s32 *next) {
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028484);
 #endif
 
+#ifdef NON_MATCHING
+/* Collects the places linked to the end of the path at loc (its start when
+ * loc[3] is 1) into out as (zone, path, progress, dir); unless all is set,
+ * only the links whose bit is set in D_80065C90.unk100 (start) or unk104
+ * (end). Returns how many.
+ * Equivalent; the original allocates the registers differently. */
+s32 func_800284E8(s32 *out, s32 *loc, s32 all) {
+    u8 *link;
+    s32 n;
+    s32 mask;
+    s32 bit;
+    s32 i;
+    s32 count;
+    Entry *zone;
+    s32 path;
+
+    if (loc[3] == 1) {
+        link = (u8 *)func_80032710(loc[1], 0x109, 0, 0, NULL, 1, 0, 0, 0);
+        if (link != NULL) {
+            n = func_80032EDC(loc[1], 0x109, 0, 1);
+            if (all == 0) {
+                mask = D_80065C90.unk100;
+            } else {
+                mask = 0xFFFF;
+            }
+        } else {
+            n = 0;
+        }
+    } else {
+        link = (u8 *)func_80032710(loc[1], 0x109, PathEnd(loc[1]), 0, NULL, 1, 0, 0, 0);
+        if (link != NULL) {
+            n = func_80032EDC(loc[1], 0x109, PathEnd(loc[1]), 1);
+            if (all == 0) {
+                mask = D_80065C90.unk104;
+            } else {
+                mask = 0xFFFF;
+            }
+        } else {
+            n = 0;
+        }
+    }
+    bit = 1;
+    if (n == 0) {
+        return 0;
+    }
+    count = 0;
+    for (i = 0; i < n; link += 4, i++, bit <<= 1) {
+        if (mask & bit) {
+            zone = (Entry *)NSOpen((u32 *)(((Entry *)loc[0])->items[0] + 0x194) + link[2], 1, 0);
+            path = (s32)zone->items[link[1] * 3 + *(s32 *)(zone->items[0] + 0x184)];
+            out[0] = (s32)zone;
+            out[1] = path;
+            if (link[0] == 1) {
+                out[3] = 2;
+                out[2] = 0;
+            } else {
+                out[3] = 1;
+                out[2] = PathEnd(path);
+            }
+            out += 4;
+            count++;
+        }
+    }
+    return count;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800284E8);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028740);
 

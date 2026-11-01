@@ -2443,7 +2443,7 @@ void func_80029BBC(GoolObject *obj, s32 c, s32 blend) {
 typedef struct {
     s32 v[3];
 } Vec3i;
-void *func_8003C990(void *item, s32 *pos, s32 a);
+void *func_8003C990(); /* (void *item, s32 *pos, s32 a, ...) */
 s32 func_8002B9A4(void *rec, s32 *box, s32 a, s32 b, s32 best, s32 y, s32 c);
 /* The floor under pos: the surface of the neighbor zone that contains pos,
  * or a higher object (flag 0x20000) standing within 20000 of it, whose
@@ -2509,7 +2509,98 @@ void *func_80029C1C(void *unused, s32 *pos) {
     return res;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029E40);
+/* The floor under the object obj at pos (only with flag 0x4000000): the
+ * surface of the neighbor zone containing pos, or an object (flag 0x20000,
+ * not 0x40000000) standing within 0x88B8 whose top is under pos; its
+ * height goes into pos[1]. Sets the light b of obj->parent from it. */
+
+void *func_80029E40(GoolObject *obj, s32 *pos) {
+    s32 *item;
+    s32 p[3];
+    s32 on_obj;
+    ZoneHdr *hdr;
+    Entry *n;
+    void *res;
+    s32 *rec;
+    s32 *box;
+    GoolObject *o;
+    GoolObject *found;
+    s32 best;
+    s32 top;
+    s32 i;
+    s32 val;
+    register s32 unused asm("$7"); /* the fourth argument is not set */
+
+    best = -999999999;
+    res = NULL;
+    on_obj = 0;
+    found = NULL;
+    if (!(obj->status_b & 0x4000000)) {
+        return NULL;
+    }
+    hdr = (ZoneHdr *)((Entry *)D_80065C90.unkCC)->items[0];
+    *(Vec3i *)p = *(Vec3i *)pos;
+    do {
+        for (i = 0; i < hdr->neighbor_count; i++) {
+            if (hdr->neighbor_flags[i] & 4) {
+                n = (Entry *)NSOpen(&hdr->neighbors[i], 1, 0);
+                if (func_80031868(n, pos)) {
+                    item = (s32 *)n->items[1];
+                    res = func_8003C990(item, pos, 1, unused, item[0] << 8, item[1] << 8, item[2] << 8, item[3] << 8, item[4] << 8, item[5] << 8);
+                    break;
+                }
+            }
+        }
+        if (i == hdr->neighbor_count) {
+            res = NULL;
+            break;
+        }
+    } while (res == NULL);
+    if (game.unk5C > 0) {
+        for (i = 0; i < game.unk5C; i++) {
+            rec = game.unk390[i];
+            o = (GoolObject *)rec[1];
+            if ((o->status_b & 0x40020000) == 0x20000) {
+                box = (rec[0] & 7) == 1 ? rec + 11 : rec + 2;
+                top = box[4];
+                if (p[0] >= box[0] - 0x88B8 && box[3] + 0x88B8 >= p[0] && p[2] >= box[2] - 0x88B8 && box[5] + 0x88B8 >= p[2]) {
+                    if (top >= pos[1] && pos[1] >= box[1] && p[1] >= (top + box[1]) / 2) {
+                        res = o;
+                        pos[1] = top;
+                        on_obj = 1;
+                        goto done;
+                    }
+                    if (best < top && p[1] >= (top + box[1]) / 2) {
+                        found = o;
+                        best = top;
+                    }
+                }
+            }
+        }
+        if (found != NULL && (res == NULL || best >= pos[1])) {
+            pos[1] = best;
+            res = found;
+            on_obj = 1;
+        }
+    }
+done:
+    if (res != NULL) {
+        if (on_obj) {
+            val = ((GoolObject *)res)->unk118;
+            func_80029B10(obj->parent, -1, val);
+        } else {
+            func_80029B10(obj->parent, ((u32)res & 0x3C00) >> 10, -1);
+        }
+    } else {
+        val = ((ZoneHdr *)obj->parent->zone->items[0])->unk2CC;
+        if (val != 0) {
+            func_80029B10(obj->parent, -1, val);
+        } else {
+            func_80029B10(obj->parent, 0, -1);
+        }
+    }
+    return res;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A22C);
 

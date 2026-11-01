@@ -576,6 +576,8 @@ s32 func_80023DBC(u32 *loc, s32 *pos, void *out) {
     return 0;
 }
 
+s32 func_80026464(); /* (PathLoc *locs, s32 *pos, s32 dist, s32 backward, s32 angle, s32 n) */
+void func_80025CE8(); /* (PathLoc *locs, s32 n, PathLoc *out, s32 frac) */
 /* Follows the target object sideways: moves along the path when the target
  * leaves the band 0xE1000..0xE5E20 across the path direction, and takes its
  * position and rotation. */
@@ -635,8 +637,6 @@ void func_80023EBC(void) {
     cam->rot[2] = obj->xform.rot[2] & 0xFFF;
 }
 
-s32 func_80026464(); /* (PathLoc *locs, s32 *pos, s32 dist, s32 backward, s32 angle, s32 n) */
-void func_80025CE8(); /* (PathLoc *locs, s32 n, PathLoc *out, s32 frac) */
 /* Follows the target object: moves along the path when it gets too far or
  * too near, and takes its position and rotation. */
 

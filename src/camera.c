@@ -29,7 +29,9 @@ typedef struct {
     s32 unk68;
     s32 unk6C;
     s32 unk70;
-    u8 unk74[0xC4];
+    u8 unk74[0x38];
+    s32 unkAC; /* 0xAC: blend of property 0x16E (0x400 = second value) */
+    u8 unkB0[0x88];
     u32 zone; /* 0x138: where to return */
     s32 path; /* 0x13C */
     s32 progress; /* 0x140 */
@@ -590,7 +592,34 @@ s32 func_80025C0C(void) {
     return func_80032DF8(D_80065C90.unkD4, 0x130, D_80065C90.unkE0, 0, 0, 3, 0x120);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025C54);
+s32 func_80031E10(s32 a, s32 b, s32 t); /* blends a and b by t */
+/* Property 0x16E of the camera path point, blended by D_8005C634.unkAC. */
+
+/* Property 0x16E of the camera path point, blended by D_8005C634.unkAC. */
+
+s32 func_80025C54(void) {
+    s32 tmp;
+    s16 *p;
+    s32 a;
+    s32 b;
+    s32 t;
+
+    p = (s16 *)func_80032710(D_80065C90.unkDC, 0x16E, D_80065C90.unkE0, 0, NULL, 3, (s32)&tmp, 0, 0);
+    if (p == NULL) {
+        return 0;
+    }
+    a = p[0];
+    t = D_8005C634.unkAC;
+    if (t != 0) {
+        b = p[1];
+        if (t == 0x400) {
+            a = b;
+        } else {
+            a = func_80031E10(a, b, t >> 2);
+        }
+    }
+    return a;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025CE8);
 
@@ -678,4 +707,28 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002616C);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80026464);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80026880);
+/* Searches the path of loc in both directions for the progress nearest to
+ * pos; sets loc[3] to the better direction. */
+
+s32 func_80026880(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out) {
+    s32 r;
+    s32 r2;
+    s32 dir = 2;
+    s32 p;
+    s32 p2;
+
+    loc[3] = 2;
+    r = func_8002697C(loc, pos, a, c, s, n, &p);
+    if (r != 0) {
+        loc[3] = 1;
+        r2 = func_8002697C(loc, pos, a, c, s, n, &p2);
+        if (r2 >= 0 && (r < 0 || r2 < r)) {
+            r = r2;
+            dir = 1;
+            p = p2;
+        }
+    }
+    loc[3] = dir;
+    *out = p;
+    return r;
+}

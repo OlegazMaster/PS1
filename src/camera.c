@@ -6,6 +6,23 @@
 
 /* The camera: follows its path in the zone. */
 
+/* A place on a camera path. */
+typedef struct {
+    s32 zone;
+    s32 path;
+    s32 progress;
+    s32 dir; /* 2 forward, 1 backward */
+} PathLoc;
+
+#define PathEnd(path) ((func_80032EDC(path, 0x27F, 0, 2) - 1) << 8)
+
+/* A blend between two sets of path parameters. */
+typedef struct {
+    u8 unk0[0xC];
+    s32 t; /* 0xC: 0 first set, 0x400 second set */
+    u8 unk10[0x8];
+} CamBlend; /* 0x18 */
+
 /* The camera transition state (D_8005C634). */
 typedef struct {
     s32 unk0;
@@ -29,9 +46,9 @@ typedef struct {
     s32 unk68;
     s32 unk6C;
     s32 unk70;
-    u8 unk74[0x38];
-    s32 unkAC; /* 0xAC: blend of property 0x16E (0x400 = second value) */
-    u8 unkB0[0x88];
+    u8 unk74[0x14];
+    CamBlend blends[2]; /* 0x88 */
+    u8 unkB8[0x80];
     u32 zone; /* 0x138: where to return */
     s32 path; /* 0x13C */
     s32 progress; /* 0x140 */
@@ -641,7 +658,72 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_800255BC);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800256D4);
 
+#ifdef NON_MATCHING
+/* The two parameters of property 0x142 at the place loc on a camera path
+ * (blended for path types 0x240D by the blend table of the type).
+ * Equivalent; the original swaps two temporary registers in the fallback. */
+void func_800259A0(PathLoc *loc, s32 *out_a, s32 *out_b) {
+    s32 type;
+    s32 item;
+    s32 k;
+    s32 progress;
+    CamBlend *blend;
+    s16 *p;
+    s32 tmp;
+    s32 a;
+    s32 b;
+    s32 a2;
+    s32 b2;
+    s32 t;
+
+    if (loc->path == D_80065C90.unkD4) {
+        type = D_80065C90.unkF0;
+        item = D_80065C90.unkDC;
+    } else {
+        type = func_80032DF8(loc->path, 0x29, 0, 0, 0, 2, 0);
+        k = func_80032DF8(loc->path, 0x173, 0, 0, 0, 2, 0);
+        item = (s32)((Entry *)loc->zone)->items[k * 3 + D_80065C90.unkFC + *(s32 *)(((Entry *)loc->zone)->items[0] + 0x184)];
+    }
+    progress = loc->progress;
+    if (type & 0x2401) {
+        blend = &D_8005C634.blends[1];
+    } else {
+        blend = &D_8005C634.blends[0];
+    }
+    p = (s16 *)func_80032710(item, 0x142, progress, 0, NULL, 3, (s32)&tmp, 0, 0);
+    if (p == NULL) {
+        if (loc->path == D_80065C90.unkD4) {
+            item = D_80065C90.unkD8;
+        } else {
+            item = (s32)((Entry *)loc->zone)->items[(*(s32 *)(((Entry *)loc->zone)->items[0] + 0x184) + 1) + k * 3];
+        }
+        p = (s16 *)func_80032710(item, 0x142, progress, 0, NULL, 3, (s32)&tmp, 0, 0);
+    }
+    if (type & 0x240D) {
+        a = p[0] << 8;
+        b = p[1] << 8;
+        t = blend->t;
+        if (t != 0) {
+            a2 = p[2] << 8;
+            b2 = p[3] << 8;
+            if (t == 0x400) {
+                a = a2;
+                b = b2;
+            } else {
+                a += ((a2 - a) * t) >> 10;
+                b += ((b2 - b) * t) >> 10;
+            }
+        }
+    } else {
+        a = p[0] << 8;
+        b = p[1] << 8;
+    }
+    *out_a = a;
+    *out_b = b;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800259A0);
+#endif
 
 /* The GTE projection distance at the camera's point of the path. */
 
@@ -650,9 +732,9 @@ s32 func_80025C0C(void) {
 }
 
 s32 func_80031E10(s32 a, s32 b, s32 t); /* blends a and b by t */
-/* Property 0x16E of the camera path point, blended by D_8005C634.unkAC. */
+/* Property 0x16E of the camera path point, blended by D_8005C634.blends[1].t. */
 
-/* Property 0x16E of the camera path point, blended by D_8005C634.unkAC. */
+/* Property 0x16E of the camera path point, blended by D_8005C634.blends[1].t. */
 
 s32 func_80025C54(void) {
     s32 tmp;
@@ -666,7 +748,7 @@ s32 func_80025C54(void) {
         return 0;
     }
     a = p[0];
-    t = D_8005C634.unkAC;
+    t = D_8005C634.blends[1].t;
     if (t != 0) {
         b = p[1];
         if (t == 0x400) {
@@ -677,16 +759,6 @@ s32 func_80025C54(void) {
     }
     return a;
 }
-
-/* A place on a camera path. */
-typedef struct {
-    s32 zone;
-    s32 path;
-    s32 progress;
-    s32 dir; /* 2 forward, 1 backward */
-} PathLoc;
-
-#define PathEnd(path) ((func_80032EDC(path, 0x27F, 0, 2) - 1) << 8)
 
 #ifdef NON_MATCHING
 /* Walks the chain of n path places from locs[0] by a fraction frac / 0x100

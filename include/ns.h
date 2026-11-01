@@ -26,6 +26,8 @@ typedef struct {
     u32 flags; /* 0x2BC: 1 loaded, 2 ... */
     u8 unk2C0[0xC];
     s32 unk2CC; /* 0x2CC: light of the zone's floor */
+    u8 unk2D0[0xC];
+    u32 unk2DC; /* 0x2DC: 2 the floor kills, 0x800 ... */
 } ZoneHdr;
 
 /* An NSD page table entry: either an entry pointer or an EID (low bits set). */

@@ -40,7 +40,42 @@ INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002C604);
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002CAE4);
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002CD8C);
+Entry *func_80028D8C(Entry *zone, s32 *pos);
+/* Finds the zone obj at pos is in; if there is none and pos is below the
+ * floor of its zone, either sends it event 0x900 (zones whose floor kills)
+ * or puts it on the floor. */
+
+s32 func_8002CD8C(GoolObject *obj, s32 *pos) {
+    Entry *zone;
+    s32 *box;
+    s32 land;
+    u32 arg;
+    s32 v;
+
+    zone = func_80028D8C((Entry *)D_80065C90.unkCC, pos);
+    if ((s32)zone >= -0xFE) {
+        box = (s32 *)obj->zone->items[1];
+        if (pos[1] < (box[1] << 8) - *(s32 *)((u8 *)obj->unk8 + 0x34)) {
+            land = 1;
+            if ((((ZoneHdr *)obj->zone->items[0])->unk2DC & 2) && obj->invincibility_state != 2) {
+                arg = 0x6400;
+                GoolSendEvent(NULL, obj, 0x900, 1, &arg);
+                land = 0;
+            }
+            if (land) {
+                pos[1] = (box[1] << 8) - *(s32 *)((u8 *)obj->unk8 + 0x34);
+                v = obj->misc_a[1];
+                obj->misc_a[1] = 0;
+                obj->status_a |= 1;
+                obj->unk114 = v;
+                obj->unk110 = game.frames;
+            }
+        }
+    } else {
+        obj->zone = zone;
+    }
+    return -0xFF;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002CEA8);
 
@@ -100,7 +135,53 @@ void func_8002D944(s32 x, s32 z) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002D990);
+/* Sets (set) or clears the cells x0 + 16 .. x1 + 16, y0 + 16 .. y1 + 16 of the
+ * 32x32 grid D_80060ADC (bit 31 of a row is column 0). */
+
+void func_8002D990(s32 x0, s32 y0, s32 x1, s32 y1, s32 set) {
+    u32 *row;
+    u32 mask = -1;
+
+    x1 += 16;
+    if (x1 < 32) {
+        if (x1 <= 0) {
+            return;
+        }
+        mask = -1 << (32 - x1);
+    }
+    x0 += 15;
+    if (x0 >= 32) {
+        return;
+    }
+    if (x0 >= 0) {
+        mask &= ~((s32)0x80000000 >> x0);
+    }
+    if (mask == 0) {
+        return;
+    }
+    y0 += 16;
+    if (y0 < 0) {
+        y0 = 0;
+    }
+    y1 += 16;
+    if (y1 > 32) {
+        y1 = 32;
+    }
+    if (y0 >= 32) {
+        return;
+    }
+    row = &D_80060ADC[y0];
+    if (set) {
+        for (; y0 < y1; y0++) {
+            *row++ |= mask;
+        }
+    } else {
+        mask = ~mask;
+        for (; y0 < y1; y0++) {
+            *row++ &= mask;
+        }
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002DA74);
 

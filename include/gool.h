@@ -78,8 +78,8 @@ typedef struct GoolObject {
     s32 speed; /* 0x104 */
     s32 invincibility_state; /* 0x108 */
     u32 invincibility_stamp; /* 0x10C */
-    s32 unk110;
-    u8 unk114[0x4];
+    s32 unk110; /* 0x110: frame of the last landing */
+    s32 unk114; /* 0x114: vertical speed at the landing */
     s32 unk118;
     u32 event; /* 0x11C: the last event received */
     s32 unk120;

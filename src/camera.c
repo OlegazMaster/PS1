@@ -53,12 +53,15 @@ typedef struct {
     s32 unk68;
     s32 unk6C;
     s32 unk70;
-    u8 unk74[0x14];
+    s32 unk74; /* 0x74: frames left of the return */
+    s32 unk78; /* 0x78: frames of the return */
+    s32 unk7C[3]; /* 0x7C: position at the start of the return */
     CamBlend blends[2]; /* 0x88 */
     u8 unkB8[0x80];
     u32 zone; /* 0x138: where to return */
     s32 path; /* 0x13C */
     s32 progress; /* 0x140 */
+    s32 dir; /* 0x144 */
 } CamTransition;
 extern CamTransition D_8005C634;
 extern s32 ticks_elapsed;
@@ -698,7 +701,77 @@ void func_80024918(s32 *pos) {
     func_80025188(pos);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024AD4);
+/* Returns the camera to the saved place (zone, path, progress): along the
+ * paths toward pos, moving its position from the start over unk78 frames. */
+
+void func_80024AD4(s32 *pos) {
+    PathLoc locs[3];
+    s32 res[4];
+    s32 cs[10];
+    s32 lo;
+    s32 hi;
+    s32 angle;
+    s32 r;
+    s32 n;
+    s32 t;
+    s32 k;
+    Entry *zone;
+    Transform *cam;
+
+    locs[0].zone = (s32)D_80065C90.unkCC;
+    locs[0].path = D_80065C90.unkD4;
+    locs[0].progress = D_80065C90.unkE0;
+    locs[0].dir = D_8005C634.dir;
+    zone = (Entry *)NSOpen(&D_8005C634.zone, 1, 0);
+    locs[1].zone = (s32)zone;
+    locs[1].path = (s32)zone->items[D_8005C634.path * 3 + *(s32 *)(zone->items[0] + 0x184)];
+    locs[1].progress = D_80065C90.unkD4 == locs[1].path ? D_80065C90.unkE0 : D_8005C634.progress;
+    locs[1].dir = D_8005C634.progress == 0 ? 2 : 1;
+    r = func_8002616C(&locs[1], pos, &lo, &hi, &angle);
+    if (D_8005C634.unk74 != 0) {
+        n = D_80065C90.unkD4 == locs[1].path ? 1 : 2;
+        if (r > 0) {
+            n = func_80026464(locs, pos, hi, 0, angle, n);
+        } else if (r < 0) {
+            n = func_80026464(locs, pos, lo, 1, angle, n);
+        } else {
+            locs[1] = locs[0];
+        }
+        func_80028740(locs[1].path, locs[1].progress, cs, NULL, 0);
+        t = 0x100 / D_8005C634.unk74;
+        if (r != 0) {
+            func_80025CE8(locs, n, res, t);
+            func_800215E8((Entry *)res[0], (u32 *)res[1], res[2], 0);
+        } else {
+            func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
+        }
+        k = D_8005C634.unk74 - 1;
+        t = ((D_8005C634.unk78 - k) << 10) / D_8005C634.unk78;
+        cam = &D_80065C90.unk60;
+        cam->trans[0] = (((cs[0] - D_8005C634.unk7C[0]) * t) >> 10) + D_8005C634.unk7C[0];
+        cam->trans[1] = (((cs[1] - D_8005C634.unk7C[1]) * t) >> 10) + D_8005C634.unk7C[1];
+        cam->trans[2] = (((cs[2] - D_8005C634.unk7C[2]) * t) >> 10) + D_8005C634.unk7C[2];
+        func_80025188(pos);
+        if (--D_8005C634.unk74 == 0) {
+            goto done;
+        }
+    } else {
+        n = 2;
+        if (r > 0) {
+            n = func_80026464(locs, pos, hi, 0, angle, n);
+        } else if (r < 0) {
+            n = func_80026464(locs, pos, lo, 1, angle, n);
+        }
+        func_80025CE8(locs, n, res, -1);
+        func_800215E8((Entry *)res[0], (u32 *)res[1], res[2], 0);
+        func_80025188(pos);
+        if (D_80065C90.unkD4 == locs[1].path) {
+        done:
+            D_8005C634.unk0 = 0x10;
+            func_80025070(D_80065C90.unkD4, D_8005C634.progress);
+        }
+    }
+}
 
 /* Ends a camera transition: returns to the saved place, or moves on. */
 

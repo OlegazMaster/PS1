@@ -257,7 +257,80 @@ s32 func_80023DBC(u32 *loc, s32 *pos, void *out) {
     return 0;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80023EBC);
+/* Follows the target object sideways: moves along the path when the target
+ * leaves the band 0xE1000..0xE5E20 across the path direction, and takes its
+ * position and rotation. */
+
+/* Follows the target object sideways: moves along the path when the target
+ * leaves the band 0xE1000..0xE5E20 across the path direction, and takes its
+ * position and rotation. */
+
+/* Follows the target object sideways: moves along the path when the target
+ * leaves the band 0xE1000..0xE5E20 across the path direction, and takes its
+ * position and rotation. */
+
+/* Follows the target object sideways: moves along the path when the target
+ * leaves the band 0xE1000..0xE5E20 across the path direction, and takes its
+ * position and rotation. */
+
+/* Follows the target object sideways: moves along the path when the target
+ * leaves the band 0xE1000..0xE5E20 across the path direction, and takes its
+ * position and rotation. */
+
+void func_80023EBC(void) {
+    GoolObject *obj = D_8005C634.target;
+    s32 cs[10];
+    s32 loc[8];
+    s32 res[4];
+    s32 pos[3];
+    s32 d;
+    s32 dir;
+    s32 angle;
+    s32 s;
+    Transform *cam;
+    s32 near;
+    s32 far;
+
+    if (obj == NULL) {
+        func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
+        return;
+    }
+    near = 0xE1000;
+    far = 0xE5E20;
+    pos[0] = crash->xform.trans[0];
+    pos[1] = crash->xform.trans[1];
+    pos[2] = crash->xform.trans[2];
+    loc[0] = (s32)D_80065C90.unkCC;
+    loc[1] = D_80065C90.unkD4;
+    loc[2] = D_80065C90.unkE0;
+    func_80028740(D_80065C90.unkD4, D_80065C90.unkE0, cs, NULL, 0);
+    angle = -cs[4];
+    s = func_8003C2F0(angle);
+    d = ((((pos[0] - cs[0]) >> 8) * s) >> 4) - ((((pos[2] - cs[2]) >> 8) * func_8003C364(angle)) >> 4);
+    if (d > far) {
+        dir = 1;
+    } else if (d < near) {
+        dir = -1;
+    } else {
+        dir = 0;
+    }
+    if (dir > 0) {
+        func_80025CE8(loc, func_80026464(loc, pos, far, 0, angle, 1), res, 0x100);
+        func_800215E8((Entry *)res[0], (u32 *)res[1], res[2], 0);
+    } else if (dir < 0) {
+        func_80025CE8(loc, func_80026464(loc, pos, near, 1, angle, 1), res, 0x100);
+        func_800215E8((Entry *)res[0], (u32 *)res[1], res[2], 0);
+    } else {
+        func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
+    }
+    cam = &D_80065C90.unk60;
+    cam->trans[0] = obj->xform.trans[0];
+    cam->trans[1] = obj->xform.trans[1];
+    cam->trans[2] = obj->xform.trans[2];
+    cam->rot[0] = obj->xform.rot[0] & 0xFFF;
+    cam->rot[1] = (obj->xform.rot[1] + 0x800) & 0xFFF;
+    cam->rot[2] = obj->xform.rot[2] & 0xFFF;
+}
 
 s32 func_80026464(); /* (PathLoc *locs, s32 *pos, s32 dist, s32 backward, s32 angle, s32 n) */
 void func_80025CE8(); /* (PathLoc *locs, s32 n, PathLoc *out, s32 frac) */

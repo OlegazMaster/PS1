@@ -2529,7 +2529,11 @@ void *func_80029E40(GoolObject *obj, s32 *pos) {
     s32 top;
     s32 i;
     s32 val;
+#ifdef TARGET_PSX
     register s32 unused asm("$7"); /* the fourth argument is not set */
+#else
+    s32 unused = 0;
+#endif
 
     best = -999999999;
     res = NULL;

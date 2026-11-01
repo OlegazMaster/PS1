@@ -111,10 +111,8 @@ typedef struct {
     MATRIX unk0; /* 0x0: camera matrix */
     MATRIX unk20; /* 0x20: camera rotation for the GTE */
     MATRIX unk40; /* 0x40: copy of unk20 */
-    Transform unk60;
-    u8 unk84[0x10];
-    s32 unk94; /* 0x94 */
-    u8 unk98[0x10];
+    Transform unk60; /* 0x60: camera transform */
+    Transform unk84; /* 0x84: camera transform at the path point */
     s32 unkA8;
     u8 unkAC[0x18];
     s32 unkC4; /* GTE projection distance (H) */

@@ -425,7 +425,7 @@ void func_800215E8(Entry *zone, u32 *path, s32 progress, u32 flags) {
                 func_80024330(old29);
             }
             func_8002437C(D_80065C90.unkFC);
-            func_80028740(D_80065C90.unkD4, D_80065C90.unkE0, D_80065C90.unk84, D_80065C90.unk124, 0);
+            func_80028740(D_80065C90.unkD4, D_80065C90.unkE0, &D_80065C90.unk84, D_80065C90.unk124, 0);
             D_80065C90.unkC8 = func_80032DF8(D_80065C90.unkD4, 0x1AA, D_80065C90.unkE0, 0, 0, 3, 0);
             if (changed & 3) {
                 r = func_80032710(D_80065C90.unkD4, 0x176, 0, 0, NULL, 1, 0, 0, 0);
@@ -435,7 +435,7 @@ void func_800215E8(Entry *zone, u32 *path, s32 progress, u32 flags) {
             }
             func_8001AE64(cur_zone, -1);
         }
-        *(CamState *)&D_80065C90.unk60 = *(CamState *)D_80065C90.unk84;
+        *(CamState *)&D_80065C90.unk60 = *(CamState *)&D_80065C90.unk84;
         r = func_80025C0C();
         if (D_80065C90.unkC4 != r) {
             D_80065C90.unkC4 = r;

@@ -30,7 +30,9 @@ typedef struct {
 /* The camera transition state (D_8005C634). */
 typedef struct {
     s32 unk0;
-    u8 unk4[0x6];
+    u8 unk4[0x3];
+    s8 unk7; /* 0x7: 0 follow the path, 1 keep the path rotation, 2 look at the target */
+    u8 unk8[0x2];
     u8 unkA;
     s8 unkB;
     GoolObject *target; /* 0xC: object the camera follows */
@@ -46,7 +48,8 @@ typedef struct {
     u8 unk50[0x4];
     s32 unk54;
     s32 unk58;
-    u8 unk5C[0xC];
+    s32 unk5C;
+    u8 unk60[0x8];
     s32 unk68;
     s32 unk6C;
     s32 unk70;
@@ -599,7 +602,160 @@ void func_8002513C(void) {
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002513C);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025188);
+void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
+s32 func_80031F9C(s32 a, s32 b);
+s32 func_80031E34(s32 a, s32 b, s32 c, s32 d);
+/* Sets the camera rotation: toward v, from the path point (blended by
+ * property 0x183), during a transition blended from its start rotation,
+ * limited by property 0x119 around the path rotation. */
+
+void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
+/* Sets the camera rotation: toward v, from the path point (blended by
+ * property 0x183), during a transition blended from its start rotation,
+ * limited by property 0x119 around the path rotation. */
+
+void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
+/* Sets the camera rotation: toward v, from the path point (blended by
+ * property 0x183), during a transition blended from its start rotation,
+ * limited by property 0x119 around the path rotation. */
+
+void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
+/* Sets the camera rotation: toward v, from the path point (blended by
+ * property 0x183), during a transition blended from its start rotation,
+ * limited by property 0x119 around the path rotation. */
+
+void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
+/* Sets the camera rotation: toward v, from the path point (blended by
+ * property 0x183), during a transition blended from its start rotation,
+ * limited by property 0x119 around the path rotation. */
+
+void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
+/* Sets the camera rotation: toward v, from the path point (blended by
+ * property 0x183), during a transition blended from its start rotation,
+ * limited by property 0x119 around the path rotation. */
+
+void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
+/* Sets the camera rotation: toward v, from the path point (blended by
+ * property 0x183), during a transition blended from its start rotation,
+ * limited by property 0x119 around the path rotation. */
+
+void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
+/* Sets the camera rotation: toward v, from the path point (blended by
+ * property 0x183), during a transition blended from its start rotation,
+ * limited by property 0x119 around the path rotation. */
+
+void func_80031E84(s32 *out, s32 *v, s32 yaw); /* angles of the vector v */
+/* Sets the camera rotation: toward v, from the path point (blended by
+ * property 0x183), during a transition blended from its start rotation,
+ * limited by property 0x119 around the path rotation. */
+
+void func_80025188(s32 *v) {
+    s32 ang[3];
+    s32 d[3];
+    s32 tmp[2];
+    s32 tmp2[2];
+    Transform *cam;
+    Transform *path;
+    Transform *out;
+    s16 *p;
+    s16 *lim;
+    s32 x;
+    s32 y;
+    s32 z;
+    u32 t;
+    s32 base;
+    s32 diff;
+    s32 hi;
+    s32 lo;
+
+    cam = &D_80065C90.unk60;
+    path = &D_80065C90.unk84;
+    d[0] = v[0] - cam->trans[0];
+    d[1] = v[1] - cam->trans[1];
+    d[2] = v[2] - cam->trans[2];
+    func_80031E84(ang, d, path->rot[1]);
+    ang[0] = (ang[0] + D_80065C90.unkC8) & 0xFFF;
+    if (D_8005C634.unk7 != 0) {
+        if (D_8005C634.unk7 == 1) {
+            x = path->rot[0];
+            y = path->rot[1];
+            z = path->rot[2];
+        } else {
+            x = ang[0];
+            y = ang[1];
+            z = ang[2];
+        }
+    } else {
+        p = (s16 *)func_80032710(D_80065C90.unkDC, 0x183, D_80065C90.unkE0, 0, NULL, 3, (s32)tmp2, 0, 0);
+        if (p != NULL || (p = (s16 *)func_80032710(D_80065C90.unkD8, 0x183, D_80065C90.unkE0, 0, NULL, 3, (s32)tmp2, 0, 0)) != NULL) {
+            x = func_80031E10(ang[0], path->rot[0], p[0]);
+            y = func_80031E10(ang[1], path->rot[1], p[1]);
+            z = func_80031E10(ang[2], path->rot[2], p[2]);
+        } else {
+            x = func_80031F9C(ang[0], path->rot[0]);
+            y = func_80031F9C(ang[1], path->rot[1]);
+            z = func_80031F9C(ang[2], path->rot[2]);
+        }
+        if (D_8005C634.unk68 != 0) {
+            x = func_80031E10(x, D_8005C634.unk5C, D_8005C634.unk68 >> 2);
+        }
+        x = (x + func_80025C54()) & 0xFFF;
+        if (D_8005C634.unk38 != 0) {
+            t = ticks_elapsed - D_8005C634.unk3C;
+            if (t >= D_8005C634.unk40) {
+                D_8005C634.unk38 = 0;
+            } else {
+                t = (t << 8) / D_8005C634.unk40;
+                x = func_80031E10(D_8005C634.unk44[0], x, t);
+                y = func_80031E10(D_8005C634.unk44[1], y, t);
+                z = func_80031E10(D_8005C634.unk44[2], z, t);
+            }
+        }
+        if (!D_8005C634.unkB && D_80065C90.unk118[0] != 0x1001 && D_80065C90.unkF0 != 2) {
+            x = func_80031E34(D_80065C90.unk118[0], x, 0x80, 0x2D);
+            y = func_80031E34(D_80065C90.unk118[1], y, 0x80, 0x2D);
+            z = func_80031E34(D_80065C90.unk118[2], z, 0x80, 0x2D);
+        }
+    }
+    lim = (s16 *)func_80032710(D_80065C90.unkD8, 0x119, D_80065C90.unkE0, 0, NULL, 3, (s32)tmp, 0, 0);
+    if (lim != NULL) {
+        base = D_80065C90.unk84.rot[0] & 0xFFF;
+        diff = (x & 0xFFF) - base;
+        if (diff > 0x800) {
+            diff -= 0x1000;
+        } else if (diff < -0x800) {
+            diff += 0x1000;
+        }
+        if (diff > lim[2]) {
+            diff = lim[2];
+        }
+        if (diff < -lim[3]) {
+            diff = -lim[3];
+        }
+        x = (base + diff) & 0xFFF;
+        base = D_80065C90.unk84.rot[1] & 0xFFF;
+        diff = (y & 0xFFF) - base;
+        if (diff > 0x800) {
+            diff -= 0x1000;
+        } else if (diff < -0x800) {
+            diff += 0x1000;
+        }
+        hi = lim[0];
+        lo = -lim[1];
+        if (diff > hi) {
+            diff = hi;
+        }
+        if (diff < lo) {
+            diff = lo;
+        }
+        y = (base + diff) & 0xFFF;
+        z &= 0xFFF;
+    }
+    out = &D_80065C90.unk60;
+    out->rot[0] = x;
+    out->rot[1] = y;
+    out->rot[2] = z;
+}
 
 #ifdef NON_MATCHING
 /* Moves the blend s[0] toward 0x400 (dir > 0) or 0 (dir < 0; 0 keeps s[2])
@@ -1084,7 +1240,7 @@ s32 func_8002616C(PathLoc *loc, s32 *pos, s32 *out_lo, s32 *out_hi, s32 *out_ang
         d[0] = pos[0] - cam->trans[0];
         d[1] = pos[1] - cam->trans[1];
         d[2] = pos[2] - cam->trans[2];
-        angle = D_80065C90.unk94;
+        angle = D_80065C90.unk84.rot[1];
     } else {
         progress >>= 8;
         pt = (s16 *)func_80032710(path, 0x4B, 0, progress, NULL, 2, 0, 0, 0);

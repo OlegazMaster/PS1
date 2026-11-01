@@ -448,7 +448,7 @@ void func_80018A54(void) {
     game.cam_rot[2] = cam->rot[2];
     t = func_80032DF8(D_80065C90.unkD4, 0x29, 0, 0, 0, 2, 0);
     if (t != 8 && t != 0x800 && t != 0x1000) {
-        D_80065C90.unk114 = D_80065C90.unk94 & 0xFFF;
+        D_80065C90.unk114 = D_80065C90.unk84.rot[1] & 0xFFF;
     }
     game.unk9C = D_80065C90.unk114;
     p = D_80065C90.unk130;

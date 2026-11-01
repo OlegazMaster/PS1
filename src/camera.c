@@ -9,15 +9,27 @@
 /* The camera transition state (D_8005C634). */
 typedef struct {
     s32 unk0;
-    u8 unk4[0x7];
+    u8 unk4[0x6];
+    u8 unkA;
     s8 unkB;
     GoolObject *target; /* 0xC: object the camera follows */
-    u8 unk10[0x28];
+    u8 unk10[0x10];
+    s32 unk20;
+    u8 unk24[0xC];
+    s32 unk30;
+    s32 unk34;
     s32 unk38; /* 0x38: transition running */
     s32 unk3C; /* 0x3C: start time */
     s32 unk40; /* 0x40: duration */
     s32 unk44[3]; /* 0x44: start rotation */
-    u8 unk50[0xE8];
+    u8 unk50[0x4];
+    s32 unk54;
+    s32 unk58;
+    u8 unk5C[0xC];
+    s32 unk68;
+    s32 unk6C;
+    s32 unk70;
+    u8 unk74[0xC4];
     u32 zone; /* 0x138: where to return */
     s32 path; /* 0x13C */
     s32 progress; /* 0x140 */
@@ -572,19 +584,95 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_800256D4);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800259A0);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025C0C);
+/* The GTE projection distance at the camera's point of the path. */
+
+s32 func_80025C0C(void) {
+    return func_80032DF8(D_80065C90.unkD4, 0x130, D_80065C90.unkE0, 0, 0, 3, 0x120);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025C54);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025CE8);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80026018);
+void func_80026038(void);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80026038);
+s32 func_80026018(void) {
+    func_80026038();
+    return -0xFF;
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_800260B4);
+void func_8002437C(s32 n);
+/* Resets the camera state. */
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80026140);
+void func_80026038(void) {
+    D_80065C90.unkF8 = 0;
+    D_8005C634.unk0 = 0x10;
+    D_8005C634.unk54 = 0;
+    D_8005C634.unk58 = 0;
+    D_8005C634.unk38 = 0;
+    D_8005C634.unkA = 0;
+    D_80065C90.unk118[0] = 0x1001;
+    D_8005C634.unk20 = 0x1001;
+    D_8005C634.unk30 = 0;
+    D_8005C634.unk34 = 0;
+    D_80065C90.unkF0 = 0x10;
+    D_8005C634.unk70 = 0;
+    D_8005C634.unk6C = 0;
+    D_8005C634.unk68 = 0;
+    game.unk288 = 0x100;
+    func_8002437C(1);
+}
+
+/* Advances the progress of loc (zone, path, progress, direction) by dist
+ * into *progress; returns how far it went past the end of the path. */
+
+s32 func_800260B4(s32 *loc, s32 dist, s32 *progress) {
+    s32 p = loc[2];
+    s32 max;
+    s32 over;
+
+    if (loc[3] == 2) {
+        p += dist;
+        max = (func_80032EDC(loc[1], 0x27F, 0, 2) - 1) << 8;
+        over = p - max;
+        if (over > 0) {
+            *progress = max;
+            return over;
+        }
+    } else {
+        p -= dist;
+        if (p < 0) {
+            *progress = 0;
+            return -p;
+        }
+    }
+    *progress = p;
+    return 0;
+}
+
+/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
+
+/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
+
+/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
+
+/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
+
+/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
+
+/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
+
+/* The direction of the camera path for the flags: 4, 1, 2 or 0. */
+
+s32 func_80026140(u32 flags) {
+    if (flags & 0x3E01) {
+        return 4;
+    }
+    if (flags & 4) {
+        return 1;
+    }
+    return (flags & 0x80) ? 2 : 0;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002616C);
 

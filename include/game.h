@@ -33,7 +33,9 @@ typedef struct {
     s32 game_state; /* 0xA4 */
     u8 unkA8[0x8];
     s32 unkB0;
-    u8 unkB4[0x40];
+    u8 unkB4[0x24];
+    s32 unkD8;
+    u8 unkDC[0x18];
     s32 cam_trans[3]; /* 0xF4: camera position of the last frame */
     s32 cam_rot[3]; /* 0x100 */
     u8 unk10C[0x4];

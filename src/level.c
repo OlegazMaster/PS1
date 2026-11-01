@@ -228,4 +228,13 @@ void func_8002157C(Entry *zone) {
 
 INCLUDE_ASM("asm/us/nonmatchings/level", func_800215E8);
 
-INCLUDE_ASM("asm/us/nonmatchings/level", func_80021E60);
+void func_8003505C(void *a);
+/* Sets game.unkD8 from a and, unless flags bit 4, calls func_8003505C on
+ * a + 0x24. */
+
+void func_80021E60(s32 *a, s32 flags) {
+    game.unkD8 = a[7];
+    if (!(flags & 4)) {
+        func_8003505C(a + 9);
+    }
+}

@@ -68,7 +68,9 @@ typedef struct {
     Object *unk22C;
     u8 unk230[0x3C];
     s32 unk26C;
-    u8 unk270[0xD4];
+    u8 unk270[0x18];
+    s32 unk288; /* 0x288: camera zoom factor (0x100 = 1) */
+    u8 unk28C[0xB8];
     s32 unk344;
     Object *unk348;
     u8 unk34C[0x10];

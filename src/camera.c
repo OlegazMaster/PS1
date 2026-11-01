@@ -189,7 +189,8 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_80023B68);
 
 s32 func_8003C2F0(s32 angle); /* sin */
 s32 func_8003C364(s32 angle); /* cos */
-void func_8002616C(s32 *loc, s32 *pos, s32 *a, s32 *b, s32 *angle);
+s32 func_8002616C(s32 *loc, s32 *pos, s32 *a, s32 *b, s32 *angle);
+void func_80024590(s32 *pos);
 s32 func_8002697C(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out);
 void func_80028740(s32 path, s32 progress, void *a, void *b, s32 c);
 /* Finds the progress on the path of loc (zone, path, ...) nearest to pos and
@@ -315,9 +316,72 @@ void func_8002437C(s32 n) {
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002437C);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002444C);
+/* Moves the camera along its path toward pos (snap: jump there), then
+ * adjusts its distance. */
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024590);
+void func_8002444C(s32 *pos, s32 snap) {
+    s32 loc[8];
+    s32 res[4];
+    s32 a;
+    s32 b;
+    s32 c;
+    s32 r;
+
+    loc[0] = (s32)D_80065C90.unkCC;
+    loc[1] = D_80065C90.unkD4;
+    loc[2] = D_80065C90.unkE0;
+    r = func_8002616C(loc, pos, &a, &b, &c);
+    if (r > 0) {
+        func_80025CE8(loc, func_80026464(loc, pos, b, 0, c, 1), res, snap ? 0x100 : -1);
+        func_800215E8((Entry *)res[0], (u32 *)res[1], res[2], 0);
+    } else if (r < 0) {
+        func_80025CE8(loc, func_80026464(loc, pos, a, 1, c, 1), res, snap ? 0x100 : -1);
+        func_800215E8((Entry *)res[0], (u32 *)res[1], res[2], 0);
+    } else {
+        func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
+    }
+    func_80024590(pos);
+    func_80025188(pos);
+}
+
+/* Pulls the camera toward pos in z by the zoom range of the path point
+ * (properties 0x252 and 0x254: near, far, strength). */
+
+void func_80024590(s32 *pos) {
+    s16 *p;
+    s32 tmp;
+    s32 k;
+    s32 lo;
+    s32 hi;
+    s32 z;
+    s32 d;
+    Transform *cam;
+
+    if (func_80032710(D_80065C90.unkD8, 0x252, D_80065C90.unkE0, 0, NULL, 0, 0, 0, 0) == 0) {
+        return;
+    }
+    p = (s16 *)func_80032710(D_80065C90.unkD8, 0x254, D_80065C90.unkE0, 0, NULL, 3, (s32)&tmp, 0, 0);
+    if (p == NULL) {
+        return;
+    }
+    k = p[2];
+    lo = p[0] << 8;
+    hi = p[1] << 8;
+    if (game.unk288 != 0x100) {
+        k = (k * game.unk288) >> 8;
+    }
+    cam = &D_80065C90.unk60;
+    z = cam->trans[2];
+    d = z - pos[2];
+    if (hi < d) {
+        d = hi;
+    }
+    d -= lo;
+    if (d < 0) {
+        d = 0;
+    }
+    cam->trans[2] = z - ((d * k) >> 8);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800246A0);
 

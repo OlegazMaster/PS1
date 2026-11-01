@@ -236,7 +236,7 @@ s32 func_80023DBC(u32 *loc, s32 *pos, void *out) {
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80023EBC);
 
 s32 func_80026464(s32 *loc, s32 *pos, s32 dist, s32 a, s32 b, s32 c);
-void func_80025CE8(s32 *loc, s32 a, s32 *out, s32 b);
+void func_80025CE8(); /* (PathLoc *locs, s32 n, PathLoc *out, s32 frac) */
 /* Follows the target object: moves along the path when it gets too far or
  * too near, and takes its position and rotation. */
 
@@ -678,7 +678,114 @@ s32 func_80025C54(void) {
     return a;
 }
 
+/* A place on a camera path. */
+typedef struct {
+    s32 zone;
+    s32 path;
+    s32 progress;
+    s32 dir; /* 2 forward, 1 backward */
+} PathLoc;
+
+#define PathEnd(path) ((func_80032EDC(path, 0x27F, 0, 2) - 1) << 8)
+
+#ifdef NON_MATCHING
+/* Walks the chain of n path places from locs[0] by a fraction frac / 0x100
+ * of its length (frac < 0: a smoothed step) and puts the place reached in out.
+ * Equivalent; the original walks with a pointer to the direction field and
+ * lays out the walk loop differently. */
+void func_80025CE8(PathLoc *locs, s32 n, PathLoc *out, s32 frac) {
+    PathLoc *last = &locs[n - 1];
+    PathLoc *l;
+    s32 total;
+    s32 p;
+    s32 i;
+    s32 k;
+    s32 d;
+    s32 max;
+    s32 rem;
+    s32 len;
+
+    if (locs[0].path == last->path) {
+        total = last->progress - locs[0].progress;
+        if (total < 0) {
+            total = -total;
+        }
+    } else {
+        p = locs[0].progress;
+        total = p;
+        if (locs[0].dir == 2) {
+            total = PathEnd(locs[0].path) - p;
+        }
+        p = last->progress;
+        if (last->dir == 1) {
+            p = PathEnd(last->path) - p;
+        }
+        total += p;
+        i = n - 2;
+        if (i > 0) {
+            l = &locs[1];
+            do {
+                len = PathEnd(l->path);
+                l++;
+                total = total - 2 + len;
+            } while (--i != 0);
+        }
+    }
+    if (frac < 0) {
+        k = func_80032DF8(locs[0].path, 0xC9, 0, 0, 0, 2, 0);
+        d = (total * k) >> 8;
+        if (d < 9) {
+            *out = *last;
+            return;
+        }
+        if (d > 0x7D000) {
+            d = 0x7D000;
+        }
+        d = ((d * 300) / 512000 + 100) << 16;
+        d /= k;
+        if (d < total) {
+            total = d;
+        }
+    } else {
+        total = (total * frac) >> 8;
+    }
+    l = locs;
+    max = l->dir == 2 ? PathEnd(l->path) : 0;
+    p = l->progress;
+loop:
+    if (l->dir == 2) {
+        rem = max - p;
+        if (rem < total) {
+            total -= rem;
+        } else {
+            p += total;
+            goto done;
+        }
+    } else if (p < total) {
+        total -= p;
+    } else {
+        p -= total;
+        goto done;
+    }
+    l++;
+    len = PathEnd(l->path);
+    if (l->dir == 2) {
+        max = len;
+        p = 1;
+    } else {
+        max = 0;
+        p = len - 1;
+    }
+    goto loop;
+done:
+    out->zone = l->zone;
+    out->path = l->path;
+    out->progress = p;
+    out->dir = l->dir;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80025CE8);
+#endif
 
 void func_80026038(void);
 

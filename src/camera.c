@@ -2440,7 +2440,74 @@ void func_80029BBC(GoolObject *obj, s32 c, s32 blend) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029C1C);
+typedef struct {
+    s32 v[3];
+} Vec3i;
+void *func_8003C990(void *item, s32 *pos, s32 a);
+s32 func_8002B9A4(void *rec, s32 *box, s32 a, s32 b, s32 best, s32 y, s32 c);
+/* The floor under pos: the surface of the neighbor zone that contains pos,
+ * or a higher object (flag 0x20000) standing within 20000 of it, whose
+ * height then goes into pos[1]. */
+
+
+
+void *func_80029C1C(void *unused, s32 *pos) {
+    s32 p[3];
+    s32 box[6];
+    ZoneHdr *hdr;
+    Entry *n;
+    void *res;
+    void *rec;
+    GoolObject *obj;
+    GoolObject *found;
+    s32 best;
+    s32 h;
+    s32 i;
+
+    res = NULL;
+    *(Vec3i *)p = *(Vec3i *)pos;
+    hdr = (ZoneHdr *)((Entry *)D_80065C90.unkCC)->items[0];
+    do {
+        for (i = 0; i < hdr->neighbor_count; i++) {
+            if (hdr->neighbor_flags[i] & 4) {
+                n = (Entry *)NSOpen(&hdr->neighbors[i], 1, 0);
+                if (func_80031868(n, pos)) {
+                    res = func_8003C990(n->items[1], pos, 9);
+                    break;
+                }
+            }
+        }
+        if (i == hdr->neighbor_count) {
+            res = NULL;
+            break;
+        }
+    } while (res == NULL);
+    if (game.unk5C > 0) {
+        best = -999999999;
+        found = NULL;
+        box[0] = p[0] - 20000;
+        box[3] = p[0] + 20000;
+        box[2] = p[2] - 20000;
+        box[5] = p[2] + 20000;
+        box[1] = box[4] = p[1];
+        for (i = 0; i < game.unk5C; i++) {
+            rec = game.unk390[i];
+            obj = ((GoolObject **)rec)[1];
+            if (obj->status_b & 0x20000) {
+                h = func_8002B9A4(rec, box, 1, 0, best, p[1], 0);
+                if (h != -999999999) {
+                    found = obj;
+                    best = h;
+                }
+            }
+        }
+        if (found != NULL && (res == NULL || best >= pos[1])) {
+            pos[1] = best;
+            res = found;
+        }
+    }
+    return res;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029E40);
 

@@ -18,7 +18,8 @@ typedef struct {
     GoolHandle free_objects; /* 0x48 */
     struct GoolObject *unk50;
     u32 frames; /* 0x54: frame counter */
-    u8 unk58[0x8];
+    u8 unk58[0x4];
+    s32 unk5C; /* 0x5C: count of unk390 */
     s32 unk60[4];
     u32 unk70;
     s32 unk74;
@@ -85,6 +86,7 @@ typedef struct {
     s32 unk37C;
     s32 unk380;
     s32 unk384[3]; /* 0x384 */
+    void *unk390[1]; /* 0x390: unk5C records whose +4 is an object */
 } GameState;
 
 extern GameState game;

@@ -6,16 +6,6 @@
 
 /* Starting a level: the checkpoint and spawn state, level data. */
 
-/* The header of a zone entry (item 0); see also gool.c. */
-typedef struct {
-    u8 unk0[0x184];
-    s32 first_item; /* 0x184: index of the first path item */
-    s32 path_items; /* 0x188: 3 per camera path */
-    s32 entity_count; /* 0x18C */
-    s32 neighbor_count; /* 0x190 */
-    u32 neighbors[(0x2BC - 0x194) / 4]; /* 0x194: references to the neighbor zones */
-    u32 flags; /* 0x2BC: 1 loaded, 2 ... */
-} ZoneHdr;
 
 void GoolZoneObjectsTerminate(s32 zone);
 void func_8002157C(Entry *zone);

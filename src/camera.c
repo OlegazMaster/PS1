@@ -1871,7 +1871,35 @@ void func_80027E68(void) {
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027EC0);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_800280A4);
+void func_800281F8(s8 *ev, s32 end); /* runs a path end event */
+/* Runs the events (property 0x1A8) at the end and at the start of the
+ * current camera path whose mask is the new bits of mask. */
+
+void func_800280A4(s32 mask) {
+    s8 *ev;
+
+    mask &= ~D_8005C634.unk58;
+    if (mask != 0) {
+        ev = (s8 *)func_80032710(D_80065C90.unkD4, 0x1A8, PathEnd(D_80065C90.unkD4), 0, NULL, 1, 0, 0, 0);
+        if (ev != NULL && ev[3] != 0) {
+            do {
+                if (*(s32 *)(ev + 4) == mask) {
+                    func_800281F8(ev, 2);
+                }
+                ev += ev[3];
+            } while (ev[3] != 0);
+        }
+        ev = (s8 *)func_80032710(D_80065C90.unkD4, 0x1A8, 0, 0, NULL, 1, 0, 0, 0);
+        if (ev != NULL && ev[3] != 0) {
+            do {
+                if (*(s32 *)(ev + 4) == mask) {
+                    func_800281F8(ev, 1);
+                }
+                ev += ev[3];
+            } while (ev[3] != 0);
+        }
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800281F8);
 
@@ -2027,7 +2055,43 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028740);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028A78);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028D8C);
+s32 func_80031868(Entry *zone, s32 *pos); /* whether pos is in zone */
+/* The neighbor zone (with flag 4) of zone, or else of the current zone, in
+ * which pos lies; -0x17 if none. */
+
+s32 func_80031868(Entry *zone, s32 *pos); /* whether pos is in zone */
+
+s32 func_80031868(Entry *zone, s32 *pos); /* whether pos is in zone */
+
+s32 func_80031868(Entry *zone, s32 *pos); /* whether pos is in zone */
+
+Entry *func_80028D8C(Entry *zone, s32 *pos) {
+    ZoneHdr *hdr;
+    Entry *n;
+    s32 i;
+
+    hdr = (ZoneHdr *)zone->items[0];
+    for (i = hdr->neighbor_count - 1; i >= 0; i--) {
+        if (hdr->neighbor_flags[i] & 4) {
+            n = (Entry *)NSOpen(&hdr->neighbors[i], 1, 0);
+            if (func_80031868(n, pos)) {
+                return n;
+            }
+        }
+    }
+    if (zone != (Entry *)D_80065C90.unkCC) {
+        hdr = (ZoneHdr *)((Entry *)D_80065C90.unkCC)->items[0];
+        for (i = hdr->neighbor_count - 1; i >= 0; i--) {
+            if (hdr->neighbor_flags[i] & 4) {
+                n = (Entry *)NSOpen(&hdr->neighbors[i], 1, 0);
+                if (func_80031868(n, pos)) {
+                    return n;
+                }
+            }
+        }
+    }
+    return (Entry *)-0x17;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028ED8);
 

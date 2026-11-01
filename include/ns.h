@@ -13,6 +13,19 @@ typedef struct Entry {
     u8 *items[1]; /* 0x10: item_count + 1 offsets */
 } Entry;
 
+/* The header of a zone entry (item 0); see also gool.c. */
+typedef struct {
+    u8 unk0[0x184];
+    s32 first_item; /* 0x184: index of the first path item */
+    s32 path_items; /* 0x188: 3 per camera path */
+    s32 entity_count; /* 0x18C */
+    s32 neighbor_count; /* 0x190 */
+    u32 neighbors[16]; /* 0x194: references to the neighbor zones */
+    u32 neighbor_flags[16]; /* 0x1D4 */
+    u8 unk214[0xA8];
+    u32 flags; /* 0x2BC: 1 loaded, 2 ... */
+} ZoneHdr;
+
 /* An NSD page table entry: either an entry pointer or an EID (low bits set). */
 typedef struct {
     u32 value;

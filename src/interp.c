@@ -912,3 +912,23 @@ void func_800200C8(GoolObject *obj, s32 unused, s32 *in, s32 *out) {
     out[1] = r[1] + obj->xform.trans[1];
     out[2] = r[2] + obj->xform.trans[2];
 }
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020184);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_800202CC);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_800203A4);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_8002049C);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_800205F4);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020638);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020670);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020F04);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020F68);
+
+INCLUDE_ASM("asm/us/nonmatchings/interp", func_80021008);

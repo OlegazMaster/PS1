@@ -1808,7 +1808,79 @@ s32 func_8002719C(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out) {
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027298);
 
+#ifdef NON_MATCHING
+/* Posts the path messages of the triggers of the camera path point: the
+ * mask (third value) of each range of properties 0x1E3 (height), 0x1E2
+ * (across the path) and 0x1E4 (along the path) that pos is outside of.
+ * Equivalent; the original allocates the registers differently. */
+void func_80027AB8(s32 *pos) {
+    s16 *p;
+    s16 *px;
+    s16 *pz;
+    s32 lo;
+    s32 hi;
+    s32 zlo;
+    s32 zhi;
+    s32 d;
+    s32 y;
+    s32 x;
+    s32 z;
+    s32 c;
+    s32 s;
+    s32 a;
+    s32 mask;
+    Transform *cam;
+
+    p = (s16 *)func_80032710(D_80065C90.unkD8, 0x1E3, D_80065C90.unkE0, 0, NULL, 0, 0, 0, 0);
+    if (p != NULL) {
+        lo = p[0];
+        hi = p[1];
+        if (hi >= lo) {
+            y = pos[1] - D_80065C90.unk60.trans[1];
+            if (y < lo << 8 || y > hi << 8) {
+                mask = p[2] << 8;
+                func_80027D6C(0, &mask);
+            }
+        }
+    }
+    px = (s16 *)func_80032710(D_80065C90.unkD8, 0x1E2, D_80065C90.unkE0, 0, NULL, 0, 0, 0, 0);
+    if (px != NULL) {
+        lo = px[0];
+        hi = px[1];
+        if (hi < lo) {
+            px = NULL;
+        }
+    }
+    pz = (s16 *)func_80032710(D_80065C90.unkD8, 0x1E4, D_80065C90.unkE0, 0, NULL, 0, 0, 0, 0);
+    if (pz != NULL) {
+        zlo = pz[0];
+        zhi = pz[1];
+        if (zhi < zlo) {
+            pz = NULL;
+        }
+    }
+    if (px != NULL || pz != NULL) {
+        cam = &D_80065C90.unk60;
+        x = pos[0] - cam->trans[0];
+        a = -D_80065C90.unk84.rot[1];
+        z = pos[2] - cam->trans[2];
+        c = func_8003C364(a);
+        s = func_8003C2F0(a);
+        d = (((z >> 8) * s) >> 4) + (((x >> 8) * c) >> 4);
+        z = (((x >> 8) * s) >> 4) - (((z >> 8) * c) >> 4);
+        if (px != NULL && (d < lo << 8 || d > hi << 8)) {
+            mask = px[2] << 8;
+            func_80027D6C(0, &mask);
+        }
+        if (pz != NULL && (z < zlo << 8 || z > zhi << 8)) {
+            mask = pz[2] << 8;
+            func_80027D6C(0, &mask);
+        }
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027AB8);
+#endif
 
 extern u32 D_80068F3C[];
 s32 func_80028A78(void);

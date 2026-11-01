@@ -61,7 +61,7 @@ typedef struct {
     s32 unk78; /* 0x78: frames of the return */
     s32 unk7C[3]; /* 0x7C: position at the start of the return */
     CamBlend blends[2]; /* 0x88 */
-    u8 unkB8[0x80];
+    s32 msgs[8][4]; /* 0xB8: queued camera messages (unk54 of them) */
     u32 zone; /* 0x138: where to return */
     s32 path; /* 0x13C */
     s32 progress; /* 0x140 */
@@ -1788,7 +1788,20 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027AB8);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027D6C);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027E68);
+void func_80027EC0(s32 *msg); /* CamProcessMessage */
+/* Handles the queued camera messages. */
+
+void func_80027E68(void) {
+    s32 (*msg)[4] = D_8005C634.msgs;
+    s32 n = D_8005C634.unk54;
+
+    while (n > 0) {
+        func_80027EC0(*msg);
+        n--;
+        msg++;
+    }
+    D_8005C634.unk54 = 0;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027EC0);
 
@@ -1810,11 +1823,55 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028ED8);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_800296F8);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029B10);
+extern s32 D_8005C7D4[];
 
+void func_80029B10(GoolObject *obj, s32 idx, s32 val) {
+    if (obj->status_b & 0x4000000) {
+        if (idx >= 0) {
+            obj->unk118 = D_8005C7D4[idx] + 0x20;
+        } else {
+            obj->unk118 = val + 0x20;
+        }
+    }
+}
+
+extern u8 D_8005C814[];
+#ifdef NON_MATCHING
+/* The light intensity b of the surface type c (0x30..0x3F).
+ * Equivalent; the original has a second return after the lookup. */
+void func_80029B5C(s32 c, s32 *out) {
+    if ((u32)(c - 0x30) >= 0x10) {
+        *out = 0;
+        return;
+    }
+    *out = 0;
+    if (c >= 0x40) {
+        *out = 0;
+        return;
+    }
+    if (c >= 0x30) {
+        *out = 0x1000 - D_8005C814[c - 0x30] * 20;
+        return;
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029B5C);
+#endif
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029BBC);
+s32 func_8001FD08(s32 cur, s32 target, s32 step);
+/* Sets the light b of obj for the surface type c (blend: move toward it). */
+
+void func_80029BBC(GoolObject *obj, s32 c, s32 blend) {
+    ObjColors *col = &obj->colors;
+    s32 b;
+
+    func_80029B5C(c, &b);
+    if (blend == 0) {
+        col->b = b;
+    } else {
+        col->b = func_8001FD08(col->b, b, 0x100);
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029C1C);
 
@@ -1826,10 +1883,45 @@ INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A728);
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A7A8);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A950);
+void func_8002A7A8(Transform *xform, GoolObject *obj, s32 a);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A97C);
+void func_8002A950(GoolObject *obj, s32 a) {
+    func_8002A7A8(&obj->xform, obj, a);
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A9DC);
+extern s32 D_80060AA4; /* level.c */
+extern s32 D_80060AA8[2];
+extern s32 D_80060AB8;
+void *malloc(s32 size);
+/* Allocates the two buffers of level.c. */
+
+
+extern s32 D_80060AA4; /* level.c */
+
+extern s32 D_80060AA4; /* level.c */
+
+s32 func_8002A97C(void) {
+    u8 *p;
+
+    D_80060AB8 = D_80060AA4 = (s32)(p = malloc(0xBE4));
+    if (p != NULL) {
+        *(s16 *)(p + 2) = 0;
+        D_80060AA8[0] = (s32)(p = malloc(0xBE4));
+        if (p != NULL) {
+            *(s16 *)(p + 2) = 0;
+            return -0xFF;
+        }
+    }
+    return -0xF;
+}
+
+void free(void *ptr);
+/* Frees the two buffers of level.c. */
+
+s32 func_8002A9DC(void) {
+    free((void *)D_80060AB8);
+    free((void *)D_80060AA8[0]);
+    return -0xFF;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002AA14);

@@ -116,17 +116,24 @@ typedef struct {
     s32 unkA8;
     u8 unkAC[0x18];
     s32 unkC4; /* GTE projection distance (H) */
-    u8 unkC8[0x4];
+    s32 unkC8;
     UnkCC *unkCC; /* 0xCC: the current zone (cur_zone) */
     void *unkD0; /* 0xD0: the previous zone */
     s32 unkD4; /* 0xD4: entity of the current zone */
     u8 unkD8[0x8];
-    s32 unkE0;
-    u8 unkE4[0x4];
-    s32 unkE8;
-    u8 unkEC[0x28];
+    s32 unkE0; /* 0xE0: progress along the path */
+    s32 unkE4; /* 0xE4: last progress of the path */
+    s32 unkE8; /* 0xE8: path point */
+    s32 unkEC; /* 0xEC: path length */
+    s32 unkF0; /* 0xF0: property 0x29 of the path */
+    u8 unkF4[0x8];
+    s32 unkFC;
+    s32 unk100;
+    s32 unk104;
+    u8 unk108[0xC];
     s32 unk114; /* 0x114: camera yaw */
-    u8 unk118[0x18];
+    s32 unk118[3]; /* 0x118: saved camera rotation */
+    u8 unk124[0xC];
     s32 unk130[3]; /* 0x130: camera forward direction */
     u8 unk13C[0x8];
     u32 unk144;

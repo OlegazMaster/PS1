@@ -11,7 +11,8 @@ typedef struct {
     s32 unk0;
     u8 unk4[0x7];
     s8 unkB;
-    u8 unkC[0x2C];
+    GoolObject *target; /* 0xC: object the camera follows */
+    u8 unk10[0x28];
     s32 unk38; /* 0x38: transition running */
     s32 unk3C; /* 0x3C: start time */
     s32 unk40; /* 0x40: duration */
@@ -219,7 +220,65 @@ s32 func_80023DBC(u32 *loc, s32 *pos, void *out) {
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80023EBC);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80024124);
+s32 func_80026464(s32 *loc, s32 *pos, s32 dist, s32 a, s32 b, s32 c);
+void func_80025CE8(s32 *loc, s32 a, s32 *out, s32 b);
+/* Follows the target object: moves along the path when it gets too far or
+ * too near, and takes its position and rotation. */
+
+void func_80024124(void) {
+    GoolObject *obj = D_8005C634.target;
+    s32 cs[10];
+    s32 loc[8];
+    s32 res[4];
+    s32 pos[3];
+    s32 d;
+    s32 dir;
+    Entry *zone;
+    u32 *path;
+    s32 progress;
+    Transform *cam;
+    s32 near;
+    s32 far;
+
+    if (obj == NULL) {
+        func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
+        return;
+    }
+    near = 0x7D000;
+    far = 0x83400;
+    pos[0] = obj->xform.trans[0];
+    pos[1] = obj->xform.trans[1];
+    pos[2] = obj->xform.trans[2] + 0x5DC000;
+    loc[0] = (s32)D_80065C90.unkCC;
+    loc[1] = D_80065C90.unkD4;
+    loc[2] = D_80065C90.unkE0;
+    func_80028740(D_80065C90.unkD4, D_80065C90.unkE0, cs, NULL, 0);
+    d = cs[2] - pos[2];
+    if (d > far) {
+        dir = 1;
+    } else if (d < near) {
+        dir = -1;
+    } else {
+        dir = 0;
+    }
+    if (dir > 0) {
+        func_80025CE8(loc, func_80026464(loc, pos, far, 0, 0, 1), res, 0x100);
+        func_800215E8((Entry *)res[0], (u32 *)res[1], res[2], 0);
+    } else if (dir < 0) {
+        func_80025CE8(loc, func_80026464(loc, pos, near, 1, 0, 1), res, 0x100);
+        func_800215E8((Entry *)res[0], (u32 *)res[1], res[2], 0);
+    } else {
+        func_800215E8((Entry *)D_80065C90.unkCC, (u32 *)D_80065C90.unkD4, D_80065C90.unkE0, 0);
+    }
+    cam = &D_80065C90.unk60;
+    cam->trans[0] = obj->xform.trans[0];
+    cam->trans[1] = obj->xform.trans[1];
+    cam->trans[2] = obj->xform.trans[2];
+    cam->rot[0] = obj->xform.rot[0] & 0xFFF;
+    cam->rot[1] = (obj->xform.rot[1] + 0x800) & 0xFFF;
+    cam->rot[2] = obj->xform.rot[2] & 0xFFF;
+    D_80065C90.unk114 = cam->rot[1];
+}
 
 /* On a change of the path type: stops or starts a camera transition. */
 void func_80024330(s32 type) {

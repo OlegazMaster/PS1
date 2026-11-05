@@ -14,3 +14,4 @@ NSPageCreateVirtual
 NSStringToEID
 NSPageCreatePhysical
 func_80017834
+func_8002C604

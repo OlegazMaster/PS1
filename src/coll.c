@@ -469,7 +469,110 @@ s32 func_8002C230(GoolObject *obj, s32 *prev, s32 *pos, CollQuery *q, s32 *top) 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002C230);
 #endif
 
+s32 func_8003C04C(GoolObject *obj, CollQuery *q, s32 *box, s32 *box2, s32 *ceil2, s32 best, s32 a);
+#define OBJ_H(obj) (*(s32 *)((u8 *)(obj)->unk8 + 0x40))
+#ifdef NON_MATCHING
+/* The ceiling over obj at pos: the lowest object over it (flag 0x8000000,
+ * which then gets event 0x1700) or surface, or the top of the zone; sets
+ * flag 0x80 of obj when there is one. Returns -999999999 if there is none
+ * low enough.
+ * Equivalent; the original allocates the registers and stack slots differently. */
+s32 func_8002C604(GoolObject *obj, s32 *pos, CollQuery *q, s32 *ceil2, s32 flag) {
+    s32 p[3];
+    u32 arg;
+    s32 best;
+    s32 *b;
+    s32 half;
+    s32 quarter;
+    s32 y;
+    s32 i;
+    s32 c;
+    s32 top;
+    s32 *rec;
+    s32 *zb;
+    GoolObject *hit;
+    GoolObject *o;
+
+    hit = NULL;
+    best = -999999999;
+    b = q->box2;
+    if ((obj->state_flags >> 28) == 2) {
+        q->box2[0] = pos[0] - 0x4B00;
+        b[1] = pos[1] - OBJ_H(obj) / 4;
+        b[2] = pos[2] - 0x4B00;
+        b[3] = pos[0] + 0x4B00;
+        b[4] = pos[1] + OBJ_H(obj) * 2;
+    } else {
+        q->box2[0] = pos[0] - 0x4B00;
+        if (flag) {
+            y = pos[1] + OBJ_H(obj) - OBJ_H(obj) / 8;
+        } else {
+            half = OBJ_H(obj) / 2;
+            quarter = OBJ_H(obj) / 4;
+            if (half > 0x19000) {
+                half = 0x19000;
+            }
+            y = pos[1] + OBJ_H(obj) - (half < quarter ? quarter : half);
+        }
+        b[1] = y;
+        b[2] = pos[2] - 0x4B00;
+        b[3] = pos[0] + 0x4B00;
+        b[4] = pos[1] + OBJ_H(obj);
+    }
+    b[5] = pos[2] + 0x4B00;
+    for (i = 0; i < game.unk5C; i++) {
+        rec = game.unk390[i];
+        o = (GoolObject *)rec[1];
+        if ((o->status_b & 0x8000000) && !(o->status_a & 0x4000)) {
+            c = func_8002B9A4(rec, b, 0, 1, best, -999999999, NULL);
+            if (c != -999999999) {
+                best = c;
+                hit = o;
+            }
+        }
+    }
+    q->box2[0] = pos[0] - 0x2580;
+    b[2] = pos[2] - 0x2580;
+    b[3] = pos[0] + 0x2580;
+    b[5] = pos[2] + 0x2580;
+    b[4] = pos[1] + OBJ_H(obj) * 5 / 4;
+    *ceil2 = 0x7FFFFFFF;
+    c = func_8003C04C(obj, q, q->box, b, ceil2, -999999999, 1);
+    if (((ZoneHdr *)obj->zone->items[0])->unk2DC & 0x20000) {
+        p[0] = pos[0];
+        p[1] = b[4];
+        p[2] = pos[2];
+        if ((s32)func_80028D8C((Entry *)D_80065C90.unkCC, p) >= -0xFE) {
+            zb = (s32 *)obj->zone->items[1];
+            top = (zb[1] + zb[4]) << 8;
+            if (top < p[1]) {
+                c = top;
+            }
+        }
+    }
+    if (c != -999999999) {
+        obj->status_a |= 0x80;
+    }
+    if (best != -999999999 && (c == -999999999 || best < c)) {
+        hit->status_a |= 0x80;
+        obj->status_a |= 0x80;
+        func_8001B328(obj, NULL, hit, NULL);
+        if (obj->misc_a[1] >= 0 || hit->misc_a[1] < 0) {
+            arg = 0x6400;
+            GoolSendEvent(obj, hit, 0x1700, 1, &arg);
+        }
+        if (!(obj->state_flags & 0x80000)) {
+            return best;
+        }
+    }
+    if ((obj->state_flags >> 28) == 2 || pos[1] + OBJ_H(obj) >= c) {
+        return c;
+    }
+    return -999999999;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002C604);
+#endif
 
 s32 func_8002C604(GoolObject *obj, s32 *to, CollQuery *q, s32 *ceil, s32 flag);
 s32 func_8001FD08(s32 cur, s32 target, s32 step);

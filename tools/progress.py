@@ -32,6 +32,7 @@ LINKED_OBJECT = re.compile(r"\bbuild/[^/\s]+/(\S+?)\.o\b")
 GAME = "код игры"
 CATEGORIES = {
     "nd_asm": "ассемблер Naughty Dog",
+    "gool_asm": "ассемблер Naughty Dog",
     "psyq": "библиотеки PSY-Q",
 }
 

@@ -85,6 +85,7 @@ segments:
       - [0x22F10, c, prop]         # properties of the entities
       - [0x23728, c, audio]        # sound effects and music
       - [0x25C10, c, goolop]       # GOOL instructions and the bytecode interpreter
+      - [0x29340, asm, gool_asm]   # the bytecode interpreter: hand-written assembly
       - [0x2A63C, asm, nd_asm]    # Naughty Dog's hand-written assembly (uses the GTE)
       - [0x35F50, asm, psyq]      # PSY-Q libraries (libcd, libgpu, libspu, libapi, ...)
       - [0x4C440, data, "4C440"]

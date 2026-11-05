@@ -3,8 +3,10 @@
 #include "game.h"
 #include "ns.h"
 
-/* The GOOL instructions and the bytecode interpreter (operands, the
- * instructions that read the pad, play sounds, send events..., the loop). */
+/* The GOOL instructions (operands, the instructions that read the pad,
+ * play sounds, send events, change states...). The bytecode interpreter
+ * itself (func_80038E28 and its helpers) is hand-written assembly: gool_asm
+ * in splat.yaml. */
 
 /* .rodata: messages of the debug version, no longer printed */
 const char D_80010660[] = "----stack pop\n";
@@ -193,25 +195,3 @@ INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800388C8);
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800389C8);
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80038B2C);
-
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80038B40);
-
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80038C24);
-
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80038C94);
-
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80038D88);
-
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80038DB0);
-
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80038DD8);
-
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80038E28);
-
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80039494);
-
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_8003952C);
-
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800395E0);
-
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800397CC);

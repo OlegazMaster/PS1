@@ -971,7 +971,153 @@ void func_8002D990(s32 x0, s32 y0, s32 x1, s32 y1, s32 set) {
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002DA74);
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002E4F0);
+extern s32 D_80068EF4[];
+void func_8002DA74(s32 *rec, s32 *box, s32 *pos, s32 a);
+/* Collides obj, moving from prev to pos, with the objects of the collision
+ * records: marks the cells they take on the grid D_80060ADC (with a, also
+ * the cells of their edges) and tells obj (func_8001B328) about the ones it
+ * runs into. The cell of prev is kept free while doing it. */
+
+void func_8002E4F0(s32 *pos, s32 *prev, GoolObject *obj, CollQuery *q, s32 a) {
+    s32 box[6];
+    s32 big[6];
+    s32 b2[6];
+    s32 i;
+    s32 nofloor;
+    s32 x0;
+    s32 z0;
+    GoolObject *collider;
+    u32 bit;
+    s32 gz;
+    u32 was;
+    s32 *rec;
+    GoolObject *o;
+    s32 kind;
+    s32 *rbox;
+    s32 x;
+    s32 z;
+    s32 cx0;
+    s32 cx1;
+    s32 cz0;
+    s32 cz1;
+    s32 t;
+    u32 hit;
+
+    nofloor = !(((ZoneHdr *)((Entry *)D_80065C90.unkCC)->items[0])->unk2DC & 0x100000);
+    x0 = pos[0];
+    z0 = pos[2];
+    if (D_80068EF4[0] != 0) {
+        collider = obj->collider;
+        gz = ((prev[2] - z0) << 2) / 0x2000 + 16;
+        bit = ((prev[0] - x0) << 2) / 0x2000 + 16;
+        if (bit < 32 && gz >= 0 && gz < 32) {
+            bit = 0x80000000 >> bit;
+            was = D_80060ADC[gz] & bit;
+        } else {
+            bit = 0;
+            gz = 0;
+            was = 0;
+        }
+        box[0] = pos[0] + *(s32 *)((u8 *)obj->unk8 + 0x30);
+        box[1] = pos[1] + *(s32 *)((u8 *)obj->unk8 + 0x34);
+        box[2] = pos[2] + *(s32 *)((u8 *)obj->unk8 + 0x38);
+        box[3] = pos[0] + *(s32 *)((u8 *)obj->unk8 + 0x3C);
+        box[4] = pos[1] + *(s32 *)((u8 *)obj->unk8 + 0x40);
+        box[5] = pos[2] + *(s32 *)((u8 *)obj->unk8 + 0x44);
+        t = pos[0] - 0x7FBC;
+        if (box[0] < t) {
+            t = box[0];
+        }
+        big[0] = t - 0x6400;
+        big[1] = box[1];
+        t = pos[2] - 0x7FBC;
+        if (box[2] < t) {
+            t = box[2];
+        }
+        big[2] = t - 0x6400;
+        t = pos[0] + 0x7FBC;
+        if (t < box[5]) { /* box[3] was meant */
+            t = box[5];
+        }
+        big[3] = t + 0x6400;
+        big[4] = box[4];
+        t = pos[2] + 0x7FBC;
+        if (t < box[5]) {
+            t = box[5];
+        }
+        big[5] = t + 0x6400;
+        q->steps += 0x100;
+        for (i = 0; i < game.unk5C; i++) {
+            rec = game.unk390[i];
+            o = (GoolObject *)rec[1];
+            kind = rec[0] & 7;
+            rbox = rec + 11;
+            if (kind == 0) {
+                rbox = rec + 2;
+            }
+            if (o == collider && a && rbox[4] <= big[1]) {
+                continue;
+            }
+            if (!func_8003191C(big, rbox)) {
+                continue;
+            }
+            if (nofloor && (o->status_b & 0x10000)
+                && ((((!(obj->state_flags & 0x10) && obj->invincibility_state != 5)
+                      || ((GoolObjectType(o) != 0x300 || (o->status_c & 0x412)) && !(o->state_flags & 0x20)))
+                     && !(obj->state_flags & 0x4000))
+                    || (o->state_flags & 0x4000))
+                && !(o->status_a & 0x4000) && ((o->id >> 16) != 0xE || big[1] < rbox[1])) {
+                D_80060ADC[gz] &= ~bit;
+                switch (kind) {
+                case 0:
+                    b2[0] = rec[2] + o->hotspot_size;
+                    b2[1] = rec[3];
+                    b2[2] = rec[4] + o->hotspot_size;
+                    b2[3] = rec[5] - o->hotspot_size;
+                    b2[4] = rec[6];
+                    b2[5] = rec[7] - o->hotspot_size;
+                    cx0 = ((b2[0] - x0) << 2) / 0x2000;
+                    x = cx0;
+                    cx1 = ((b2[3] - x0) << 2) / 0x2000;
+                    cz0 = ((b2[2] - z0) << 2) / 0x2000;
+                    z = cz0;
+                    cz1 = ((b2[5] - z0) << 2) / 0x2000;
+                    func_8002D990(cx0, cz0, cx1, cz1, 1);
+                    if (!a) {
+                        break;
+                    }
+                    for (; x < cx1; x += 8) {
+                        func_8002D944(x, z);
+                    }
+                    for (x = cx1; z < cz1; z += 8) {
+                        func_8002D944(x, z);
+                    }
+                    for (z = cz1; x > cx0; x -= 8) {
+                        func_8002D944(x, z);
+                    }
+                    for (x = cx0; z > cz0; z -= 8) {
+                        func_8002D944(x, z);
+                    }
+                    break;
+                case 1:
+                    func_8002DA74(rec, big, pos, a);
+                    break;
+                }
+                if (a) {
+                    hit = D_80060ADC[gz] & bit;
+                    was |= hit;
+                    if (hit) {
+                        func_8001B328(obj, box, (GoolObject *)rec[1], kind == 0 ? rbox : NULL);
+                    }
+                }
+            }
+            if (kind == 0 && a && func_8003191C(box, rec + 2)) {
+                func_8001B328(obj, box, (GoolObject *)rec[1], rec + 2);
+            }
+        }
+        D_80060ADC[gz] |= was;
+    }
+}
 
 extern u32 D_80067A28[];
 void func_8003B874(CollQuery *q, s32 *box, s32 mode, s32 y0, s32 y1, s32 top, s32 x, s32 z);

@@ -240,7 +240,318 @@ void func_8001B630(GoolObject *obj, s32 *out) {
     }
 }
 
+s32 func_8003D9DC(s32 x); /* square root */
+/* A record of the draw list (context.cur->unk2090): an object to draw. */
+typedef struct DrawRec {
+    struct DrawRec *next;
+    s32 z; /* 0x4 */
+    void *func; /* 0x8: drawing function */
+    void *func2; /* 0xC */
+    GoolObject *obj; /* 0x10 */
+    void *model; /* 0x14 */
+    s32 unk18;
+    u32 flags; /* 0x1C */
+    s32 color; /* 0x20 */
+    void *unk24; /* 0x24: the frame (sprites) */
+    s32 unk28;
+    s32 unk2C;
+    s32 frame_a; /* 0x30 */
+    s32 frame_b; /* 0x34 */
+    s32 unk38[4];
+    s32 unk48;
+    s32 unk4C;
+    s32 unk50;
+    s32 unk54;
+    s32 unk58;
+    s32 unk5C;
+    s32 unk60;
+    s32 unk64;
+    void *unk68;
+    s32 unk6C;
+} DrawRec; /* 0x70 (models; 0x2C sprites, 0x30 fragments) */
+extern void *D_8005C2F8[]; /* drawing functions by light type */
+extern s32 D_8005C270[];
+extern s32 D_8005C230[];
+extern s32 D_8005C250[];
+extern u8 D_8003DEF4[];
+extern u8 D_8003E034[];
+extern u8 D_8006AEB8[];
+#define RENDER_WORD(off) (*(s32 *)((u8 *)&D_80065C90.render + (off)))
+#define OBJ_BYTE(obj, off) (((u8 *)(obj))[off])
+#define OBJ_WORD(obj, off) (*(s32 *)((u8 *)(obj) + (off)))
+#define REC_COLOR(c) (((c)->cur_color.r << 20) | ((c)->cur_color.g << 12) | ((c)->cur_color.b << 4))
+#ifdef NON_MATCHING
+/* Adds obj to the draw list of the current buffer (unless the list is full,
+ * except for Crash): a model (with its light: type, color, direction to the
+ * camera), a sprite or fragments; type 4 animations go to the list of
+ * objects drawn later. z (z[0]) and z[1] are the depths.
+ * Equivalent; differs in registers and scheduling (the original spills more values). */
+void func_8001B7A0(GoolObject *obj, s32 *z) {
+    s32 fa;
+    s32 fb;
+    void *tex;
+    ObjColors *col;
+    u8 *anim;
+    u32 frame;
+    DrawRec *r;
+    u8 type;
+    u8 light;
+    s32 cr;
+    s32 cg;
+    s32 cb;
+    s32 dx;
+    s32 dy;
+    s32 dz;
+    s32 d;
+    s32 i;
+    u8 *f;
+    s32 z1;
+    ObjectLink *l;
+    DrawRec *q;
+    u32 w;
+    s32 lo;
+
+    anim = (u8 *)obj->unkE8;
+    r = context.cur->unk2098;
+    frame = obj->unkEC >> 8;
+    if ((u32)((u8 *)r - (u8 *)context.cur->unk2094 + 0xE0) >= 0x1A41 && obj != crash) {
+        return;
+    }
+    switch (anim[0]) {
+    case 2:
+        z1 = z[1];
+        func_80019090(anim + (frame * 0x10 + 8) + 4, anim + 4);
+        q = context.cur->unk2098;
+        context.cur->unk2098 = (u8 *)q + 0x2C;
+        q->next = (DrawRec *)context.cur->unk2090;
+        context.cur->unk2090 = (s32)q;
+        col = &obj->colors;
+        w = OBJ_WORD(obj, 0x120);
+        lo = w & 0xFF;
+        i = (w >> 8) & 0xFF;
+        if (i == 0) {
+            if (lo == 6 || lo == 13) {
+                i = 4;
+            } else {
+                i = RENDER_WORD(0x37C);
+            }
+        }
+        q->model = obj->unk8;
+        q->z = z[0];
+        q->func = D_8005C2F8[i];
+        q->obj = obj;
+        q->unk24 = anim + (frame * 0x10 + 8);
+        q->func2 = (void *)D_8005C270[i];
+        if (col->cur != 0) {
+            q->color = REC_COLOR(col);
+            q->flags = col->cur;
+        } else {
+            q->flags = 0;
+        }
+        q->unk28 = z1;
+        break;
+    case 5:
+        z1 = z[1];
+        for (i = 0, f = anim + frame * *(s32 *)(anim + 8) * 0x18 + 0xC; i < *(s32 *)(anim + 8); i++, f += 0x18) {
+            func_80019090(f + 4, anim + 4);
+        }
+        q = context.cur->unk2098;
+        context.cur->unk2098 = (u8 *)q + 0x30;
+        q->next = (DrawRec *)context.cur->unk2090;
+        context.cur->unk2090 = (s32)q;
+        q->model = obj->unk8;
+        q->z = z[0];
+        q->func = D_8005C2F8[2];
+        col = &obj->colors;
+        q->obj = obj;
+        q->unk24 = anim;
+        q->func2 = (void *)D_8005C270[2];
+        if (col->cur != 0) {
+            q->color = REC_COLOR(col);
+            q->flags = col->cur;
+        } else {
+            q->flags = 0;
+        }
+        q->unk28 = z1;
+        q->unk2C = frame;
+        break;
+    case 4:
+        l = context.cur->unk209C;
+        context.cur->unk209C = (ObjectLink *)r;
+        context.cur->unk2098 = (u8 *)context.cur->unk2098 + 0x48;
+        context.cur->unk209C->next = l;
+        context.cur->unk209C->obj = obj;
+        break;
+    case 1:
+        fa = *(s32 *)((u8 *)obj->unk8 + 0x20);
+        fb = *(s32 *)((u8 *)obj->unk8 + 0x24);
+        context.cur->unk2098 = (u8 *)r + 0x70;
+        r->next = (DrawRec *)context.cur->unk2090;
+        context.cur->unk2090 = (s32)r;
+        type = OBJ_BYTE(obj, 0x121);
+        tex = *(void **)((u8 *)obj->unk8 + 0x28);
+        r->model = obj->unk8;
+        r->z = z[0];
+        r->obj = obj;
+        r->unk50 = obj->misc_c[1];
+        col = &obj->colors;
+        if (obj->status_b & 0x100000) {
+            r->unk18 = (s32)obj->unkE4;
+        } else {
+            r->unk18 = game.unk19C;
+        }
+        r->unk24 = obj->status_b & 0x40000 ? D_8003E034 : D_8003DEF4;
+        if (type == 0) {
+            type = RENDER_WORD(0x36C);
+        }
+        light = OBJ_BYTE(obj, 0x122);
+        r->unk28 = D_8005C230[light];
+        r->unk2C = D_8005C250[light];
+        if (light >= 3) {
+            if (light < 5) {
+                cr = obj->colors.color_b.r;
+                cg = obj->colors.color_b.g;
+                cb = obj->colors.color_b.b;
+                type = 6;
+                if (light == 4) {
+                    s32 nr = (cr * obj->misc_b[0] + cg * obj->misc_b[1] + cb * obj->misc_b[2]) >> 18;
+                    s32 ng = (cr * obj->misc_c[0] + cg * obj->misc_c[1] + cb * obj->misc_c[2]) >> 18;
+                    s32 nb = (cr * obj->misc_a[0] + cg * obj->misc_a[1] + cb * obj->misc_a[2]) >> 18;
+
+                    cr = nr;
+                    cg = ng;
+                    cb = nb;
+                }
+                r->unk50 = (cg << 16) | (cr & 0xFFFF);
+                r->unk54 = cb;
+                if (OBJ_BYTE(obj, 0x120) == 10 || OBJ_BYTE(obj, 0x120) == 15) {
+                    dx = (D_80065C90.unk60.trans[0] - obj->xform.trans[0]) >> 8;
+                    dy = (D_80065C90.unk60.trans[1] - obj->xform.trans[1]) >> 8;
+                    dz = (D_80065C90.unk60.trans[2] - obj->xform.trans[2]) >> 8;
+                    d = dx * dx + dy * dy + dz * dz;
+                    if (d == 0) {
+                        dx = dy = dz = 0;
+                    } else {
+                        d = func_8003D9DC(d);
+                        dx = (dx << 12) / d;
+                        dy = (dy << 12) / d;
+                        dz = (dz << 12) / d;
+                    }
+                } else {
+                    dx = -0xB50;
+                    dy = 0;
+                    dz = 0xB50;
+                }
+                if (light == 4) {
+                    s32 nx = (dx * obj->misc_b[0] + dy * obj->misc_b[1] + dz * obj->misc_b[2]) >> 18;
+                    s32 ny = (dx * obj->misc_c[0] + dy * obj->misc_c[1] + dz * obj->misc_c[2]) >> 18;
+                    s32 nz = (dx * obj->misc_a[0] + dy * obj->misc_a[1] + dz * obj->misc_a[2]) >> 18;
+
+                    dx = nx;
+                    dy = ny;
+                    dz = nz;
+                }
+                dx += cr;
+                dy += cg + cb;
+                d = dx * dx + dy * dy + dz * dz;
+                if (d == 0) {
+                    dx = dy = dz = 0;
+                } else {
+                    d = func_8003D9DC(d);
+                    dx = (dx << 12) / d;
+                    dy = (dy << 12) / d;
+                    dz = (dz << 12) / d;
+                }
+                r->unk58 = (dy << 16) | (dx & 0xFFFF);
+                r->unk5C = dz;
+            } else if (light == 6) {
+                r->unk4C = OBJ_WORD(obj, 0x13C);
+            }
+        }
+        r->unk48 = obj->unk118;
+        switch (type) {
+        case 14:
+        case 30:
+            if (!(RENDER_WORD(0x378) & 0x1000) ||
+                ((obj == crash || obj->id == 0x3001E) && !(RENDER_WORD(0x378) & 0x2000000)) ||
+                (obj == crash && obj->xform.trans[1] - (RENDER_WORD(0x34) >> 4) > 0x64000)) {
+                type = 6;
+                break;
+            }
+        case 10:
+        case 18:
+        case 22:
+            if ((s32)obj->status_b < 0) {
+                s32 *ls = (s32 *)OBJ_WORD(obj, 0x134);
+
+                r->unk54 = ls[0] << 4;
+                r->unk58 = ls[1];
+                r->unk5C = ls[2];
+                r->unk48 = obj->unk118 + ls[5];
+                r->unk4C = obj->unk118 + ls[6];
+                r->unk64 = ls[3];
+                r->unk68 = (void *)ls[4];
+            } else {
+                r->unk54 = RENDER_WORD(0x34);
+                r->unk48 = obj->unk118 + RENDER_WORD(0x370);
+                r->unk4C = obj->unk118 + RENDER_WORD(0x374);
+                r->unk58 = RENDER_WORD(0x38);
+                r->unk64 = 0;
+                r->unk68 = NULL;
+                r->unk5C = RENDER_WORD(0x3C);
+            }
+            break;
+        case 26:
+            r->unk68 = D_8006AEB8;
+            r->unk64 = 0;
+            break;
+        }
+        if (fa == fb) {
+            r->func = D_8005C2F8[type];
+            r->func2 = (void *)D_8005C270[type];
+            r->frame_a = fb;
+            r->flags = 0x40000000;
+        } else {
+            r->func = D_8005C2F8[type + 1];
+            r->func2 = (void *)D_8005C270[type + 1];
+            r->frame_a = fa;
+            r->frame_b = fb;
+            r->flags = 0x60000000;
+        }
+        if ((obj->id >> 16) == 0x38) {
+            r->flags |= 0x10000000;
+        }
+        if (obj->status_b & 0x10000000) {
+            if (game.unk22C != NULL && obj == (GoolObject *)game.unk22C->unk44) {
+                D_80060A98 = (s32)r;
+            }
+            if (game.unk348 != NULL && obj == (GoolObject *)game.unk348->unk44) {
+                D_80060A9C = (s32)r;
+            }
+        }
+        r->unk38[0] = ((s32 *)tex)[5];
+        r->unk38[1] = ((s32 *)tex)[6];
+        r->unk38[2] = ((s32 *)tex)[7];
+        r->unk38[3] = ((s32 *)tex)[8];
+        r->unk6C = ((s32 *)tex)[4];
+        if (((s32 *)tex)[3] < 6) {
+            r->unk60 = 0;
+        } else {
+            r->unk60 = ((s32 *)tex)[9];
+        }
+        if (col->cur != 0) {
+            r->color = REC_COLOR(col);
+            r->flags |= col->cur;
+        }
+        if (obj->xform.scale[0] < 0) {
+            r->flags |= 0x80000000;
+        }
+        break;
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001B7A0);
+#endif
 
 #ifdef NON_MATCHING
 /* Draws (with draw set) or measures the string str of font at x, scaled by

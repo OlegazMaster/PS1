@@ -25,3 +25,4 @@ func_800352FC
 func_80035D08
 func_80034310
 func_80015798
+func_8001B7A0

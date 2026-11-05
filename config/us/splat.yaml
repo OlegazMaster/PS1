@@ -63,7 +63,8 @@ segments:
       - [0xBE0, .rodata, interp]
       - [0xBF8, .rodata, camera]
       - [0xC48, .rodata, coll]
-      - [0xCE0, rodata, "CE0"]
+      - [0xCE0, .rodata, prop]
+      - [0xD2C, rodata, "D2C"]
       - [0x181C, asm, heap]       # memory allocator: InitHeap, malloc, free, ...
       - [0x1E28, c, main]
       - [0x2768, asm, "2768"]     # render setup + empty stubs
@@ -78,7 +79,9 @@ segments:
       - [0x1B294, c, coll]         # collision with the zone surfaces and objects
       - [0x2021C, c, game]         # game state: new game, level objects, spawns
       - [0x21234, c, math]         # geometry and random numbers
-      - [0x22A68, asm, "22A68"]   # rest of the game C code, to be split into files
+      - [0x22A68, c, cdfs]         # files of the CD (ISO 9660)
+      - [0x22F10, c, prop]         # properties of the entities
+      - [0x23728, asm, "23728"]   # rest of the game C code, to be split into files
       - [0x2A63C, asm, nd_asm]    # Naughty Dog's hand-written assembly (uses the GTE)
       - [0x35F50, asm, psyq]      # PSY-Q libraries (libcd, libgpu, libspu, libapi, ...)
       - [0x4C440, data, "4C440"]
@@ -93,7 +96,8 @@ segments:
       - [0x511C0, .sdata, coll]
       - [0x511CC, .sdata, game]
       - [0x511D4, .sdata, math]
-      - [0x511DC, sdata, "511DC"]
+      - [0x511DC, .sdata, cdfs]
+      - [0x51200, sdata, "51200"]
       - { start: 0x51238, type: sbss, vram: 0x80060A38, name: heap_sbss }
       - { type: .sbss, vram: 0x80060A58, name: main }
       - { type: .sbss, vram: 0x80060A60, name: sys }

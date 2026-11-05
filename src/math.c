@@ -9,7 +9,17 @@
 s32 D_800609D4 = 1; /* random seeds */
 s32 D_800609D8 = 1;
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80030A34);
+s32 func_8003C2F0(s32 angle); /* sin */
+s32 func_8003C364(s32 angle); /* cos */
+/* The vector of length len at angles pitch and yaw. */
+
+void func_80030A34(s32 *out, s32 len, s32 pitch, s32 yaw) {
+    out[1] = ((len >> 8) * func_8003C2F0(pitch)) >> 4;
+    len = (len >> 8) * func_8003C364(pitch);
+    len >>= 12;
+    out[0] = (len * func_8003C2F0(yaw)) >> 4;
+    out[2] = (len * func_8003C364(yaw)) >> 4;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/math", func_80030AD8);
 
@@ -19,13 +29,21 @@ INCLUDE_ASM("asm/us/nonmatchings/math", func_8003116C);
 
 INCLUDE_ASM("asm/us/nonmatchings/math", func_8003148C);
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_800317C0);
+/* Whether p is inside the box b (position and size, in 1/256 units). */
 
-s32 func_800317C0(void *hdr, s32 *pos);
+s32 func_800317C0(s32 *b, s32 *p) {
+    if (p[0] >= (b[0] << 8) && p[1] >= (b[1] << 8) && p[2] >= (b[2] << 8) && p[0] < ((b[0] + b[3]) << 8)
+        && p[1] < ((b[1] + b[4]) << 8) && p[2] < ((b[2] + b[5]) << 8)) {
+        return 1;
+    }
+    return 0;
+}
+
+
 /* Whether pos is in zone. */
 
 s32 func_80031868(Entry *zone, s32 *pos) {
-    return func_800317C0(zone->items[1], pos);
+    return func_800317C0((s32 *)zone->items[1], pos);
 }
 
 /* Whether the point p is inside the box b (x0, y0, z0, x1, y1, z1). */
@@ -55,13 +73,67 @@ s32 func_800319B8(s32 *a, s32 *b) {
     return 0;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80031A54);
+#define ABS_DIFF(a, b) ((a) - (b) >= 0 ? (a) - (b) : (b) - (a))
+/* Approximate distance between a and b: the largest difference plus a
+ * quarter of the others. */
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80031B50);
+s32 func_80031A54(s32 *a, s32 *b) {
+    s32 d[3];
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80031BD0);
+    d[0] = ABS_DIFF(a[0], b[0]);
+    d[1] = ABS_DIFF(a[1], b[1]);
+    d[2] = ABS_DIFF(a[2], b[2]);
+    if (d[0] >= d[1] && d[0] >= d[2]) {
+        return d[0] + (d[1] + d[2]) / 4;
+    }
+    if (d[1] >= d[0] && d[1] >= d[2]) {
+        return d[1] + (d[0] + d[2]) / 4;
+    }
+    return d[2] + (d[1] + d[0]) / 4;
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80031C74);
+/* The same in x, z. */
+
+s32 func_80031B50(s32 *a, s32 *b) {
+    s32 d[3];
+
+    d[0] = ABS_DIFF(a[0], b[0]);
+    d[2] = ABS_DIFF(a[2], b[2]);
+    if (d[0] >= d[2]) {
+        return d[0] + d[2] / 4;
+    }
+    return d[2] + d[0] / 4;
+}
+
+/* Whether a is farther than (mx, my, mz) from b in any axis; if so, obj (if
+ * any) gets status flag 0x8000. */
+
+s32 func_80031BD0(GoolObject *obj, s32 *a, s32 *b, s32 mx, s32 my, s32 mz) {
+    s32 d;
+    s32 nx = -mx;
+    s32 ny = -my;
+    s32 nz = -mz;
+
+    if ((d = a[0] - b[0], d > mx || d < nx) || (d = a[1] - b[1], d > my || d < ny)
+        || (d = a[2] - b[2], d > mz || d < nz)) {
+        if (obj != NULL) {
+            obj->status_a |= 0x8000;
+        }
+        return 1;
+    }
+    return 0;
+}
+
+/* Distance between a and b. */
+
+s32 func_80031C74(s32 *a, s32 *b) {
+    s32 d[3];
+
+    d[0] = (a[0] - b[0]) >> 8;
+    d[1] = (a[1] - b[1]) >> 8;
+    d[2] = (a[2] - b[2]) >> 8;
+    return func_8003D9DC(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) << 8;
+}
 
 s32 func_8003D9DC(s32 x); /* square root */
 /* Distance (in x, z) between a and b. */

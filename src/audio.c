@@ -348,7 +348,67 @@ void AudioVoiceFree(s32 owner) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_8003359C);
+typedef struct {
+    u32 voice;
+    u32 mask;
+    s16 vol_left;
+    s16 vol_right;
+    u8 unkC[0x34];
+} SpuVoiceAttr;
+void func_80052844(SpuVoiceAttr *attr); /* SpuGetVoiceAttr */
+#define ABS(x) ((x) < 0 ? -(x) : (x))
+s32 func_80032160(s32 n);
+/* A voice for a sound of priority D_8006CF78.unk19: a free one, or else the
+ * quietest of the lowest priority (only half of the time when they are
+ * loud). -1 if none. */
+
+s32 func_8003359C(void) {
+    SpuVoiceAttr attr;
+    Voice *v;
+    s32 i;
+    s32 best;
+    s32 prio;
+    s32 minvol;
+    s32 vol;
+    s32 a;
+    s32 r;
+    s32 l;
+
+    minvol = 0x3FFF;
+    prio = 0xFF;
+    for (best = D_80060B04, v = &D_8006C7D8[best]; best < 24; best++, v++) {
+        vol = v->unk1D;
+        if (prio < vol) {
+            vol = prio;
+        }
+        prio = vol;
+        if (!((v->flags >> 3) & 1)) {
+            return best;
+        }
+    }
+    if (D_8006CF78.unk19 < prio) {
+        return -1;
+    }
+    best = -1;
+    for (i = D_80060B04, v = &D_8006C7D8[i]; i < 24; i++, v++) {
+        if (v->unk1D == prio) {
+            attr.voice = 1 << i;
+            func_80052844(&attr);
+            vol = ABS(attr.vol_left) > ABS(attr.vol_right) ? attr.vol_left : attr.vol_right;
+            if (vol < 0) {
+                vol = -vol;
+            }
+            if (vol < minvol) {
+                best = i;
+                minvol = vol;
+            }
+        }
+    }
+    if (prio == D_8006CF78.unk19 && minvol >= 0x800 && func_80032160(100) >= 50) {
+        return -1;
+    }
+    return best;
+}
 
 void *func_80015414(u32 eid); /* the page of an entry, if in memory */
 /* Prepares m to play the entry *ref: from memory if its page is there (state

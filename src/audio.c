@@ -35,6 +35,20 @@ static s32 D_80060B10[2];
 static s32 D_80060B18;
 static s16 D_80060B1C[2];
 
+/* A voice of the SPU (D_8006C7D8, 24 of them). */
+typedef struct {
+    s32 handle;
+    u32 flags; /* 0x4: bit 3 in use */
+    u8 unk8[0x4];
+    s32 owner; /* 0xC */
+    u8 unk10[0x8];
+    s32 unk18;
+    u8 unk1C;
+    u8 unk1D;
+    u8 unk1E[0x32];
+} Voice; /* 0x50 */
+extern Voice D_8006C7D8[24];
+
 /* An empty debug function (the arguments are like printf's). */
 
 /* An empty debug function. */
@@ -127,7 +141,7 @@ typedef struct {
 } SpuCommonAttr;
 void func_80051A74(SpuCommonAttr *attr); /* SpuSetCommonAttr */
 
-void func_80032FC8(s32 vol) {
+void func_80032FC8(s32 vol, s32 unused) {
     SpuCommonAttr attr;
 
     attr.mask = 3;
@@ -235,7 +249,38 @@ void func_8003314C(void) {
 void func_80033154(void) {
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_8003315C);
+extern s32 D_80068F80;
+extern u8 D_8006CFF8[];
+void func_800533C8(s32 a, s32 b);
+void func_8005697C(void *a, s32 b, s32 c);
+void func_8004F9B4(s32 a, void *b);
+void func_80051994(s32 a);
+/* Starts the sound: frees the voices, turns the reverb on, sets the volumes. */
+
+void func_8003315C(void) {
+    SpuCommonAttr attr;
+    s32 i;
+    s32 m;
+
+    D_80060A04 = 1;
+    for (i = 0, m = ~8; i < 24; i++) {
+        D_8006C7D8[i].flags &= m;
+    }
+    func_800533C8(i, m);
+    func_8005697C(D_8006CFF8, 1, 2);
+    func_8004F9B4(0, D_80060B10);
+    attr.mask = 3;
+    attr.mvol_left = 0x3FFF;
+    attr.mvol_right = 0x3FFF;
+    func_80051A74(&attr);
+    func_80051994(0);
+    func_80033050();
+    func_80033280((D_80068F80 * 0x3FFF00) >> 16);
+    D_80060AFC[1] = 0x3FFF;
+    D_80060B00 = 0;
+    func_80032FC8(0x7F, 0x7F);
+    D_80060B08[0] = 0;
+}
 
 void func_80050554(s32 on); /* SpuSetReverb */
 /* Turns the reverb off. */
@@ -270,19 +315,6 @@ void func_80033280(s16 a) {
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_8003328C);
 
-/* A voice of the SPU (D_8006C7D8, 24 of them). */
-typedef struct {
-    s32 handle;
-    u32 flags; /* 0x4: bit 3 in use */
-    u8 unk8[0x4];
-    s32 owner; /* 0xC */
-    u8 unk10[0x8];
-    s32 unk18;
-    u8 unk1C;
-    u8 unk1D;
-    u8 unk1E[0x32];
-} Voice; /* 0x50 */
-extern Voice D_8006C7D8[24];
 void func_80033C54(s32 handle, u32 a, u32 *b, s32 owner);
 /* Stops the voices of owner (from voice D_80060B04 on). */
 

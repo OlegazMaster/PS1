@@ -86,7 +86,129 @@ s32 func_80030F88(s32 x, s32 z, s32 *quad) {
     return -999999999;
 }
 
+#ifdef NON_MATCHING
+/* Whether the point pt (x, z) is inside the quad (4 points x, z): the x of
+ * the edges at height z are sorted and pt must lie between a pair.
+ * Equivalent; the original allocates the registers differently. */
+s32 func_8003116C(s32 *pt, s32 *quad) {
+    s32 xs[8];
+    s32 *out;
+    s32 *a;
+    s32 *b;
+    s32 minx;
+    s32 maxx;
+    s32 minz;
+    s32 maxz;
+    s32 x;
+    s32 z;
+    s32 px;
+    s32 pz;
+    s32 qx;
+    s32 qz;
+    s32 n;
+    s32 i;
+    s32 j;
+    s32 t;
+    s32 swapped;
+
+    minx = maxx = quad[0];
+    minz = maxz = quad[1];
+    for (i = 1; i < 4; i++) {
+        if (quad[i * 2] < minx) {
+            minx = quad[i * 2];
+        }
+        if (maxx < quad[i * 2]) {
+            maxx = quad[i * 2];
+        }
+        if (quad[i * 2 + 1] < minz) {
+            minz = quad[i * 2 + 1];
+        }
+        if (maxz < quad[i * 2 + 1]) {
+            maxz = quad[i * 2 + 1];
+        }
+    }
+    x = pt[0];
+    z = pt[1];
+    if (x < minx || maxx < x || z < minz || maxz < z) {
+        return 0;
+    }
+    if (minx == maxx || minz == maxz) {
+        return 1;
+    }
+    n = 0;
+    out = xs;
+    px = quad[0];
+    pz = quad[1];
+    for (i = 0; i < 4; i++, px = qx, pz = qz) {
+        qx = quad[((i + 1) & 3) * 2];
+        qz = quad[((i + 1) & 3) * 2 + 1];
+        if (pz == z) {
+            if (qz == pz) {
+                *out++ = qx;
+                n++;
+            }
+            *out = px;
+        } else if (qz == z) {
+            *out = qx;
+        } else if (pz < qz) {
+            if (qz < z || z < pz) {
+                continue;
+            }
+            *out = ((((z - pz) << 12) / (qz - pz) * (qx - px)) >> 12) + px;
+        } else {
+            if (pz < z || z < qz) {
+                continue;
+            }
+            *out = ((((z - qz) << 12) / (pz - qz) * (px - qx)) >> 12) + qx;
+        }
+        out++;
+        n++;
+    }
+    do {
+        swapped = 0;
+        for (j = n - 1, a = xs, b = xs + 1; j > 0; j--, a++, b++) {
+            if (*b < *a) {
+                swapped = 1;
+                t = *a;
+                *a = *b;
+                *b = t;
+            }
+        }
+    } while (swapped);
+    a = xs;
+    while (n >= 2 && a[1] == xs[0]) {
+        n--;
+        a++;
+    }
+    if (n >= 3) {
+        b = &a[n - 2];
+        t = b[1];
+        do {
+            if (b[0] != t) {
+                break;
+            }
+            n--;
+            b--;
+        } while (n >= 3);
+    }
+    if (n == 1) {
+        if (x != a[0]) {
+            return 0;
+        }
+        return 1;
+    }
+    do {
+        if (x >= a[0] && a[1] >= x) {
+            return 1;
+        }
+        n -= 2;
+        a += 2;
+    } while (n > 0);
+    return 0;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/math", func_8003116C);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/math", func_8003148C);
 

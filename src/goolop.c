@@ -31,6 +31,19 @@ s32 D_80060A2C = 12345; /* random seeds (set by game.c) */
 s32 D_80060A30 = 765634;
 s32 D_80060A34 = 0;
 
+u32 *func_80035410(GoolObject *obj, u32 op);
+/* The word operand x of obj refers to: 0xE1F pops the stack, 0xE00.. a
+ * field of obj, else func_80035410. */
+static __inline__ u32 *GoolRef(GoolObject *obj, u32 x) {
+    if ((x & 0xE00) == 0xE00) {
+        if (x == 0xE1F) {
+            return --obj->sp;
+        }
+        return (u32 *)&obj->self + (x & 0x1FF);
+    }
+    return func_80035410(obj, x);
+}
+
 #ifdef NON_MATCHING
 /* The value that GOOL operand op of obj refers to: a field of a linked
  * object, a constant (put in one of two words of the scratchpad), a word of
@@ -161,7 +174,15 @@ INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037300);
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800376F8);
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_8003780C);
+s32 func_80033864(GoolObject *obj, u32 ref, s32 vol);
+/* Instruction: plays a sound (entry and volume). */
+
+void func_8003780C(GoolObject *obj, u32 op) {
+    u32 *b = GoolRef(obj, (op >> 12) & 0xFFF);
+    u32 *a = GoolRef(obj, op & 0xFFF);
+
+    obj->voice_id = func_80033864(obj, (u32)a, *(s16 *)b);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800378F8);
 
@@ -183,18 +204,6 @@ INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80038248);
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800383DC);
 
-u32 *func_80035410(GoolObject *obj, u32 op);
-/* The word operand x of obj refers to: 0xE1F pops the stack, 0xE00.. a
- * field of obj, else func_80035410. */
-static __inline__ u32 *GoolRef(GoolObject *obj, u32 x) {
-    if ((x & 0xE00) == 0xE00) {
-        if (x == 0xE1F) {
-            return --obj->sp;
-        }
-        return (u32 *)&obj->self + (x & 0x1FF);
-    }
-    return func_80035410(obj, x);
-}
 s32 func_8006F280(u32 *p); /* overlay */
 /* Instruction: pushes the result of an overlay function on a word. */
 
@@ -209,9 +218,28 @@ void func_8003864C(GoolObject *obj, u32 op) {
     func_8006F514(*GoolRef(obj, op & 0xFFF));
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800386BC);
+s32 func_8006ECF4(u32 a, u32 b); /* overlay */
+/* Instruction: unkD4 = an overlay function of two words. */
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800387A8);
+void func_800386BC(GoolObject *obj, u32 op) {
+    u32 *b = GoolRef(obj, (op >> 12) & 0xFFF);
+    u32 *a = GoolRef(obj, op & 0xFFF);
+
+    obj->unkD4 = func_8006ECF4(*a, *b);
+}
+
+void func_8006F21C(u32 a, u32 *b, u32 c, u32 d); /* overlay */
+/* Instruction: an overlay function of two words and two popped values (one
+ * an offset in the code of obj). */
+
+void func_800387A8(GoolObject *obj, u32 op) {
+    u32 *b = GoolRef(obj, (op >> 12) & 0xFFF);
+    u32 *a = GoolRef(obj, op & 0xFFF);
+    u32 *code = (u32 *)obj->global->items[5] + (*--obj->sp >> 8);
+    u32 v = *--obj->sp;
+
+    func_8006F21C(v, code, *a, *b);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800388C8);
 

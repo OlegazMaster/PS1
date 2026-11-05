@@ -386,7 +386,177 @@ void GpuResetPrims(DrawContext *dc) {
     func_800165F8(dc);
 }
 
+extern s32 paused;
+void func_800176A0(u32 fade);
+void func_80017834(u32 t, u32 t2);
+void func_8001742C(s32 fade);
+u8 *func_80032710(u8 *item, s32 tag, s32 pos, s32 index, s32 *outcount, s32 mode, u8 *buf, s32 count, s32 def);
+void func_80034310(void);
+void func_8004CBF4(void *ot); /* DrawOTag */
+void func_8006EC9C(void); /* overlay */
+void func_8006F9B8(void); /* overlay */
+#ifdef NON_MATCHING
+/* Ends the frame (c1: GpuUpdate): the screen fade, the background of the
+ * zone (one color, or two split at the horizon), the screen transition,
+ * the sound (unless loading), then swaps and shows the draw buffers, waiting
+ * for the vertical sync, and keeps the timers.
+ * Equivalent; the original addresses the fields of game from &game.unk208 and &game.unk364. */
+void func_80016634(s32 loading) {
+    s32 type;
+    u32 color;
+    u32 color2;
+    s32 y;
+    s32 *p;
+    s16 *h;
+    u8 buf[8];
+    DrawContext *dc;
+    s32 *fade;
+    Transform *cam;
+
+    if (context.cur->unkC == 0) {
+        func_8003AC44(context.cur->ot, 0x800);
+        context.cur->unkC = 1;
+    }
+    if (paused == 0 && (game.display_flags & 0x1000)) {
+        game.unk19C++;
+    }
+    fade = &game.unk208;
+    if (fade[0] != 0 && paused != 1) {
+        if (fade[0] > 0) {
+            if (paused == 0) {
+                fade[0] -= fade[1];
+                if (fade[0] < 0) {
+                    fade[0] = 0;
+                }
+            }
+            func_800176A0(fade[0]);
+        } else if (fade[0] >= -2) {
+            func_800176A0(0x100);
+            if (paused == 0) {
+                fade[0] = -1;
+            }
+        } else {
+            if (paused == 0) {
+                fade[0] += fade[1];
+            }
+            func_800176A0(fade[0] + 0x100);
+            if (fade[0] == 0 && !(game.display_flags & 0x400000)) {
+                fade[0] = -2;
+            }
+        }
+    }
+    func_80017834(game.unk184, D_80060900);
+    D_80060900 = game.unk184;
+    if (!loading && (game.display_flags & 0x2000)) {
+        type = 1;
+        color = 0;
+        if (D_80065C90.unkCC != NULL &&
+            (p = (s32 *)func_80032710((u8 *)D_80065C90.unkD8, 0x1FA, D_80065C90.unkE0, 0, NULL, 0, NULL, 0, 0)) != NULL) {
+            type = p[0];
+            color = p[1];
+            if (type == 2) {
+                color2 = p[2];
+                h = (s16 *)func_80032710((u8 *)D_80065C90.unkD8, 0x1F9, D_80065C90.unkE0, 0, NULL, 3, buf, 0, 0);
+                y = 0;
+                if (h != NULL) {
+                    y = *h;
+                }
+            }
+        }
+        if (type == 2) {
+            cam = &D_80065C90.unk60;
+            y = ((*(s32 *)((u8 *)cam + 0x64) * (func_8003C2F0(cam->rot[0]) * 170)) >> 20) - (y - 108);
+            if (game.unk184 != 0) {
+                y -= (game.unk184 * 120) >> 3;
+            }
+            if (y < 0) {
+                color = color2;
+                type = 1;
+            } else if (y >= 215) {
+                type = 1;
+            }
+        }
+        switch (type) {
+        case 1:
+            GpuDrawRect(0, 0, 512, 216, color & 0xFF, (color >> 8) & 0xFF, (color >> 16) & 0xFF);
+            break;
+        case 2:
+            GpuDrawRect(0, 0, 512, y + 1, color & 0xFF, (color >> 8) & 0xFF, (color >> 16) & 0xFF);
+            GpuDrawRect(0, y + 1, 512, 215 - y, color2 & 0xFF, (color2 >> 8) & 0xFF, (color2 >> 16) & 0xFF);
+            break;
+        }
+    }
+    if (game.unk364 >= 0) {
+        func_8001742C(game.unk364++);
+    }
+    if (!loading) {
+        func_80034310();
+    }
+    context.c2_p->unk14 = ticks_elapsed;
+    DrawSync(0);
+    if (game.unk204 == 0) {
+        game.unk10C = ticks_elapsed - context.c2_p->draw_stamp;
+    } else {
+        game.unk10C = 17;
+    }
+    if (ns.draw_skip_counter == 0) {
+        dc = context.c2_p;
+        context.c1_p = dc;
+        context.c2_p = context.cur;
+        context.cur = dc;
+    }
+    if ((u32)(D_800608E8 - context.c1_p->unk1C) < 2) {
+        VSync(0);
+        if ((u32)(ticks_elapsed - context.c1_p->draw_stamp) < 25) {
+            VSync(0);
+        }
+    }
+    if (game.display_flags & 0x200000) {
+        if (D_80060904 == 0) {
+            EnterCriticalSection();
+            StopRCnt(0xF2000002);
+            ExitCriticalSection();
+        }
+        D_80060904 = 1;
+        func_8006F9B8();
+        ticks_elapsed += 34;
+    } else {
+        if (D_80060904 != 0) {
+            EnterCriticalSection();
+            StartRCnt(0xF2000002);
+            ExitCriticalSection();
+        }
+        D_80060904 = 0;
+    }
+    EnterCriticalSection();
+    if (game.unk204 == 2) {
+        ticks_elapsed = *(s32 *)D_80060A60;
+    }
+    context.c2_p->draw_stamp = ticks_elapsed;
+    context.c2_p->unk1C = D_800608E8;
+    ExitCriticalSection();
+    context.c1_p->ticks_per_frame = context.c2_p->draw_stamp - context.c1_p->draw_stamp;
+    if ((u32)(context.c1_p->ticks_per_frame - 33) < 3) {
+        context.c1_p->ticks_per_frame = 34;
+    }
+    context.c1_p->disp.screen.x = game.unk1CC;
+    PutDispEnv(&context.c1_p->disp);
+    PutDrawEnv(&context.c2_p->draw);
+    if (ns.draw_skip_counter > 0) {
+        ns.draw_skip_counter--;
+    }
+    if (ns.draw_skip_counter == 0) {
+        if (game.display_flags & 0x40000) {
+            func_8006EC9C();
+        }
+        func_8004CBF4(context.c2_p->ot);
+    }
+    GpuResetPrims(context.cur);
+    game.display_flags = game.unk70;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80016634);
+#endif
 
 void GpuDrawRect(s32 x, s32 y, s32 w, s32 h, s32 r, s32 g, s32 b) {
     BLK_FILL *bf;

@@ -28,11 +28,6 @@ typedef struct {
     u8 unk28[0x8];
 } Unk30;
 
-typedef struct {
-    u8 unk0[0x30];
-    s32 lid; /* 0x30 */
-} SaveState;
-
 /* .sdata */
 s32 D_80060878 = 0;
 s32 paused = 0;

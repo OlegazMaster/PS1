@@ -433,7 +433,7 @@ void func_800215E8(Entry *zone, u32 *path, s32 progress, u32 flags) {
         *(Vec3i *)crash->xform.trans = *(Vec3i *)ns.ldat->checkpoints[game.unk26C].pos;
         crash->zone = (Entry *)D_80065C90.unkCC;
         game.unk174 = -1;
-        func_8002FF3C(crash, D_80065C90.unk148, 1, 0);
+        func_8002FF3C(crash, D_80065C90.saves, 1, 0);
     }
 }
 #else

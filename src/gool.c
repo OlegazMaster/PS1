@@ -263,9 +263,6 @@ s32 func_80032EDC(s32 entity, s32 tag, s32 a, s32 b);
 s32 func_80032250(s32 a, s32 b); /* angle/difference */
 void func_80020670(GoolObject *obj, s32 a, Transform *xform);
 void func_8002FF3C(GoolObject *obj, void *state, s32 a, s32 b);
-typedef struct {
-    s32 v[3];
-} Vec3;
 extern s32 next_lid;
 extern u8 savestate[];
 typedef struct {

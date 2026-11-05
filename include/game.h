@@ -241,6 +241,22 @@ typedef struct {
     u32 unk378;
 } RenderState;
 
+/* The state of a level saved at a checkpoint (func_8002FF3C). */
+typedef struct {
+    Transform xform; /* 0x0: where the player starts again */
+    u32 zone; /* 0x24: EID of the zone */
+    s32 unk28; /* 0x28: property 0x173 of the zone */
+    s32 progress; /* 0x2C: along the camera path */
+    s32 lid; /* 0x30: level id */
+    s32 unk34;
+    s32 unk38; /* 0x38: counter of the level (-1: none) */
+    s32 unk3C;
+    u8 unk40[0x8];
+    u32 spawns[0x300]; /* 0x48: spawn flags of the entities */
+    s32 unkC48;
+    u32 pages[8]; /* 0xC4C: pages in use (func_80014650) */
+} SaveState; /* 0xC6C */
+
 typedef struct {
     MATRIX unk0; /* 0x0: camera matrix */
     MATRIX unk20; /* 0x20: camera rotation for the GTE */
@@ -273,7 +289,7 @@ typedef struct {
     s32 unk130[3]; /* 0x130: camera forward direction */
     u8 unk13C[0x8];
     u32 unk144;
-    u8 unk148[0x18D8];
+    SaveState saves[2]; /* 0x148: the state at the last checkpoint (savestate) and a copy */
     RenderState render; /* 0x1A20 (D_800676B0) */
     u8 unk1D9C[0x4];
     s32 unk1DA0; /* default model type for animation types 2 and 5 */

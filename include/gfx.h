@@ -5,6 +5,11 @@
 #include "libgpu.h"
 #include "libgte.h"
 
+/* A point or vector, for copying the three words at once. */
+typedef struct {
+    s32 v[3];
+} Vec3;
+
 /* Rotation, translation and scale of an object or camera. */
 typedef struct {
     s32 trans[3];

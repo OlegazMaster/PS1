@@ -166,7 +166,78 @@ void func_8002FDC4(s32 full) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/game", func_8002FF3C);
+extern GoolObject *crash;
+extern u32 spawns[0x300];
+extern s32 D_80068FF0;
+s32 func_80032DF8(s32 a, s32 b, s32 c, s32 d, s32 e, s32 f, s32 g);
+void func_80014650(u32 *bits);
+/* Saves the state of the level in save at a checkpoint touched by obj
+ * (mode 0); mode 2 only adds the spawn flags cleared since save[1]. */
+
+void func_8002FF3C(GoolObject *obj, SaveState *save, s32 a, s32 mode) {
+    s32 copy;
+    s32 idx;
+    u32 i;
+
+    if (((ZoneHdr *)((Entry *)D_80065C90.unkCC)->items[0])->unk2DC & 0x2000) {
+        return;
+    }
+    copy = save == &D_80065C90.saves[1];
+    if (mode == 0) {
+        GoolSendEvent(obj, crash, 0x4400, 0, NULL);
+        if (a) {
+            game.unkF0 = 0;
+            game.unk158 = 0;
+        } else {
+            game.unkF0 += 0x100;
+        }
+        save->unk34 = a;
+        save->xform = crash->xform;
+        if ((u8)obj->unk120 - 6 >= 2u) {
+            *(Vec3 *)save->xform.trans = *(Vec3 *)obj->xform.trans;
+        }
+        if (game.unk174 >= 0) {
+            if (game.unk174 != 0) {
+                *(Vec3 *)save->xform.trans = *(Vec3 *)&game.unk1F8;
+            }
+        }
+        save->xform.rot[0] = 0;
+        save->xform.rot[1] = 0;
+        save->xform.rot[2] = 0;
+        save->zone = ((Entry *)D_80065C90.unkCC)->eid;
+        save->progress = D_80065C90.unkE0;
+        save->lid = ns.ldat->lid;
+        save->unk28 = func_80032DF8(D_80065C90.unkD4, 0x173, 0, 0, 0, 2, 0);
+        if (game.unk174 >= -1 && obj->unkF0 != 0 && !copy) {
+            idx = func_80032DF8(obj->unkF0, 0x288, 0, 0, 0, 2, 0);
+            save->unk38 = idx;
+            if (idx != 0) {
+                game.unk2A8 = ((D_8006C2D8[save->lid][idx / 8] >> (idx % 8 * 4)) & 0xF) << 8;
+                if (game.unk2A8 < 0) {
+                    game.unk2A8 = 0;
+                }
+                game.unk2A4 = save->unk38;
+            }
+        } else {
+            save->unk38 = -1;
+        }
+        func_80014650(save->pages);
+    }
+    if (mode == 2) {
+        save->unkC48 += game.unk158;
+        for (i = 0; i < 0x300; i++) {
+            save->spawns[i] |= ~save[1].spawns[i] & spawns[i];
+        }
+    } else {
+        save->unkC48 = game.unk158;
+        save->unk3C = game.unk308;
+    }
+    if (mode != 2) {
+        for (i = 0; i < 0x300; i++) {
+            save->spawns[i] = spawns[i];
+        }
+    }
+}
 
 /* Counter idx (0..15) of level: with !a and !b it is raised by one (up to 15);
  * game.unk2A4 and game.unk2A8 (its value << 8) then tell it. */

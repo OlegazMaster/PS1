@@ -14,11 +14,13 @@ s32 func_8003C364(s32 angle); /* cos */
 /* The vector of length len at angles pitch and yaw. */
 
 void func_80030A34(s32 *out, s32 len, s32 pitch, s32 yaw) {
+    s32 t;
+
     out[1] = ((len >> 8) * func_8003C2F0(pitch)) >> 4;
-    len = (len >> 8) * func_8003C364(pitch);
-    len >>= 12;
-    out[0] = (len * func_8003C2F0(yaw)) >> 4;
-    out[2] = (len * func_8003C364(yaw)) >> 4;
+    t = (len >> 8) * func_8003C364(pitch);
+    t >>= 12;
+    out[0] = (t * func_8003C2F0(yaw)) >> 4;
+    out[2] = (t * func_8003C364(yaw)) >> 4;
 }
 
 INCLUDE_ASM("asm/us/nonmatchings/math", func_80030AD8);

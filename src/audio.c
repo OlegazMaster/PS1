@@ -468,7 +468,103 @@ void func_80034C1C(s32 p) {
     func_80056DAC(D_80060B1C[1], D_8006CFC8[1].id, (s16)D_80060B08[0], (s16)D_80060B08[0]);
 }
 
+s32 func_8005AF3C(void *vh, s32 a, s32 b); /* SsVabOpenHead */
+s32 func_8005AE6C(void); /* SsVabTransBody */
+void func_80055480(void);
+s32 func_80053418(void *seq, s16 vab, s16 count); /* SsSepOpen */
+void func_80052F60(s16 a, s16 b, s32 c, s32 d);
+void func_80035224(Seq *s, s32 vol, s32 id);
+void exit(s32 code);
+/* Loads and starts the music *ref (an entry with the sound bank and the
+ * sequences, items 2..8: their sample pages), in several frames: state 1
+ * frees the previous one, 2 waits for the pages, then 3 plays. Returns -1
+ * when muted. */
+
+extern s32 D_80061A60[];
+/* func_80035224 called with a fourth argument that is never set. */
+#define SEQ_START(s, vol, id) ((void (*)(Seq *, s32, s32, s32))func_80035224)(s, vol, id, unset)
+
+#ifdef NON_MATCHING
+/* Equivalent; the original checks the first bank handle in another register. */
+s32 func_80034D14(u32 *ref) {
+    u32 eid;
+    Entry *e;
+    Entry *vh;
+    s32 i;
+    s32 fresh;
+    s32 v;
+    s32 unset;
+
+    fresh = D_80060B1C[0] == -1;
+    if (D_80060B08[0] != 0) {
+        return -1;
+    }
+    if (D_80060B18 == 1) {
+        if (D_80060A1C++ < 3) {
+            return 0;
+        }
+        D_80060A1C = 0;
+        if (D_80060AF8 != 0x6396347F) {
+            func_80052DD4(D_80060B1C[1]);
+            eid = D_80060AF8;
+            func_8001440C(&eid, 1);
+        }
+        if (*ref != 0x6396347F) {
+            e = (Entry *)NSOpen(ref, 1, 1);
+            D_80060AF8 = e->eid;
+            for (i = 0; i < 7; i++) {
+                if (((u32 *)e->items[0])[i + 2] != 0x6396347F) {
+                    NSOpen(&((u32 *)e->items[0])[i + 2], 0, 1);
+                }
+            }
+        } else {
+            D_80060AF8 = *ref;
+            return 0;
+        }
+    }
+    if (*ref == 0x6396347F) {
+        D_80060AF8 = *ref;
+        D_80060B18 = 0;
+        return 0;
+    }
+    D_80060B18 = 2;
+    e = (Entry *)NSOpen(ref, 1, 0);
+    D_80060A10 = NULL;
+    for (i = 0; i < 7; i++) {
+        if (((u32 *)e->items[0])[i + 2] != 0x6396347F && !func_8001440C(&((u32 *)e->items[0])[i + 2], 0)) {
+            return 0;
+        }
+    }
+    D_80060AFC[0] = *(u16 *)e->items[0];
+    D_80060B18 = 3;
+    if (D_80060B1C[0] == -1) {
+        vh = (Entry *)NSOpen((u32 *)e->items[0] + 1, 1, 1);
+        if ((D_80060B1C[0] = func_8005AF3C(vh->items[1], -1, D_80061A60[0])) == -1) {
+            exit(-1);
+        }
+        if ((D_80060B1C[0] = func_8005AE6C()) == -1) {
+            exit(-1);
+        }
+        func_80055480();
+    }
+    if ((D_80060B1C[1] = func_80053418(e->items[2], D_80060B1C[0], D_80060AFC[0])) == -1) {
+        exit(-1);
+    }
+    for (i = 0; i < D_80060AFC[0]; i++) {
+        if (fresh) {
+            v = D_80060AF0[1] >> 7;
+            SEQ_START(&D_8006CFC8[i], v | (v << 16), i);
+        } else {
+            SEQ_START(&D_8006CFC8[i], 0, i);
+            func_80052F60(D_80060B1C[1], D_8006CFC8[i].id, D_80060AF0[1] >> 7, 30);
+        }
+    }
+    func_800352FC(D_8006CFC8, 0, 0);
+    return 0;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034D14);
+#endif
 
 void func_8003505C(void) {
     if (D_80060B18 == 0) {
@@ -477,7 +573,7 @@ void func_8003505C(void) {
 }
 
 void func_800531E8(s16 a, s16 b, s32 c, s32 d); /* SsSeqSetCrescendo-like: fades the volume */
-void func_80034D14(u32 *ref);
+s32 func_80034D14(u32 *ref);
 void func_8005AA14(void);
 void func_8005AA28(void);
 /* Updates the music every frame: fades out (state 4) before starting the

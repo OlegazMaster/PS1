@@ -415,18 +415,8 @@ s32 func_8002B4E8(GoolObject *obj, s32 *prev, s32 *pos, CollQuery *q) {
 }
 
 s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
-/* Collides the box of obj at pos with the objects of the collision records. */
-
-s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
 s32 func_8001B328(GoolObject *obj, s32 *box, GoolObject *other, s32 *other_box);
-
-s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
-
-s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
-
-s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
-
-s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
+/* Collides the box of obj at pos with the objects of the collision records. */
 
 s32 func_8002B838(GoolObject *obj, s32 *pos, CollQuery *q) {
     s32 *box;

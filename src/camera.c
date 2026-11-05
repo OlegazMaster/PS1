@@ -469,7 +469,6 @@ s32 func_8003D9DC(s32 x); /* square root */
 s32 func_80023B68(s32 type, u32 *out, s32 mask);
 void func_8002513C(void);
 void func_80024E80(s32 *v);
-void func_8002513C(void);
 void func_800233DC(s32 *v, s32 a);
 void func_800247DC(s32 *v, s32 a);
 extern u8 D_8005C63F[];
@@ -2352,12 +2351,6 @@ s32 func_80031868(Entry *zone, s32 *pos); /* whether pos is in zone */
 /* The neighbor zone (with flag 4) of zone, or else of the current zone, in
  * which pos lies; -0x17 if none. */
 
-s32 func_80031868(Entry *zone, s32 *pos); /* whether pos is in zone */
-
-s32 func_80031868(Entry *zone, s32 *pos); /* whether pos is in zone */
-
-s32 func_80031868(Entry *zone, s32 *pos); /* whether pos is in zone */
-
 Entry *func_80028D8C(Entry *zone, s32 *pos) {
     ZoneHdr *hdr;
     Entry *n;
@@ -2679,11 +2672,6 @@ extern s32 D_80060AA8[2];
 extern s32 D_80060AB8;
 void *malloc(s32 size);
 /* Allocates the two buffers of level.c. */
-
-
-extern s32 D_80060AA4; /* level.c */
-
-extern s32 D_80060AA4; /* level.c */
 
 s32 func_8002A97C(void) {
     u8 *p;

@@ -497,7 +497,6 @@ typedef struct {
     s32 count;
     Light lights[1]; /* 0x4 */
 } LightSet;
-s32 func_80032DF8(s32 a, s32 b, s32 c, s32 d, s32 e, s32 f, s32 g);
 
 #ifdef NON_MATCHING
 /* Loads the lights of set enabled in the current zone (bits of property

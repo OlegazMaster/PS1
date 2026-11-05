@@ -1603,7 +1603,6 @@ INCLUDE_ASM("asm/us/nonmatchings/ns", NSInit);
 #endif
 
 void free(void *ptr);
-s32 func_800519C4(s32);
 void func_800351EC(void);
 void func_80033238(void);
 void NSKillPage(NsState *nss, s32 idx);

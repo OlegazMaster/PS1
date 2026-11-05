@@ -15,7 +15,7 @@ typedef struct {
     s32 stick_angle; /* 0x38: direction of the left stick */
     s32 stick_mag; /* 0x3C: how far it is pushed */
     s32 stick_dir; /* 0x40: one of 8 directions, 8 when neutral */
-    u8 unk44[0x4];
+    s32 unk44; /* 0x44: 2 when the pad has actuators */
     s32 unk48;
     u8 unk4C;
     u8 unk4D;

@@ -5,6 +5,8 @@
 #include "ns.h"
 #include "gool.h"
 
+extern s32 paused;
+
 /* System setup and teardown: CD, events, heap, overlays, video, memory card. */
 
 extern s32 D_80060ABC; /* current level */
@@ -173,7 +175,276 @@ void PadInit(s32 count) {
 const Clut16 D_80010230 = { { 0xFFFF, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000,
                               0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000 } };
 
+extern Entry *cur_zone;
+extern s32 D_8005BF00[][4]; /* gool.c: the direction of each d-pad combination */
+extern struct {
+    u8 unk0[0x18];
+    u32 unk18;
+} *D_80061A7C;
+s32 func_80048F00(s32 port); /* PadInfoMode, called with only the port */
+s32 func_80048FC0(s32 port, s32 term, s32 offs); /* PadInfoAct */
+void func_80049234(s32 port, u8 *data); /* PadSetActAlign */
+void func_8004926C(s32 port, s32 a, s32 b); /* PadSetMainMode */
+void func_800492B4(s32 port, u8 *data, s32 len); /* PadSetAct */
+s32 func_8001FD58(s32 angle, s32 a, s32 b);
+s32 func_8003D9DC(s32 x); /* square root */
+s32 func_8004F794(s32 x, s32 z); /* angle of (x, z) */
+#ifdef NON_MATCHING
+/* Reads the pads every frame: the buttons (tapped this frame), the analog
+ * stick of analog pads (calibrated with game.unk2C0..; its angle, its
+ * magnitude and one of 8 directions, also mapped to the d-pad), sets the
+ * vibration of the first pad, plays back the pad of a demo, and copies the
+ * stick of the pads into game.
+ * Equivalent; differs in scheduling (the analog stick, the demo end, the copy to game) and a few registers. */
+void func_80015798(void) {
+    s32 i;
+    Pad *pad;
+    s32 port;
+    s32 x;
+    s32 y;
+    s32 d;
+    s32 t;
+    u32 b;
+    u32 m;
+    u32 k;
+    u32 n;
+    s32 *dir;
+    u32 end;
+
+    for (i = 0, port = 0; i < pads.count; i++, port += 0x10) {
+        pad = &pads.pads[i];
+        pad->held_prev2 = pad->held_prev;
+        pad->held_prev = pad->held;
+        pad->tapped_prev = pad->tapped;
+        if (func_80048F00(port) == 6) {
+            if (func_80048FC0(port, 1, 0) != 7 && pad->unk48 == 1) {
+                func_8004926C(port, 1, 0);
+                pad->unk48 = 0;
+            }
+            func_80049234(port, D_800608EC);
+            pad->unk44 = 2;
+        } else {
+            pad->unk44 = 0;
+        }
+        if (*(s8 *)&pad->status == 0) {
+            switch (*(s8 *)&pad->raw[0]) {
+            case 0x12:
+                pad->unk48 = 1;
+                pad->status = 1;
+                goto act;
+            case 0x53:
+            case 0x73:
+                x = pad->raw[5];
+                y = pad->raw[6];
+                x -= game.unk2C0;
+                if (x < 0) {
+                    x = (x << 7) / (game.unk2C0 - game.unk2C8);
+                } else {
+                    x = (x << 7) / (game.unk2D0 - game.unk2C0);
+                }
+                t = -0x80;
+                if (x < 0x7F) {
+                    if (x >= -0x80) {
+                        t = x;
+                    }
+                } else {
+                    t = 0x7F;
+                }
+                x = t;
+                y -= game.unk2C4;
+                if (y < 0) {
+                    y = (y * 0x7F) / (game.unk2C4 - game.unk2CC);
+                } else {
+                    y = (y * 0x7F) / (game.unk2D4 - game.unk2C4);
+                }
+                t = -0x80;
+                if (y < 0x7F) {
+                    if (y >= -0x80) {
+                        t = y;
+                    }
+                } else {
+                    t = 0x7F;
+                }
+                y = t;
+                if (cur_zone != NULL && (((ZoneHdr *)cur_zone->items[0])->unk2DC & 0x200000)) {
+                    pad->stick_angle = func_8001FD58(func_8004F794(x, y) & 0xFFF, 0x200, 0x5000);
+                } else {
+                    pad->stick_angle = func_8004F794(x, y) & 0xFFF;
+                }
+                pad->stick_dir = ((0x8FA - pad->stick_angle) & 0xFFF) / 512;
+                pad->stick_mag = (func_8003D9DC(x * x + y * y) << 8) >> 7;
+                if (pad->stick_mag < 0x66) {
+                    pad->stick_mag = 0;
+                    pad->stick_dir = 8;
+                }
+                b = *(u16 *)&pad->raw[1];
+                b = ~(((b & 0xFF) << 8) | (b >> 8));
+                pad->held = b & 0xFFFF;
+                if (*(s8 *)&pad->raw[0] == 0x53) {
+                    k = b & 0xF961;
+                    if (b & 2) {
+                        k |= 4;
+                    }
+                    if (b & 4) {
+                        k |= 0x80;
+                    }
+                    if (b & 8) {
+                        k |= 0x10;
+                    }
+                    if (b & 0x10) {
+                        k |= 8;
+                    }
+                    if (b & 0x80) {
+                        k |= 2;
+                    }
+                    pad->held = k;
+                }
+                goto act;
+            default:
+                x = y = 0;
+                pad->stick_mag = 0;
+                pad->stick_dir = 8;
+                pad->held = ~(((*(u16 *)&pad->raw[1] & 0xFF) << 8) | (*(u16 *)&pad->raw[1] >> 8)) & 0xFFFF;
+            act:
+                if (pad->unk44 != 0 && i == 0) {
+                    if (!(game.unkE0 & 2) && paused == 0 && game.unk204 == 0 && game.game_state == 0x100) {
+                        if (game.unk18C != 0) {
+                            pad->unk4C = (1 << ((game.unk18C - 1) & 0x1F)) & game.unk164 ? 0xFF : 0;
+                        } else {
+                            pad->unk4C = 0;
+                        }
+                        if (game.unk1F4 != 0) {
+                            pad->unk4D = game.unk1F0;
+                        } else if (game.unk220 != 0) {
+                            pad->unk4D = game.unk224;
+                        } else {
+                            pad->unk4D = 0;
+                        }
+                    } else {
+                        pad->unk4C = 0;
+                        pad->unk4D = 0;
+                    }
+                    if (paused == 0) {
+                        if (game.unk18C != 0) {
+                            game.unk18C--;
+                        }
+                        if (game.unk1F4 != 0) {
+                            game.unk1F4--;
+                        }
+                        if (game.unk220 != 0) {
+                            game.unk220--;
+                        }
+                    }
+                    func_800492B4(port, &pad->unk4C, 2);
+                }
+            }
+        } else {
+            pad->unk48 = 1;
+        }
+        if (i == 0) {
+            switch ((u32)game.unk204) {
+            case 3:
+                pad->held = 0;
+                break;
+            case 4:
+                if ((u32)(game.unk208 + 1) < 2) {
+                    u32 arg = (u32)D_80060A60 >= (u32)(D_80060A88 + *(s32 *)D_80060A88 * 8 + 0xC9C);
+
+                    if (game.unk190 != 0) {
+                        GoolSendEvent(NULL, (GoolObject *)game.unk190, 0xE00, 1, &arg);
+                        game.unk70 = 0x108;
+                        game.unk204 = 3;
+                    } else {
+                        game.unk204 = 0;
+                    }
+                }
+                break;
+            case 2:
+                pad->stick_dir = 8;
+                pad->stick_mag = 0;
+                m = pad->held;
+                if (D_80060A60 == D_80060A88 + 0xC9C) {
+                    D_80061A7C->unk18 = *(s32 *)(D_80060A88 + 0xC98);
+                }
+                pad->held = ((u32 *)D_80060A60)[1];
+                D_80060A60 += 8;
+                if (((m & 0x9F0) && *(s8 *)&pad->status == 0) || (u32)D_80060A60 >= (u32)(D_80060A88 + *(s32 *)D_80060A88 * 8 + 0xC9C)) {
+                    if (game.unk190 != 0) {
+                        game.unk204 = 4;
+                        game.unk70 &= ~0x900A;
+                    } else {
+                        game.unk204 = 0;
+                    }
+                }
+                break;
+            }
+        }
+        if ((!(game.display_flags & 0x10000) && paused == 0) || (*(s8 *)&pad->status != 0 && game.unk204 == 0)) {
+            pad->stick_mag = 0;
+            pad->stick_dir = 8;
+            pad->held &= 0xFFFF0F13;
+        }
+        if (pad->held & 0x1000) {
+            pad->held &= ~0x4000;
+        }
+        if (pad->held & 0x8000) {
+            pad->held &= ~0x2000;
+        }
+        n = (pads.pads[i].held & 0xF000) >> 12;
+        if (n != 0) {
+            dir = D_8005BF00[n];
+            pad->stick_dir = dir[0];
+            pad->stick_angle = dir[1];
+            pad->stick_mag = dir[2];
+            x = ((s8 *)dir)[12];
+            y = -((s8 *)dir)[13];
+        } else {
+            switch (pad->stick_dir) {
+            case 0:
+                pad->held |= 0x1000;
+                break;
+            case 1:
+                pad->held |= 0x3000;
+                break;
+            case 2:
+                pad->held |= 0x2000;
+                break;
+            case 3:
+                pad->held |= 0x6000;
+                break;
+            case 4:
+                pad->held |= 0x4000;
+                break;
+            case 5:
+                pad->held |= 0xC000;
+                break;
+            case 6:
+                pad->held |= 0x8000;
+                break;
+            case 7:
+                pad->held |= 0x9000;
+                break;
+            }
+        }
+        switch (i) {
+        case 0:
+            game.unk250 = pad->stick_mag;
+            game.unk2E4 = x;
+            game.unk2E8 = -y;
+            game.unk254 = pad->stick_angle;
+            break;
+        case 1:
+            game.unk300 = x;
+            game.unk304 = -y;
+            game.unk25C = pad->held;
+            break;
+        }
+        pad->tapped = pad->held & ~pad->held_prev & 0xFFFF;
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80015798);
+#endif
 
 void GpuClearVram(void) {
     DRAWENV env;
@@ -386,7 +657,6 @@ void GpuResetPrims(DrawContext *dc) {
     func_800165F8(dc);
 }
 
-extern s32 paused;
 void func_800176A0(u32 fade);
 void func_80017834(u32 t, u32 t2);
 void func_8001742C(s32 fade);

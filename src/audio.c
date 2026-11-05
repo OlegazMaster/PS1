@@ -195,7 +195,7 @@ typedef struct {
     u32 : 13;
     u8 unk4[0x4];
     s32 unk8;
-    u8 unkC[0x4];
+    u32 ref; /* 0xC: the entry played (EID or pointer) */
     u32 eid; /* 0x10 */
     s32 unk14;
     u8 unk18;
@@ -339,7 +339,43 @@ void AudioVoiceFree(s32 owner) {
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_8003359C);
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033760);
+void *func_80015414(u32 eid); /* the page of an entry, if in memory */
+/* Prepares m to play the entry *ref: from memory if its page is there (state
+ * 2), else it is loaded (state 1). Returns 0, or an error code. */
+
+s32 func_80033760(Music *m, u32 *ref) {
+    u32 eid;
+    void *page;
+    u32 e;
+    s32 ret;
+
+    eid = *ref;
+    page = func_80015414((eid & 1) ? eid : ((Entry *)eid)->eid);
+    m->f15 = 0;
+    m->ref = *ref;
+    m->unk14 = (s32)page;
+    if (page != NULL) {
+        ret = 0;
+        m->f15 = 2;
+        m->f18 = 1;
+    } else {
+        e = NSOpen(ref, 0, 1);
+        if (e != 0) {
+            if ((s32)e >= -0xFE) {
+                return -14;
+            }
+            if (e != 0 && (e & 0xC0000002) == 0xC0000002) {
+                ret = (e & 0x3FFFFFFD) >> 2;
+                goto end;
+            }
+        }
+        ret = 0;
+        m->f15 = 1;
+        m->f18 = 1;
+    }
+end:
+    return ret;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033864);
 

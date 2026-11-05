@@ -28,10 +28,12 @@ typedef struct {
     s32 count; /* 0x1004 */
     s32 box[6]; /* 0x1008 */
     s32 box2[6]; /* 0x1020 */
-    u8 unk1038[0x4];
+    s32 floor; /* 0x1038: floor height found (0 if none) */
     s32 ceil_a; /* 0x103C: ceiling found (0 if none) */
     s32 ceil_b; /* 0x1040 */
-    u8 unk1044[0xC];
+    s32 floor_a; /* 0x1044 */
+    s32 floor_b; /* 0x1048 */
+    s32 floor_obj; /* 0x104C: top of an object under it */
     s32 steps; /* 0x1050: collision steps of the move */
 } CollQuery;
 
@@ -272,7 +274,129 @@ s32 func_8002B838(GoolObject *obj, s32 *pos, CollQuery *q) {
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002B9A4);
 
+s32 func_800319B8(s32 *a, s32 *b); /* whether box a lies inside box b */
+s32 func_8002A7A8(s32 *pos, GoolObject *obj, CollQuery *q);
+s32 func_8002B4E8(GoolObject *obj, s32 *prev, s32 *pos, CollQuery *q);
+#ifdef NON_MATCHING
+/* The floor under obj moving from prev to pos: collects the surfaces near it
+ * (again when it left the searched box), finds the highest floor of the zone
+ * surfaces and of the objects, puts obj on it and sets its landing flags.
+ * Returns the floor height + 1 (or -999999999 if none).
+ * Equivalent; the original allocates fa and fb to the other registers. */
+s32 func_8002C230(GoolObject *obj, s32 *prev, s32 *pos, CollQuery *q, s32 *top) {
+    s32 found[10];
+    s32 *b;
+    s32 fa;
+    s32 fb;
+    s32 fo;
+    s32 lift;
+    u32 flags;
+    s32 y;
+    s32 h;
+    s32 v;
+    GoolObject *other;
+
+    q->box2[0] = pos[0] - 0x9600;
+    b = q->box2;
+    b[1] = pos[1];
+    b[2] = pos[2] - 0x9600;
+    b[3] = pos[0] + 0x9600;
+    lift = 0;
+    b[4] = pos[1] + *(s32 *)((u8 *)obj->unk8 + 0x40);
+    b[5] = pos[2] + 0x9600;
+    flags = 0x40001;
+    if (q->unk1000 == 0 || !func_800319B8(b, q->box)) {
+        func_8002A7A8(pos, obj, q);
+    }
+    func_8002B394(obj, prev, pos, q, 8, (s32)found);
+    fb = found[1];
+    fa = found[2];
+    if ((obj->state_flags >> 28) == 2) {
+        fb = -999999999;
+        fa = -999999999;
+    }
+    if (fa == -999999999) {
+        q->floor_a = 0;
+    } else {
+        q->floor_a = fa;
+    }
+    if (fb == -999999999) {
+        q->floor_b = 0;
+    } else {
+        q->floor_b = fb;
+    }
+    fo = func_8002B4E8(obj, prev, pos, q);
+    if (fo == -999999999) {
+        q->floor_obj = 0;
+    } else if (fa == -999999999 || fo >= fa) {
+        fa = fo;
+        q->floor_obj = fa;
+        other = obj->collider;
+        flags &= ~0x40000;
+        if (other != NULL) {
+            if (other->status_b & 0x400000) {
+                lift = 0x19000;
+            }
+            if (obj->update_stamp - obj->unk110 >= 4) {
+                flags = 0x4001;
+            }
+        }
+        flags |= 0x200000;
+    }
+    if ((fa == -999999999 && fb == fa) || obj->misc_a[1] > 0) {
+        if (obj->misc_a[1] > 0) {
+            obj->status_a &= 0xFFDBBFFE;
+        }
+        q->floor = 0;
+        y = -999999999;
+    } else {
+        v = fa;
+        if (fa == -999999999) {
+            v = fb;
+            flags = 1;
+        }
+        q->floor = v;
+        y = v + 1;
+        if (fa == -999999999) {
+            h = obj->xform.trans[1];
+        } else {
+            h = obj->xform.trans[1] + D_800609C0 + lift;
+        }
+        *top = h;
+        if (h < y) {
+            y = prev[1];
+            b[1] = y;
+        } else {
+            if (y >= pos[1]) {
+                if (flags & 0x200000) {
+                    other = *(GoolObject **)((u8 *)obj->unk8 + 0x48);
+                    if (other != NULL) {
+                        other->status_a |= 0x4000;
+                    }
+                }
+            } else {
+                y = pos[1];
+            }
+            b[1] = y;
+        }
+        b[4] = y + *(s32 *)((u8 *)obj->unk8 + 0x40);
+        pos[1] = y;
+        if (q->unk1000 == 0 || !func_800319B8(b, q->box)) {
+            func_8002A7A8(pos, obj, q);
+        }
+        v = obj->misc_a[1];
+        if (v < 0 && (flags & 1)) {
+            obj->unk114 = v;
+            obj->misc_a[1] = 0;
+        }
+        obj->status_a |= flags;
+        obj->unk110 = game.frames;
+    }
+    return y;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002C230);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002C604);
 
@@ -283,15 +407,10 @@ s32 func_8001FD08(s32 cur, s32 target, s32 step);
  * ceiling found by func_8002C604 (in state 2 it slides there and gets
  * event 0x3300). */
 
-#define ALL_FLAG(b, i) ((b)[i] & 0x100000)
 
-#define ALL_FLAG(b, i) ((b)[i] & 0x100000)
 
-#define ALL_FLAG(b, i) ((b)[i] & 0x100000)
 
-#define ALL_FLAG(b, i) ((b)[i] & 0x100000)
 
-#define ALL_FLAG(b, i) ((b)[i] & 0x100000)
 
 #ifdef NON_MATCHING
 /* Equivalent; the original reloads to[1] and orders two loads differently. */
@@ -412,7 +531,7 @@ s32 func_8002CD8C(GoolObject *obj, s32 *pos) {
     return -0xFF;
 }
 
-void func_8002C230(GoolObject *obj, s32 *pos, s32 *to, CollQuery *q, s32 *hit);
+s32 func_8002C230(GoolObject *obj, s32 *prev, s32 *pos, CollQuery *q, s32 *top);
 s32 func_8002F0F8(s32 *pos, s32 gx, s32 gz, s32 *cx, s32 *cz, GoolObject *obj, s32 a);
 void func_8002CAE4(GoolObject *obj, s32 *pos, s32 *to, CollQuery *q);
 /* One collision step of obj from pos by step: collides with the surfaces,

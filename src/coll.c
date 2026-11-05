@@ -9,6 +9,7 @@
 
 /* .sdata */
 s32 D_800609C0 = 0xF424;
+char D_800609C4[] = "vcm?X"; /* name of the wall map entry of a level (? = level) */
 
 /* .sbss */
 s32 D_80060AC8;
@@ -2025,3 +2026,11 @@ found2:
 #else
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002F0F8);
 #endif
+
+INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002F42C);
+
+INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002F4DC);
+
+INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002F648);
+
+INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002F678);

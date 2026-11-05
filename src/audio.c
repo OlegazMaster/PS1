@@ -817,7 +817,221 @@ void func_800342B8(Voice *v) {
     }
 }
 
+extern Entry *cur_zone;
+extern s32 pause_status;
+extern u8 D_8006CF58[]; /* key status of each voice (SpuGetAllKeysStatus) */
+void func_80051EC8(u8 *status); /* SpuGetAllKeysStatus */
+void func_80035078(u32 *ref);
+PageStruct *NSEntryPageStruct(u32 ref);
+#ifdef NON_MATCHING
+/* Updates the sound every frame: the volumes of the sounds and the music
+ * from the options, the fade of the music when pausing, then each voice:
+ * starts it once its sample is in the sound memory (after its delay),
+ * plays it again (unk18 times) or its next sound when it ends, fades its
+ * volume and pitch and follows its owner.
+ * Equivalent; the original does not hoist the null EID out of the loop and keeps D_8006CF58 in s0. */
+void func_80034310(void) {
+    s32 unused[16]; /* takes stack space in the original */
+    s32 any;
+    s32 i;
+    Voice *v;
+    Music *m;
+    u8 *status;
+    u8 *keys;
+    u32 ref;
+    Entry *e;
+    PageStruct *pg;
+    PageStruct *ps;
+    SpuVoiceAttr attr;
+
+    any = 0;
+    if (game.unkE8 != D_80060A18) {
+        D_80060A18 = game.unkE8;
+        func_80033280((game.unkE8 * 0x3FFF00) >> 16);
+    }
+    if (game.unkEC != D_80060A14) {
+        D_80060A14 = game.unkEC;
+        func_80034B00((game.unkEC * 0x3FFF00) >> 16);
+    }
+    if (cur_zone != NULL) {
+        func_80035078((u32 *)(cur_zone->items[0] + 0x2E4));
+    }
+    if (D_80060B00 != 0) {
+        if (D_80060B00 < 0 && D_80060AFC[1] < -D_80060B00) {
+            D_80060AFC[1] = 0;
+            D_80060B00 = 0;
+        }
+        if (D_80060B00 > 0 && 0x3FFF - D_80060AFC[1] < D_80060B00) {
+            D_80060AFC[1] = 0x3FFF;
+            D_80060B00 = 0;
+        }
+        D_80060AFC[1] += D_80060B00;
+        func_80032FC8(D_80060AFC[1] >> 7, D_80060AFC[1] >> 7);
+    }
+    if (pause_status == 1) {
+        D_80060B00 = -0x222;
+        if (D_80060B08[0] != 0 && D_80060AFC[0] >= 2 && D_80060B18 == 3) {
+            func_800352FC(&D_8006CFC8[1], 2, 0);
+        }
+    }
+    if (pause_status == -1) {
+        D_80060B00 = 0x667;
+        if (D_80060B08[0] != 0 && D_80060AFC[0] >= 2 && D_80060B18 == 3) {
+            func_800352FC(&D_8006CFC8[1], 3, 0);
+        }
+    }
+    keys = D_8006CF58;
+    func_80051EC8(keys);
+    for (i = D_80060B04, v = &D_8006C7D8[i]; i < 24; i++, v++) {
+        m = (Music *)&v->flags;
+        status = &keys[i];
+        if (!m->f3) {
+            continue;
+        }
+    load:
+        switch (m->f15) {
+        case 3:
+            attr.addr = ((PageStruct *)m->unk14)->unk1C;
+            goto start;
+        case 1:
+            if (func_8001440C(&m->ref, 0) == NULL) {
+                break;
+            }
+            ref = NSOpen(&m->ref, 1, 0);
+            if ((ref & 0xC0000002) == 0xC0000002) {
+                attr.addr = (ref & 0x3FFFFFFD) >> 2;
+                goto start;
+            }
+            m->f15 = 2;
+        case 2:
+            e = (Entry *)NSOpen(&m->ref, 1, 0);
+            pg = func_80015414(e->eid);
+            if (pg != NULL) {
+                if (pg->state == 1) {
+                    pg->state = 20;
+                } else if ((u16)(pg->state - 20) >= 2) {
+                    break;
+                }
+                attr.addr = pg->unk1C;
+                pg->unkF++;
+                m->unk14 = (s32)pg;
+                func_80013E64((s32)NSEntryPageStruct((u32)e));
+                goto start;
+            }
+            ps = NSEntryPageStruct((u32)e);
+            if ((u16)(ps->state - 20) < 2 && ps->type == 1) {
+                ps->state = 10;
+                ps->eid = e->eid;
+                ns.page_count++;
+            }
+            break;
+        }
+        goto keyed;
+    start:
+        attr.mask = 0x80;
+        attr.voice = 1 << i;
+        func_80051F54(&attr);
+        m->f15 = 0;
+        m->f18 = 0;
+        if (!m->f4 || m->unk1C == 0) {
+            m->f4 = 1;
+            m->unk1C = 1;
+        }
+    keyed:
+        if (m->f18) {
+            continue;
+        }
+        if (m->f4) {
+            if (--m->unk1C != 0) {
+                continue;
+            }
+            m->f4 = 0;
+            func_80051714(1, 1 << i);
+            *status = 1;
+        }
+        if (*status == 3) {
+            if (m->unk18 >= 2) {
+                m->unk18--;
+                func_80051714(1, 1 << i);
+                *status = 1;
+            } else if (m->eid != 0x6396347F) {
+                if (m->unk14 != 0) {
+                    func_80013E64(m->unk14);
+                }
+                ref = func_80033760(m, (u32 *)&v->unk10[4], (GoolObject *)m->unk8);
+                m->eid = 0x6396347F;
+                if (ref == 0) {
+                    goto load;
+                }
+                {
+                    SpuVoiceAttr attr2;
+                    s32 bit;
+
+                    attr2.addr = ref;
+                    attr2.mask = 0x80;
+                    bit = 1 << i;
+                    attr2.voice = bit;
+                    func_80051F54(&attr2);
+                    func_80051714(1, bit);
+                }
+                *status = 1;
+                goto keyed;
+            } else {
+                func_800342B8(v);
+                goto end;
+            }
+        }
+        attr.mask = 0;
+        if (m->f6) {
+            m->unk1A += m->vol_step;
+            if (--m->vol_time > 0) {
+                any = 1;
+            } else {
+                m->f6 = 0;
+            }
+            attr.mask |= 3;
+            if ((u8)(((GoolObject *)m->unk8)->unk120 - 6) < 2) {
+                attr.vol_left = attr.vol_right = m->unk1A >= 0x3FFF ? 0x3FFF : (m->unk1A < 0 ? 0 : m->unk1A);
+            } else {
+                *(SpuVolume *)&attr.vol_left = *(SpuVolume *)func_8003328C(m, &m->unk20, m->unk1A);
+            }
+        }
+        if (m->f7) {
+            m->unk1E += m->pitch_step;
+            if (--m->pitch_time > 0) {
+                any = 1;
+            } else {
+                m->f7 = 0;
+            }
+            attr.mask |= 0x10;
+            attr.pitch = (u16)m->unk1E * D_800690B4[0] / 4096;
+        }
+        if (m->type != 0) {
+            GoolObject *o = (GoolObject *)m->unk8;
+
+            if (o != NULL) {
+                s32 out[3];
+
+                *(Vec3 *)m->unk2C = *(Vec3 *)o->xform.trans;
+                func_800202CC(o->xform.trans, out, 1);
+                *(Vec3 *)&m->unk20 = *(Vec3 *)out;
+                attr.mask |= 3;
+                *(SpuVolume *)&attr.vol_left = *(SpuVolume *)func_8003328C(m, &m->unk20, m->unk1A);
+            }
+        }
+        if (attr.mask != 0) {
+            attr.voice = 1 << i;
+            func_80051F54(&attr);
+        }
+    end:
+        if (m->f0 || (!any && m->f1)) {
+            func_800342B8(v);
+        }
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034310);
+#endif
 
 void func_80056DAC(s16 a, s16 b, s32 c, s32 d);
 #ifdef NON_MATCHING

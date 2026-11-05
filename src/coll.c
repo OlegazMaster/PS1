@@ -228,7 +228,78 @@ void func_8002B394(GoolObject *obj, s32 *prev, s32 *pos, CollQuery *q, s32 div, 
     func_8003BD18(obj, q, q->box, b, top, a, -999999999, func_8002B1CC);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002B4E8);
+s32 func_8002B9A4(s32 *rec, s32 *box, s32 a, s32 b, s32 best, s32 top, s32 *c);
+/* The top of the highest object (flag 0x20000) obj moving from prev to pos
+ * can stand on, + 1 (-999999999 if none); collides with the last object
+ * touched. */
+
+s32 func_8002B4E8(GoolObject *obj, s32 *prev, s32 *pos, CollQuery *q) {
+    s32 res;
+    s32 top;
+    s32 best;
+    s32 d;
+    s32 h;
+    s32 i;
+    u32 sf;
+    s32 *b;
+    s32 *rec;
+    s32 *last;
+    GoolObject *o;
+    s32 t;
+    u32 m;
+
+    if (game.unk5C == 0) {
+        return -999999999;
+    }
+    res = -999999999;
+    best = -999999999;
+    top = pos[1] + 0xF424;
+    d = prev[1] - pos[1];
+    if (d > 0) {
+        top += d;
+    }
+    q->box2[0] = pos[0] - 0x4B00;
+    b = q->box2;
+    b[1] = pos[1];
+    b[2] = pos[2] - 0x4B00;
+    b[3] = pos[0] + 0x4B00;
+    b[4] = pos[1] + *(s32 *)((u8 *)obj->unk8 + 0x40);
+    b[5] = pos[2] + 0x4B00;
+    q->steps += 0x10;
+    last = NULL;
+    for (i = 0; i < game.unk5C; i++) {
+        rec = game.unk390[i];
+        o = (GoolObject *)rec[1];
+        t = -999999999;
+        if ((o->status_b & 0x400000) != 1) {
+            t = top;
+        }
+        h = func_8002B9A4(rec, b, 1, 1, best, t, (o->status_b & 0x200) ? o->misc_c : NULL);
+        if (h != -999999999) {
+            if ((o->status_b & 0x20000)
+                && ((((!(obj->state_flags & 0x10) && obj->invincibility_state != 5)
+                      || ((GoolObjectType(o) != 0x300 || (o->status_c & 0x412)) && !(o->state_flags & 0x20)))
+                     && !(obj->state_flags & 0x4000))
+                    || (o->state_flags & 0x4000))) {
+                sf = obj->state_flags;
+                m = sf & 0x280000;
+                if (m != 0x80000 || (o->status_c & m)
+                    || ((sf & 8) ? (o->state_flags & 0x4000000) : (o->state_flags & 0x80))) {
+                    res = h + 1;
+                    o->status_a |= 0x4000;
+                    best = h;
+                    *(GoolObject **)((u8 *)obj->unk8 + 0x48) = o;
+                }
+            }
+            last = rec;
+            q->steps += 0x1000;
+        }
+    }
+    if (last != NULL) {
+        func_8001B328(obj, b, (GoolObject *)last[1], (last[0] & 7) == 0 ? last + 2 : NULL);
+    }
+    return res;
+}
 
 s32 func_8003191C(s32 *a, s32 *b); /* whether two boxes overlap */
 /* Collides the box of obj at pos with the objects of the collision records. */

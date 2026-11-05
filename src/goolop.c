@@ -869,7 +869,7 @@ INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80036B88);
 s32 func_800296F8(Vec3 *pos, Vec3 *out);
 void *func_80029C1C(void *unused, s32 *pos);
 void *func_80029E40(GoolObject *obj, s32 *pos);
-void func_8002A22C(GoolObject *obj, s32 *pos, s32 mode, s32 flag);
+void *func_8002A22C(GoolObject *obj, s32 *pos, u32 flags, s32 blend); /* camera.c */
 void func_8002A728(GoolObject *obj);
 /* Instruction: positions relative to the camera, the floor, etc. of the
  * position of obj (a vector of obj selected by bits 12-14 for some); the

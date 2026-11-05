@@ -2694,7 +2694,141 @@ done:
     return res;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002A22C);
+/* The surface (of a neighbor zone, mode flags & 3) or the object (with a
+ * floor or a ceiling: flags 1 or 2) at pos for obj, whose color b (and with
+ * flags 4 its parent's) then follows the surface type, blended if blend is
+ * set; returns it (NULL if none). */
+
+void *func_8002A22C(GoolObject *obj, s32 *pos, u32 flags, s32 blend) {
+    s32 best;
+    void *res;
+    s32 isobj;
+    GoolObject *near;
+    s32 q[3];
+    s32 p[3];
+    s32 *pt;
+    ZoneHdr *hdr;
+    Entry *e;
+    s32 *b;
+    s32 i;
+    u32 *rec;
+    GoolObject *o;
+    s32 *box;
+    s32 top;
+    s32 c;
+#ifdef TARGET_PSX
+    register s32 unused asm("$7"); /* the fourth argument is not set */
+#else
+    s32 unused = 0;
+#endif
+
+    best = -999999999;
+    res = NULL;
+    isobj = 0;
+    near = NULL;
+    if (!(obj->status_b & 0x4000000) || ((flags & 4) && !(obj->parent->status_b & 0x4000000))) {
+        return NULL;
+    }
+    pt = p;
+    *(Vec3i *)p = *(Vec3i *)pos;
+    pt[1] += 25000;
+    hdr = (ZoneHdr *)((Entry *)D_80065C90.unkCC)->items[0];
+    *(Vec3i *)q = *(Vec3i *)p;
+    do {
+        for (i = 0; i < hdr->neighbor_count; i++) {
+            if (hdr->neighbor_flags[i] & 4) {
+                e = (Entry *)NSOpen(&hdr->neighbors[i], 1, 0);
+                if (func_80031868(e, pt)) {
+                    b = (s32 *)e->items[1];
+                    res = func_8003C990(b, pt, flags & 3, unused, b[0] << 8, b[1] << 8, b[2] << 8, b[3] << 8,
+                                        b[4] << 8, b[5] << 8);
+                    break;
+                }
+            }
+        }
+        if (i == hdr->neighbor_count) {
+            res = NULL;
+            break;
+        }
+    } while (res == NULL);
+    if (game.unk5C > 0) {
+        for (i = 0; i < game.unk5C; i++) {
+            rec = game.unk390[i];
+            o = (GoolObject *)rec[1];
+            if (o == obj || o->node == 0xFFFF) {
+                continue;
+            }
+            box = (s32 *)((rec[0] & 7) == 1 ? rec + 11 : rec + 2);
+            if (flags & 1) {
+                top = box[4];
+                if (q[0] < box[0] || box[3] < q[0] || q[2] < box[2] || box[5] < q[2]) {
+                    continue;
+                }
+                if (top >= pt[1] && pt[1] >= box[1]) {
+                    res = o;
+                    pt[1] = box[1];
+                    isobj = 1;
+                    goto done;
+                }
+                if (best < top && q[1] >= top) {
+                    near = o;
+                    best = top;
+                }
+            } else if (flags & 2) {
+                top = box[5];
+                if (q[0] < box[0] || box[3] < q[0] || q[1] < box[1] || box[4] < q[1]) {
+                    continue;
+                }
+                if (top >= pt[2] && pt[2] >= box[2]) {
+                    res = o;
+                    pt[2] = box[2];
+                    isobj = 1;
+                    goto done;
+                }
+                if (best < top && q[2] >= top) {
+                    near = o;
+                    best = top;
+                }
+            }
+        }
+        if (near != NULL) {
+            if (flags & 1) {
+                if (res == NULL || best >= pt[1]) {
+                    res = near;
+                    pt[1] = best;
+                    isobj = 1;
+                }
+            } else if (flags & 2) {
+                if (res == NULL || best >= pt[2]) {
+                    pt[2] = best;
+                    res = near;
+                    isobj = 1;
+                }
+            }
+        }
+    }
+done:
+    c = -1;
+    if (res != NULL) {
+        if (isobj) {
+            c = ((GoolObject *)res)->node;
+            if (c < 0) {
+                c = -c;
+                blend = 0;
+            }
+        } else {
+            c = ((u32)res & 0x3F0) >> 4;
+            if ((u32)(c - 0x30) >= 0x10) {
+                c = -1;
+            }
+        }
+    }
+    func_80029BBC(obj, c, blend);
+    if (flags & 4) {
+        func_80029BBC(obj->parent, c, blend);
+    }
+    return res;
+}
 
 /* Sets the light b of obj from the surface type under it (property 0xF2
  * of the entity at obj->unkF0). */

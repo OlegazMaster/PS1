@@ -20,12 +20,6 @@ u32 *D_80060ADC; /* scratchpad 0x1F800100: 32 rows of 32 bits */
 u32 *D_80060AE0; /* scratchpad 0x1F800380 */
 s32 D_80060AE4;
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002AA94);
-
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002AF70);
-
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002B1CC);
-
 /* The surfaces near an object (see camera.c's SurfaceQuery) with a second
  * search box. */
 typedef struct {
@@ -34,7 +28,65 @@ typedef struct {
     s32 count; /* 0x1004 */
     s32 box[6]; /* 0x1008 */
     s32 box2[6]; /* 0x1020 */
+    u8 unk1038[0x18];
+    s32 steps; /* 0x1050: collision steps of the move */
 } CollQuery;
+
+INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002AA94);
+
+void func_8002CEA8(GoolObject *obj, CollQuery *q, s32 *pos, s32 *step, s32 *out);
+/* Moves obj at pos by delta in steps of at most 25600 across and 153600 up
+ * or down, colliding at each step. */
+
+void func_8002AF70(GoolObject *obj, CollQuery *q, s32 *pos, s32 *delta) {
+    s32 step[3];
+    s32 next[3];
+    s32 done[3];
+    s32 n;
+    s32 nx;
+    s32 nz;
+    s32 f;
+    s32 ny;
+    s32 k;
+    s32 i;
+    s32 any;
+    s32 v;
+
+    q->steps = 0;
+    nx = (delta[0] < 0 ? -delta[0] : delta[0]) / 25600;
+    nz = (delta[2] < 0 ? -delta[2] : delta[2]) / 25600;
+    ny = (delta[1] < 0 ? -delta[1] : delta[1]) / 153600;
+    n = nx;
+    if (n < ny) {
+        n = ny;
+    }
+    if (n < nz) {
+        n = nz;
+    }
+    n++;
+    for (i = 2; i >= 0; i--) {
+        done[i] = 0;
+    }
+    for (k = 1; k <= n; k++) {
+        any = 0;
+        f = (k << 8) / n;
+        for (i = 0; i < 3; i++) {
+            v = (delta[i] * f) >> 8;
+            step[i] = v - done[i];
+            any |= step[i];
+            done[i] = v;
+        }
+        if (any) {
+            func_8002CEA8(obj, q, pos, step, next);
+            for (i = 0; i < 3; i++) {
+                pos[i] = next[i];
+            }
+        }
+    }
+}
+
+INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002B1CC);
+
 s32 func_8002B1CC();
 s32 func_8003BD18(GoolObject *obj, CollQuery *q, s32 *box, s32 *box2, s32 top, s32 a, s32 best, s32 (*cb)());
 /* Searches the surfaces under obj moving from prev to pos: a box of

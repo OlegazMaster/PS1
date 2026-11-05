@@ -665,12 +665,14 @@ void func_80034310(void);
 void func_8004CBF4(void *ot); /* DrawOTag */
 void func_8006EC9C(void); /* overlay */
 void func_8006F9B8(void); /* overlay */
+extern s32 D_800690A0[]; /* game.unk208: the screen fade and its step */
+extern s32 D_800691FC[]; /* game.unk364 */
 #ifdef NON_MATCHING
 /* Ends the frame (c1: GpuUpdate): the screen fade, the background of the
  * zone (one color, or two split at the horizon), the screen transition,
  * the sound (unless loading), then swaps and shows the draw buffers, waiting
  * for the vertical sync, and keeps the timers.
- * Equivalent; the original addresses the fields of game from &game.unk208 and &game.unk364. */
+ * Equivalent; the original addresses the other fields of game from the fade (game.unk208), so it keeps another base register. */
 void func_80016634(s32 loading) {
     s32 type;
     u32 color;
@@ -690,28 +692,27 @@ void func_80016634(s32 loading) {
     if (paused == 0 && (game.display_flags & 0x1000)) {
         game.unk19C++;
     }
-    fade = &game.unk208;
-    if (fade[0] != 0 && paused != 1) {
-        if (fade[0] > 0) {
+    if (D_800690A0[0] != 0 && paused != 1) {
+        if (D_800690A0[0] > 0) {
             if (paused == 0) {
-                fade[0] -= fade[1];
-                if (fade[0] < 0) {
-                    fade[0] = 0;
+                D_800690A0[0] -= D_800690A0[1];
+                if (D_800690A0[0] < 0) {
+                    D_800690A0[0] = 0;
                 }
             }
-            func_800176A0(fade[0]);
-        } else if (fade[0] >= -2) {
+            func_800176A0(D_800690A0[0]);
+        } else if (D_800690A0[0] >= -2) {
             func_800176A0(0x100);
             if (paused == 0) {
-                fade[0] = -1;
+                D_800690A0[0] = -1;
             }
         } else {
             if (paused == 0) {
-                fade[0] += fade[1];
+                D_800690A0[0] += D_800690A0[1];
             }
-            func_800176A0(fade[0] + 0x100);
-            if (fade[0] == 0 && !(game.display_flags & 0x400000)) {
-                fade[0] = -2;
+            func_800176A0(D_800690A0[0] + 0x100);
+            if (D_800690A0[0] == 0 && !(game.display_flags & 0x400000)) {
+                D_800690A0[0] = -2;
             }
         }
     }
@@ -756,8 +757,8 @@ void func_80016634(s32 loading) {
             break;
         }
     }
-    if (game.unk364 >= 0) {
-        func_8001742C(game.unk364++);
+    if (D_800691FC[0] >= 0) {
+        func_8001742C(D_800691FC[0]++);
     }
     if (!loading) {
         func_80034310();

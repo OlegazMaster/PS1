@@ -184,17 +184,105 @@ void func_8003780C(GoolObject *obj, u32 op) {
     obj->voice_id = func_80033864(obj, (u32)a, *(s16 *)b);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800378F8);
+s32 func_80033C54(s32 handle, u32 flags, u32 *arg, GoolObject *obj); /* audio.c */
+/* Instruction: a command for the voice of obj (unkD4 gets the result). */
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037A00);
+void func_800378F8(GoolObject *obj, u32 op) {
+    u32 *a = GoolRef(obj, op & 0xFFF);
+    u32 flags = (op >> 20) & 0xF;
+    u32 r = (op >> 12) & 0x3F;
+    s32 v;
+
+    if (r == 0) {
+        v = 0;
+    } else {
+        v = *(r == 0x1F ? --obj->sp : (u32 *)&obj->self + r);
+    }
+    if (flags == 0xF) {
+        flags = 0x80000000;
+    }
+    if (op & 0x40000) {
+        flags |= 0x40000000;
+    }
+    if (op & 0x80000) {
+        flags |= 0x20000000;
+    }
+    obj->unkD4 = func_80033C54(v, flags, a, obj);
+}
+
+void func_80027D6C(s32 type, u32 *args); /* camera.c: a camera event */
+/* Instruction: sends a camera event. */
+
+void func_80037A00(GoolObject *obj, u32 op) {
+    u32 *b = GoolRef(obj, (op >> 12) & 0xFFF);
+    u32 *a = GoolRef(obj, op & 0xFFF);
+
+    func_80027D6C(*a, b);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037AE4);
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037BEC);
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037CD8);
+/* Instruction: sets the animation of obj (op & 0x7F: frame, (op >> 7) &
+ * 0x1FF: offset in its code), then as func_80037DAC. */
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037DAC);
+s32 func_80037CD8(GoolObject *obj, u32 op, u32 flags) {
+    u32 *code = (u32 *)obj->global->items[5];
+    u32 *sp = obj->sp;
+
+    obj->unkEC = (op & 0x7F) << 8;
+    obj->unkE8 = (s32)(code + ((op >> 7) & 0x1FF));
+    *sp++ = (((op >> 16) & 0x3F) << 24) | game.frames;
+    obj->sp = sp;
+    switch ((op >> 22) & 3) {
+    case 0:
+        if (obj->xform.scale[0] < 0) {
+            obj->xform.scale[0] = -obj->xform.scale[0];
+        }
+        break;
+    case 1:
+        if (obj->xform.scale[0] > 0) {
+            obj->xform.scale[0] = -obj->xform.scale[0];
+        }
+        break;
+    case 2:
+        obj->xform.scale[0] = -obj->xform.scale[0];
+        break;
+    }
+    if (flags & 4) {
+        return -0xFF;
+    }
+    return 0;
+}
+
+/* Instruction: sets the frame of the animation of obj (from an operand),
+ * waits (op >> 16) & 0x3F frames and flips obj (op >> 22: 0 to the right,
+ * 1 to the left, 2 the other way). */
+
+s32 func_80037DAC(GoolObject *obj, u32 op, u32 flags) {
+    obj->unkEC = *GoolRef(obj, op & 0xFFF);
+    *obj->sp++ = (((op >> 16) & 0x3F) << 24) | game.frames;
+    switch ((op >> 22) & 3) {
+    case 0:
+        if (obj->xform.scale[0] < 0) {
+            obj->xform.scale[0] = -obj->xform.scale[0];
+        }
+        break;
+    case 1:
+        if (obj->xform.scale[0] > 0) {
+            obj->xform.scale[0] = -obj->xform.scale[0];
+        }
+        break;
+    case 2:
+        obj->xform.scale[0] = -obj->xform.scale[0];
+        break;
+    }
+    if (flags & 4) {
+        return -0xFF;
+    }
+    return 0;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037EDC);
 

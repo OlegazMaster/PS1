@@ -391,7 +391,7 @@ s16 *func_8003328C(Music *m, s32 *pos, s32 vol) {
     return D_80060AEC;
 }
 
-void func_80033C54(s32 handle, u32 a, u32 *b, s32 owner);
+s32 func_80033C54(s32 handle, u32 a, u32 *b, s32 owner);
 /* Stops the voices of owner (from voice D_80060B04 on). */
 
 void AudioVoiceFree(s32 owner) {

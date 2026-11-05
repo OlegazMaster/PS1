@@ -263,7 +263,44 @@ INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002DA74);
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002E4F0);
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002EC2C);
+extern u32 D_80067A28[];
+void func_8003B874(CollQuery *q, s32 *box, s32 mode, s32 y0, s32 y1, s32 top, s32 x, s32 z);
+void func_8002F678(s32 *pos, s32 a, s32 b);
+void func_8002E4F0(s32 *pos, s32 *prev, GoolObject *obj, CollQuery *q, s32 a);
+/* Prepares the collision of obj moving from prev to pos: clears the grids,
+ * collects the surfaces around it and resolves the move. */
+
+void func_8002EC2C(s32 *pos, s32 *prev, GoolObject *obj, CollQuery *q) {
+    s32 i;
+    s32 mode;
+    s32 y;
+    s32 *box;
+    s32 unused[12]; /* takes stack space in the original */
+
+    if (!(((ZoneHdr *)((Entry *)D_80065C90.unkCC)->items[0])->unk2DC & 0x100000)) {
+        for (i = 31; i >= 0; i--) {
+            D_80060ADC[i] = 0;
+        }
+        for (i = 127; i >= 0; i--) {
+            D_80060AD8[i] = 0;
+        }
+        box = q->box;
+        mode = obj->status_c;
+        if ((u32)(obj->invincibility_state - 2) < 3) {
+            mode = 2;
+        } else {
+            mode &= 2;
+        }
+        y = obj->xform.trans[1];
+        func_8003B874(q, box, mode, y + D_800609C0, y + 0x3200, pos[1] + *(s32 *)((u8 *)obj->unk8 + 0x40), pos[0], pos[2]);
+        if ((game.display_flags & 0x4000000) && (D_80067A28[0] & 0x20000)) {
+            if (!(D_80067A28[0] & 0x40000) || (obj->state_flags & 0x2000000)) {
+                func_8002F678(pos, 0, 0x40);
+            }
+        }
+    }
+    func_8002E4F0(pos, prev, obj, q, 1);
+}
 
 /* Whether cell (x, y) of the 32x32 grid D_80060ADC is free. */
 

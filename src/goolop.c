@@ -4,6 +4,9 @@
 #include "ns.h"
 #include "pad.h"
 
+extern GoolObject *crash;
+extern Entry *cur_zone;
+
 /* The GOOL instructions (operands, the instructions that read the pad,
  * play sounds, send events, change states...). The bytecode interpreter
  * itself (func_80038E28 and its helpers) is hand-written assembly: gool_asm
@@ -446,8 +449,6 @@ void func_80036B88(GoolObject *obj, u32 op) {
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80036B88);
 #endif
 
-extern GoolObject *crash;
-extern Entry *cur_zone;
 s32 func_800296F8(Vec3 *pos, Vec3 *out);
 void *func_80029C1C(void *unused, s32 *pos);
 void *func_80029E40(GoolObject *obj, s32 *pos);

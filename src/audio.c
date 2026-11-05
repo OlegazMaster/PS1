@@ -13,8 +13,8 @@ const char D_8001056C[] = "vol %d*%d = %d\n";
 s32 D_80060A00 = 30;
 s32 D_80060A04 = 0;
 s32 D_80060A08 = 0;
-s32 D_80060A0C = 0;
-s32 D_80060A10 = 0;
+s16 D_80060A0C = 0; /* frames left of the music fade */
+u32 *D_80060A10 = NULL; /* the music to play after the fade */
 s32 D_80060A14 = -1;
 s32 D_80060A18 = -1;
 s32 D_80060A1C = 0;
@@ -476,7 +476,58 @@ void func_8003505C(void) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80035078);
+void func_800531E8(s16 a, s16 b, s32 c, s32 d); /* SsSeqSetCrescendo-like: fades the volume */
+void func_80034D14(u32 *ref);
+void func_8005AA14(void);
+void func_8005AA28(void);
+/* Updates the music every frame: fades out (state 4) before starting the
+ * music *ref when it changes. */
+
+extern s32 D_80068F7C[];
+
+void func_80035078(u32 *ref) {
+    u32 eid;
+
+    if (D_80060B18 == 0) {
+        return;
+    }
+    if (D_80060B18 == 4) {
+        if (D_80060A0C == 0 || --D_80060A0C == 0) {
+            D_80060B18 = 1;
+        }
+    }
+    if (D_80060B18 == 3) {
+        eid = *ref;
+        if (eid & 1) {
+            if (D_80060AF8 == eid) {
+                goto next;
+            }
+        } else if (D_80060AF8 == ((Entry *)eid)->eid) {
+            goto next;
+        }
+        if (D_80060B08[0] == 0 && D_80060B1C[0] != -1 && D_80060A10 == NULL) {
+            func_800531E8(D_80060B1C[1], D_8006CFC8[0].id, D_80060AF0[1] >> 7, 30);
+            D_80060A0C = 30;
+            D_80060A10 = ref;
+            D_80060B18 = 4;
+            return;
+        }
+    }
+next:
+    switch (D_80060B18) {
+    case 1:
+    case 2:
+        func_80034D14(ref);
+        break;
+    case 3:
+        if (D_80068F7C[0]) {
+            func_8005AA14();
+        } else {
+            func_8005AA28();
+        }
+        break;
+    }
+}
 
 void func_8005321C(void);
 void func_8003529C(s16 a, s32 all);

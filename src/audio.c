@@ -22,9 +22,11 @@ s32 D_80060A20 = 0;
 s32 D_80060A24 = 0x1F800040;
 s32 D_80060A28 = 0;
 
+extern s32 D_80068F7C[]; /* game.unkE4: mono sound */
+
 /* .sbss */
 static s32 D_80060AE8;
-static s32 D_80060AEC;
+static s16 D_80060AEC[2]; /* volume (left, right) of a sound */
 static s16 D_80060AF0[4];
 static s32 D_80060AF8;
 static s16 D_80060AFC[2];
@@ -60,7 +62,7 @@ typedef struct {
 } Seq; /* 0x14 */
 extern Seq D_8006CFC8[2];
 
-/* An empty debug function (the arguments are like printf's). */
+
 
 /* An empty debug function. */
 
@@ -324,7 +326,64 @@ void func_80033280(s16 a) {
     D_80060AF0[0] = a;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_8003328C);
+s32 func_8003AE90(s32 x, s32 z); /* length of (x, z) */
+s32 func_8004F794(s32 x, s32 z); /* angle of (x, z) */
+s32 func_8003C364(s32 angle); /* cos */
+s32 printf(const char *fmt, ...);
+/* The volume (left, right) of a sound of volume vol at pos (relative to the
+ * camera), louder on the side it is on (unless the sound is mono). */
+
+s16 *func_8003328C(Music *m, s32 *pos, s32 vol) {
+    s32 sh;
+    s32 x;
+    s32 z;
+    s32 d;
+    s32 ang;
+    s32 c;
+    s32 v;
+    s32 l;
+    s32 r;
+
+    if (m != NULL) {
+        sh = m->type;
+    } else {
+        sh = 5;
+    }
+    x = pos[0] >> (sh + 6);
+    z = (pos[2] - 0x4B000) >> (sh + 6);
+    d = func_8003AE90(x, z);
+    if (d <= 0x7FFF) {
+        D_80060AEC[0] = vol;
+        D_80060AEC[1] = vol;
+    } else {
+        ang = func_8004F794(z, x);
+        c = func_8003C364(ang) + 0x1000;
+        v = (vol << 15) / d;
+        if (D_80068F7C[0]) {
+            r = v;
+            l = v;
+        } else {
+            l = (v + v * (0x2000 - c)) >> 11;
+            r = (v + v * c) >> 11;
+        }
+        if (l < vol) {
+            D_80060AEC[0] = l < 0 ? 0 : l;
+        } else {
+            D_80060AEC[0] = vol;
+        }
+        if (r < vol) {
+            D_80060AEC[1] = r < 0 ? 0 : r;
+        } else {
+            D_80060AEC[1] = vol;
+        }
+    }
+    if (m->f14) {
+        printf(D_8001052C, x, z, 0, d, ang, c, vol, v, D_80060AEC[0], D_80060AEC[1]);
+    }
+    D_80060AEC[0] = D_80060AEC[0] >= 0x4000 ? 0x3FFF : D_80060AEC[0];
+    D_80060AEC[1] = D_80060AEC[1] >= 0x4000 ? 0x3FFF : D_80060AEC[1];
+    return D_80060AEC;
+}
 
 void func_80033C54(s32 handle, u32 a, u32 *b, s32 owner);
 /* Stops the voices of owner (from voice D_80060B04 on). */
@@ -639,7 +698,6 @@ void func_8005AA28(void);
 /* Updates the music every frame: fades out (state 4) before starting the
  * music *ref when it changes. */
 
-extern s32 D_80068F7C[];
 
 void func_80035078(u32 *ref) {
     u32 eid;

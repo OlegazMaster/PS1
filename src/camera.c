@@ -2381,7 +2381,102 @@ Entry *func_80028D8C(Entry *zone, s32 *pos) {
 
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028ED8);
 
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_800296F8);
+s32 func_8003191C(s32 *box, s32 *box2); /* whether the boxes overlap */
+void *func_80028ED8(void *hdr, u16 a, s32 *box, s32 *pos, s32 *step, s32 b);
+/* Moves pos by step until it hits something: the box of an object (flag
+ * 0x10 of status_b) within 20000 (returned), the surface of a neighbor zone
+ * (returned; NULL if pos did not move); 5 when it leaves the zones (40
+ * steps) or, for Crash in state 8, goes above the floor (80 steps). */
+
+void *func_800296F8(s32 *pos, s32 *step) {
+    void *found;
+    s32 below;
+    s32 floor;
+    ZoneHdr *hdr;
+    s32 n;
+    s32 start[3];
+    s32 box[6];
+    s32 zbox[6];
+    s32 i;
+    u32 *rec;
+    GoolObject *obj;
+    Entry *e;
+    s32 *b;
+    s32 ok;
+
+    found = NULL;
+    below = 0;
+    floor = crash->xform.trans[1];
+    hdr = (ZoneHdr *)((Entry *)D_80065C90.unkCC)->items[0];
+    n = 0;
+    if (step[0] == 0 && step[1] == 0 && step[2] == 0) {
+        return NULL;
+    }
+    if ((crash->state_flags >> 28) == 8) {
+        below = 1;
+        if (((ZoneHdr *)((Entry *)D_80065C90.unkCC)->items[0])->unk2DC & 0x800) {
+            floor += 0xFFD12000;
+        }
+    }
+    do {
+        *(Vec3 *)start = *(Vec3 *)pos;
+        if (game.unk5C > 0) {
+            box[0] = pos[0] - 20000;
+            box[3] = pos[0] + 20000;
+            box[2] = pos[2] - 20000;
+            box[5] = pos[2] + 20000;
+            box[1] = pos[1] - 20000;
+            box[4] = pos[1] + 20000;
+            for (i = 0; i < game.unk5C; i++) {
+                rec = game.unk390[i];
+                if (!(rec[0] & 7)) {
+                    obj = (GoolObject *)rec[1];
+                    if ((obj->status_b & 0x10) && !(obj->state_flags & 0x800000) &&
+                        func_8003191C(box, (s32 *)(rec + 2))) {
+                        return obj;
+                    }
+                }
+            }
+        }
+        if (below && crash->xform.trans[2] < pos[2] && floor < pos[1]) {
+            n++;
+            ok = n < 81;
+        } else {
+            for (i = 0; i < hdr->neighbor_count; i++) {
+                if (hdr->neighbor_flags[i] & 4) {
+                    e = (Entry *)NSOpen(&hdr->neighbors[i], 1, 0);
+                    if (func_80031868(e, pos)) {
+                        b = (s32 *)e->items[1];
+                        zbox[0] = b[0] << 8;
+                        zbox[1] = b[1] << 8;
+                        zbox[2] = b[2] << 8;
+                        zbox[3] = b[3] << 8;
+                        zbox[4] = b[4] << 8;
+                        zbox[5] = b[5] << 8;
+                        found = func_80028ED8(b, ((u16 *)b)[14], zbox, pos, step, 0);
+                        if (pos[0] == start[0] && pos[1] == start[1] && pos[2] == start[2]) {
+                            return NULL;
+                        }
+                        n = 0;
+                        break;
+                    }
+                }
+            }
+            if (i != hdr->neighbor_count) {
+                continue;
+            }
+            n++;
+            ok = n < 41;
+        }
+        if (!ok) {
+            return (void *)5;
+        }
+        pos[0] += step[0];
+        pos[1] += step[1];
+        pos[2] += step[2];
+    } while (found == NULL);
+    return found;
+}
 
 extern s32 D_8005C7D4[];
 

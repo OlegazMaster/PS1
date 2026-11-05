@@ -258,7 +258,44 @@ void func_80037A00(GoolObject *obj, u32 op) {
     func_80027D6C(*a, b);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037AE4);
+s32 NSCountAvailablePages(void);
+s32 NSCountAvailablePages2(u32 **list, s32 len);
+/* Instruction: entry operations (open, page in, count free pages). */
+
+u32 *func_80035538(GoolObject *obj, u32 op, s32 push);
+
+void func_80037AE4(GoolObject *obj, u32 op) {
+    s32 sub;
+    u32 *ref;
+    s32 n;
+    s32 v;
+
+    sub = *func_80035538(obj, (op >> 12) & 0xFFF, 0);
+    ref = func_80035538(obj, op & 0xFFF, 0);
+    switch (sub) {
+    case 1:
+        obj->unkD4 = NSOpen(ref, 0, 1);
+        break;
+    case 6:
+        obj->unkD4 = NSOpen(ref, 1, 1);
+        break;
+    case 2:
+        obj->unkD4 = (s32)func_8001440C(ref, 1);
+        break;
+    case 3:
+        *obj->sp++ = (u32)func_8001440C(ref, 0);
+        break;
+    case 4:
+        *obj->sp++ = NSCountAvailablePages();
+        break;
+    case 5:
+        n = *ref;
+        v = NSCountAvailablePages2((u32 **)&obj->sp[-n], n);
+        obj->sp -= n;
+        *obj->sp++ = v;
+        break;
+    }
+}
 
 /* Instruction: changes the state of obj to op & 0x3FF with (op >> 10) & 0xF
  * popped arguments, unless the state is not allowed (its flags against
@@ -461,7 +498,74 @@ s32 func_80038248(GoolObject *obj, u32 op, u32 flags) {
     return 0;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800383DC);
+s32 func_8001D5E8(GoolObject *obj, u32 *flags);
+typedef struct {
+    s32 state;
+    s32 guard;
+    s32 argc;
+    u32 args[16];
+} GoolStateRef;
+/* Control flow instruction: on the condition (always, a word or its
+ * negation) branches by a signed offset, returns from the frame with a
+ * state change (op & 0x3FF, args popped into ref) or returns with state
+ * 0xFF. flags (copied to the scratchpad) must have bit 8 set. */
+
+s32 func_800383DC(GoolObject *obj, u32 op, u32 flags, GoolStateRef *ref) {
+    s32 type;
+    u32 cond;
+    s32 c;
+    s32 r;
+    s32 argc;
+    s32 i;
+
+    type = (op >> 22) & 3;
+    cond = (op >> 20) & 3;
+    *(u32 *)0x1F800048 = flags;
+    if (!(flags & 8)) {
+        return -0xE;
+    }
+    switch (cond) {
+    case 0:
+        c = 1;
+        break;
+    case 1:
+        c = *GoolReg(obj, (op >> 14) & 0x3F);
+        break;
+    case 2:
+        c = !*GoolReg(obj, (op >> 14) & 0x3F);
+        break;
+    }
+    if (c) {
+        ref->guard = (op >> 24) != 0x3D;
+        flags |= 0x20;
+        *(u32 *)0x1F800048 = flags;
+        switch (type) {
+        case 2:
+            r = func_8001D5E8(obj, NULL);
+            if (r >= -0xFE) {
+                return r;
+            }
+            ref->state = 0xFF;
+            return -0xFF;
+        case 1:
+            argc = (op >> 10) & 0xF;
+            for (i = argc - 1; i >= 0; i--) {
+                ref->args[i] = *--obj->sp;
+            }
+            ref->argc = argc;
+            r = func_8001D5E8(obj, NULL);
+            if (r >= -0xFE) {
+                return r;
+            }
+            ref->state = op & 0x3FF;
+            return -0xFF;
+        }
+    } else if (type == 0) {
+        obj->pc += ((s32)(op << 22) >> 22);
+        obj->sp -= (op >> 10) & 0xF;
+    }
+    return 0;
+}
 
 s32 func_8006F280(u32 *p); /* overlay */
 /* Instruction: pushes the result of an overlay function on a word. */

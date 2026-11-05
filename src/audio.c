@@ -313,7 +313,17 @@ INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033864);
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033C54);
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_800342B8);
+void func_80051714(s32 on, s32 voices); /* SpuSetKey */
+void func_80013E64(s32 a);
+/* Stops the voice v. */
+
+void func_800342B8(Voice *v) {
+    func_80051714(0, 1 << (v->flags >> 19));
+    v->flags &= ~8;
+    if (v->unk18 != 0) {
+        func_80013E64(v->unk18);
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034310);
 

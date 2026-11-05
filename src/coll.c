@@ -865,7 +865,173 @@ void func_8002CEA8(GoolObject *obj, CollQuery *q, s32 *pos, s32 *step, s32 *out)
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002CEA8);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002D0E8);
+extern GoolObject *crash;
+#define ABS(x) ((x) < 0 ? -(x) : (x))
+/* A collision box of a model (0x28 bytes): kind (bits 0..2), the offset of
+ * its centre and the box around it (in 1/256 units of the scale). */
+typedef struct {
+    s32 v[6];
+} Box6;
+typedef struct {
+    u32 flags;
+    s32 off[3]; /* 0x4 */
+    Box6 box; /* 0x10 */
+} CollPart;
+typedef struct {
+    u8 unk0[0x14];
+    u32 count; /* 0x14 */
+    u8 unk18[0x4];
+    CollPart parts[1]; /* 0x1C */
+} CollModel;
+void func_8001FFF0(s32 *in, s32 *pos, s32 *a, s32 *b, s32 unused, s32 *out);
+void func_8003148C(s32 *out, s32 *box, void *model, s32 *pos);
+void func_8002D85C(void);
+/* Adds a collision record for obj: its box number idx (-2: the first one if
+ * the animation has boxes), or a box from its scale. Returns the record, or
+ * NULL if there is no room or no such box. */
+
+s32 *func_8002D0E8(GoolObject *obj, s32 unused, s32 idx) {
+    s32 pos[3];
+    s32 off[3];
+    s32 b[6];
+    s32 sc[3];
+    s32 *rec;
+    u8 *end;
+    s32 kind;
+    s32 a;
+    CollModel *model;
+    CollPart *part;
+    s32 *box;
+    s32 t;
+
+    if (idx == -2 && *(u8 *)obj->unkE8 == 1) {
+        idx = 0;
+    }
+    model = NULL;
+    if (idx < 0 || obj->unkE8 == 0 || *(u8 *)obj->unkE8 != 1) {
+        kind = (s32)model; /* 0; written so it matches */
+    } else {
+        model = *(CollModel **)((u8 *)obj->unk8 + 0x20);
+        if (idx >= model->count) {
+        fail:
+            return NULL;
+        }
+        part = &model->parts[idx];
+        kind = part->flags & 7;
+    }
+    if (game.unk5C >= 0x48 || (game.unk58 - ((u8 *)&game + 0x4B0)) >> 2 >= 0x240) {
+        func_8002D85C();
+    }
+    rec = (s32 *)game.unk58;
+    switch (kind) {
+    case 1:
+        end = (u8 *)rec + 0x44;
+        break;
+    default:
+        kind = 0;
+    case 0:
+        end = (u8 *)rec + 0x20;
+        break;
+    }
+    if (end >= (u8 *)&game + 0xDB0) {
+        goto fail;
+    }
+    game.unk58 = end;
+    game.unk390[game.unk5C] = rec;
+    game.unk5C++;
+    rec[1] = (s32)obj;
+    rec[0] = kind;
+    if (model == NULL) {
+        t = obj->xform.scale[0];
+        t = t >= 0 ? t : -t;
+        rec[2] = obj->xform.trans[0] - ((t * 200) >> 4);
+        t = obj->xform.scale[0];
+        t = t >= 0 ? t : -t;
+        rec[5] = obj->xform.trans[0] + ((t * 200) >> 4);
+        rec[3] = obj->xform.trans[1] - ((obj->xform.scale[1] * 200) >> 4);
+        rec[6] = obj->xform.trans[1] + ((obj->xform.scale[1] * 200) >> 4);
+        rec[4] = obj->xform.trans[2] - ((obj->xform.scale[2] * 200) >> 4);
+        rec[7] = obj->xform.trans[2] + ((obj->xform.scale[2] * 200) >> 4);
+    } else {
+        switch (kind) {
+        case 1:
+            *(Box6 *)(rec + 2) = model->parts[idx].box;
+            rec[8] = obj->xform.trans[0];
+            rec[9] = obj->xform.trans[1];
+            rec[10] = obj->xform.trans[2];
+            func_8003148C(rec + 11, rec + 2, obj->unk8, rec + 8);
+            break;
+        case 0:
+            a = obj->xform.rot[1] & 0xFFF;
+            if (a == 0 && obj->xform.rot[1] == 0 && obj->xform.rot[0] == 0 && obj->xform.scale[0] == 0x1000) {
+                pos[0] = obj->xform.trans[0] + part->off[0];
+                pos[1] = obj->xform.trans[1] + part->off[1];
+                pos[2] = obj->xform.trans[2] + part->off[2];
+            } else {
+                off[0] = part->off[0];
+                off[1] = part->off[1];
+                off[2] = part->off[2];
+                func_8001FFF0(off, obj->xform.trans, obj->xform.rot, obj->xform.scale, 0, pos);
+            }
+            box = model->parts[idx].box.v;
+            sc[0] = ABS(obj->xform.scale[0]);
+            sc[1] = obj->xform.scale[1];
+            sc[2] = obj->xform.scale[2];
+            b[0] = ((box[0] >> 8) * sc[0]) >> 4;
+            b[1] = ((box[1] >> 8) * sc[1]) >> 4;
+            b[2] = ((box[2] >> 8) * sc[2]) >> 4;
+            b[3] = ((box[3] >> 8) * sc[0]) >> 4;
+            b[4] = ((box[4] >> 8) * sc[1]) >> 4;
+            b[5] = ((box[5] >> 8) * sc[2]) >> 4;
+            if ((u32)(a - 0x200) > 0xC00) {
+                rec[2] = pos[0] + b[0];
+                rec[3] = pos[1] + b[1];
+                rec[4] = pos[2] + b[2];
+                rec[5] = pos[0] + b[3];
+                rec[6] = pos[1] + b[4];
+                rec[7] = pos[2] + b[5];
+            } else if (a < 0x600) {
+                rec[2] = pos[0] + b[2];
+                rec[5] = pos[0] + b[5];
+                rec[3] = pos[1] + b[1];
+                rec[6] = pos[1] + b[4];
+                rec[4] = pos[2] - b[3];
+                rec[7] = pos[2] - b[0];
+            } else if (a < 0xA00) {
+                rec[2] = pos[0] + b[0];
+                rec[5] = pos[0] + b[3];
+                rec[3] = pos[1] + b[1];
+                rec[6] = pos[1] + b[4];
+                rec[4] = pos[2] - b[5];
+                rec[7] = pos[2] - b[2];
+            } else {
+                rec[2] = pos[0] - b[5];
+                rec[5] = pos[0] - b[2];
+                rec[3] = pos[1] + b[1];
+                rec[6] = pos[1] + b[4];
+                rec[4] = pos[2] + b[0];
+                rec[7] = pos[2] + b[3];
+            }
+            switch (crash->state_flags >> 28) {
+            case 9:
+            case 11:
+                rec[2] -= 0x7530;
+                rec[4] -= 0x7530;
+                rec[5] += 0x7530;
+                rec[7] += 0x7530;
+                break;
+            case 14:
+                rec[2] -= 100000;
+                rec[4] -= 100000;
+                rec[5] += 100000;
+                rec[7] += 100000;
+                break;
+            }
+            break;
+        }
+    }
+    return rec;
+}
 
 /* Drops the last collision record. */
 

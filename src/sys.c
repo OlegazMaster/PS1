@@ -404,7 +404,75 @@ void GpuDrawRect(s32 x, s32 y, s32 w, s32 h, s32 r, s32 g, s32 b) {
     AddPrim(context.cur->ot, bf);
 }
 
+#define setRGB0(p, r, g, b) ((p)->r0 = (r), (p)->g0 = (g), (p)->b0 = (b))
+#define setXY4(p, _x0, _y0, _x1, _y1, _x2, _y2, _x3, _y3) \
+    ((p)->x0 = (_x0), (p)->y0 = (_y0), (p)->x1 = (_x1), (p)->y1 = (_y1), \
+     (p)->x2 = (_x2), (p)->y2 = (_y2), (p)->x3 = (_x3), (p)->y3 = (_y3))
+#define setUV4(p, _u0, _v0, _u1, _v1, _u2, _v2, _u3, _v3) \
+    ((p)->u0 = (_u0), (p)->v0 = (_v0), (p)->u1 = (_u1), (p)->v1 = (_v1), \
+     (p)->u2 = (_u2), (p)->v2 = (_v2), (p)->u3 = (_u3), (p)->v3 = (_v3))
+s32 func_8003C2F0(s32 angle); /* sin */
+s32 func_8003C364(s32 angle); /* cos */
+#ifdef NON_MATCHING
+/* Draws the screen being drawn turned by angle around (256, 108): four
+ * semi-transparent quads textured with the halves of the other buffer.
+ * Equivalent; the original reloads the address of context each time and keeps other values in registers. */
+void func_80016D8C(s32 angle, Clut16 *unused) {
+    POLY_FT4 *p;
+    s32 s;
+    s32 c;
+    s32 sx;
+    s32 cx;
+    s32 sy;
+    s32 cy;
+
+    s = func_8003C2F0(angle);
+    c = func_8003C364(angle);
+    sx = (s * 0x8600) >> 20;
+    cx = (c * 0x8600) >> 20;
+    sy = (s * 0x10C00) >> 20;
+    cy = (c * 0x10C00) >> 20;
+
+    p = context.cur->prims_tail;
+    context.cur->prims_tail = p + 1;
+    setRGB0(p, 128, 128, 128);
+    p->tpage = GetTPage(2, 0, context.c2_p->draw.clip.x, 0);
+    setXY4(p, 256, 108, 256 - cy, sy + 108, 256 - sx, 108 - cx, 256 - sx - cy, sy - (cx - 108));
+    setUV4(p, 255, 119, 0, 119, 255, 0, 0, 0);
+    SetPolyFT4(p);
+    SetSemiTrans(p, 1);
+    AddPrim(&context.cur->ot[0x7FF], p);
+    p = context.cur->prims_tail;
+    context.cur->prims_tail = p + 1;
+    setRGB0(p, 128, 128, 128);
+    p->tpage = GetTPage(2, 0, context.c2_p->draw.clip.x, 0);
+    setXY4(p, 256, 108, 256 - cy, sy + 108, sx + 256, cx + 108, sx + 256 - cy, sy + (cx + 108));
+    setUV4(p, 255, 120, 0, 120, 255, 239, 0, 239);
+    SetPolyFT4(p);
+    SetSemiTrans(p, 1);
+    AddPrim(&context.cur->ot[0x7FF], p);
+    p = context.cur->prims_tail;
+    context.cur->prims_tail = p + 1;
+    setRGB0(p, 128, 128, 128);
+    p->tpage = GetTPage(2, 0, context.c2_p->draw.clip.x + 256, 0);
+    setXY4(p, 256, 108, cy + 256, 108 - sy, 256 - sx, 108 - cx, cy - (sx - 256), 108 - cx - sy);
+    setUV4(p, 0, 119, 255, 119, 0, 0, 255, 0);
+    SetPolyFT4(p);
+    SetSemiTrans(p, 1);
+    AddPrim(&context.cur->ot[0x7FF], p);
+    p = context.cur->prims_tail;
+    context.cur->prims_tail = p + 1;
+    setRGB0(p, 128, 128, 128);
+    p->tpage = GetTPage(2, 0, context.c2_p->draw.clip.x + 256, 0);
+    setXY4(p, 256, 108, cy + 256, 108 - sy, sx + 256, cx + 108, cy + (sx + 256), cx + 108 - sy);
+    setUV4(p, 0, 120, 255, 120, 0, 239, 255, 239);
+    SetPolyFT4(p);
+    SetSemiTrans(p, 1);
+    AddPrim(&context.cur->ot[0x7FF], p);
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/sys", func_80016D8C);
+#endif
 
 #ifdef NON_MATCHING
 /* Fades the screen with a dark semi-transparent quad: a diamond in the middle,

@@ -180,7 +180,7 @@ s32 func_8001D5E8(GoolObject *obj, u32 *flags) {
 
 void func_80015798(void);
 s32 func_8001CA68(GoolObject *obj, s32 full);
-void func_8001E78C(GoolObject *obj, void *prev, s32 *out);
+s32 func_8001E78C(GoolObject *obj, s32 *prev, s32 *out);
 void func_8001B630(GoolObject *obj, s32 *out);
 void func_8001B7A0(GoolObject *obj, s32 *out);
 extern s32 paused;
@@ -260,7 +260,7 @@ s32 func_8001D674(GoolObject *obj, s32 full) {
             }
         }
         func_8001CA68(obj, full);
-        func_8001E78C(obj, &prev, out);
+        func_8001E78C(obj, (s32 *)&prev, out);
         obj->status_a &= ~0x20;
     } else {
         func_8001B630(obj, out);
@@ -684,7 +684,462 @@ s32 func_8001E4BC(GoolObject *obj, s32 *params, s32 *target) {
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001E4BC);
 #endif
 
+void func_8001B0BC(GoolObject *obj, s32 *scale);
+s32 func_8001FC40(s32 cur, s32 target, s32 speed, GoolObject *obj);
+void func_8001FFF0(s32 *in, s32 *pos, s32 *a, s32 *b, s32 unused, s32 *out);
+s32 func_80020670(GoolObject *obj, s32 prog, s32 *out);
+void func_8002AA94(GoolObject *obj, s32 *delta, void *q);
+s32 func_8002D8E0(void);
+s32 func_80044CA0(s32 *out, GoolObject *obj, RenderState *rs, s32 *delta);
+void func_8005D968(RenderState *rs);
+extern s32 D_8005C380[][6]; /* movement parameters (see below) */
+extern s32 D_8005C398[6];
+extern s32 D_8005C3B0[6];
+extern s32 D_8005C3C8[6];
+extern s32 D_8005C3E0[6];
+extern s32 D_8005C410[6];
+extern s32 D_8005C428[6];
+extern s32 D_8005C440[6];
+extern s32 D_8005C4BC;
+extern s32 D_8005C4D0[6];
+extern s32 D_8005C530[6];
+extern s32 D_8005C560[6];
+extern s32 D_8005C590[6];
+extern s32 D_8005C5C0[6];
+extern s32 D_8006AED8[3];
+extern s32 D_8006921C[3];
+extern s32 D_80065DA4; /* the camera yaw */
+extern RenderState D_800676B0;
+/* The time of the frame (in 1/34 s units?), capped. */
+#define FRAME_TIME(t) ((t) = D_80061A7C->unk18, (t) >= 0x67 ? (t) = 0x66 : (t))
+#define OBJ_W(obj, off) (*(s32 *)((u8 *)(obj) + (off)))
+#ifdef NON_MATCHING
+/* Moves obj for this frame (c1: GoolObjectPhysics), by its status_b flags:
+ * for Crash, the left stick drives its speed and angle with the movement
+ * parameters of its state and floor (accel, max speed, friction, stop
+ * friction, turn speed); turns its angles toward their targets, applies its
+ * velocity (against the zone and the objects with flag 8), follows its path
+ * (0x8000), caps the velocity (0x1000), lands on the floor (0x4000) with a
+ * bounce in state 0xA, moves the objects standing on it (0x200000), applies
+ * gravity (0x20) and collides with Crash (0x10). The return value is
+ * not meaningful.
+ * Equivalent; differs in registers and scheduling. */
+s32 func_8001E78C(GoolObject *obj, s32 *prev, s32 *out) {
+    s32 delta[3];
+    s32 old[3];
+    s32 ret[3];
+    s32 path[4];
+    s32 *m;
+    s32 stick;
+    u32 old_flags;
+    GoolObject *rider;
+    s32 drive;
+    s32 a;
+    s32 d;
+    u32 t;
+    s32 v;
+    s32 k;
+    s32 *r;
+    s32 i;
+    s32 n;
+    u8 *anim;
+
+    if (obj->status_b == 0) {
+        obj->status_a &= 0xF8CA207E;
+        func_8001B0BC(obj, obj->xform.scale);
+        func_8001B630(obj, out);
+        obj->collider = NULL;
+        return -0xFF;
+    }
+    drive = obj->status_b & 0x80;
+    old_flags = obj->status_a;
+    rider = obj->collider;
+    if (obj == crash) {
+        if ((old_flags & 0x2000000) ||
+            ((u32)(game.frames - OBJ_W(obj, 0x170)) < 11 && !(obj->state_flags & 0x282000))) {
+            if (!(obj->state_flags & 0x282000)) {
+                D_80060924 = D_8005C488;
+                func_8001E4BC(obj, (s32 *)D_8005C488, D_8006AED8);
+            } else {
+                if (!(old_flags & 0x2000000)) {
+                    obj->misc_a[0] = (obj->misc_a[0] * 230) >> 8;
+                    obj->misc_a[2] = (obj->misc_a[2] * 230) >> 8;
+                }
+                k = D_8005C4BC;
+                if (obj->misc_a[0] < k) {
+                    k = -k;
+                    if (obj->misc_a[0] >= k) {
+                        k = obj->misc_a[0];
+                    }
+                }
+                obj->misc_a[0] = k;
+                k = D_8005C4BC;
+                if (obj->misc_a[1] < k) {
+                    k = -k;
+                    if (obj->misc_a[1] >= k) {
+                        k = obj->misc_a[1];
+                    }
+                }
+                obj->misc_a[1] = k;
+                k = D_8005C4BC;
+                if (obj->misc_a[2] < k) {
+                    k = -k;
+                    if (obj->misc_a[2] >= k) {
+                        k = obj->misc_a[2];
+                    }
+                }
+                obj->misc_a[2] = k;
+            }
+            goto moved;
+        }
+        switch (obj->state_flags >> 28) {
+        case 1:
+        case 8:
+        case 9:
+        case 10:
+            drive = 0;
+            break;
+        }
+    }
+    if (drive && game.game_state == 0x100) {
+        t = obj->state_flags;
+        m = D_8005C380[0];
+        if (t & 4) {
+            if ((t >> 28) == 2) {
+                m = D_8005C380[10];
+                if (obj->invincibility_state == 5) {
+                    m = D_8005C3E0;
+                }
+            } else if ((t >> 28) == 4) {
+                m = D_8005C380[15];
+            } else if (t & 0x200000) {
+                m = D_8005C380[9];
+            } else if (t & 0x80000) {
+                if ((t >> 28) == 3 || obj->invincibility_state == 5) {
+                    m = D_8005C380[14];
+                } else {
+                    m = D_8005C380[7];
+                }
+            } else if (obj->status_a & 0x2000) {
+                m = D_8005C380[5];
+            } else {
+                switch (t >> 28) {
+                case 11:
+                    m = D_8005C380[19];
+                    break;
+                case 3:
+                    if (obj->invincibility_state == 5) {
+                        m = D_8005C380[23];
+                    } else {
+                        m = D_8005C380[17];
+                    }
+                    break;
+                case 12:
+                    m = D_8005C380[21];
+                    break;
+                default:
+                    if (obj->invincibility_state == 5) {
+                        m = D_8005C3E0;
+                    } else {
+                        m = D_8005C398;
+                    }
+                    break;
+                }
+            }
+        }
+        t = obj->state_flags;
+        if (t & 8) {
+            if (t & 0x80000) {
+                if ((t >> 28) == 3 || obj->invincibility_state == 5) {
+                    m = D_8005C4D0;
+                } else {
+                    m = D_8005C440;
+                }
+            } else if (obj->status_a & 0x2000) {
+                m = D_8005C410;
+            } else {
+                switch (t >> 28) {
+                case 3:
+                    m = D_8005C530;
+                    break;
+                case 11:
+                    m = D_8005C560;
+                    break;
+                case 12:
+                    m = D_8005C590;
+                    break;
+                default:
+                    if (obj->invincibility_state == 5) {
+                        m = D_8005C5C0;
+                        break;
+                    }
+                case 2:
+                    m = D_8005C3B0;
+                    break;
+                }
+            }
+        }
+        if (obj->state_flags & 0x10) {
+            m = D_8005C3C8;
+        }
+        stick = pads.pads[0].stick_mag;
+        if (pads.pads[0].stick_dir != 8) {
+            a = (D_80065DA4 + pads.pads[0].stick_angle) & 0xFFF;
+            d = a - obj->misc_b[1];
+            OBJ_W(obj, 0x16C) = a;
+            if (d < 0) {
+                d = obj->misc_b[1] - a;
+            }
+            if (d > 0x800) {
+                d = 0x1000 - d;
+            }
+            if (obj->state_flags & 8) {
+                v = func_8003C364(d);
+                FRAME_TIME(t);
+                obj->speed += (((m[0] * (s32)t) / 1020) * (v >> 6)) >> 6;
+                if (obj->speed <= 0x100 && !(obj->state_flags & 0x80000)) {
+                    obj->misc_b[1] = a;
+                } else if (d < 0x7C8 || (obj->state_flags & 0x80000)) {
+                    obj->misc_b[1] = func_8001FAC8(obj->misc_b[1], a, m[5], NULL);
+                } else {
+                    FRAME_TIME(t);
+                    obj->speed -= (m[3] * (s32)t) / 1020;
+                    if (obj->speed < 0) {
+                        obj->speed = 0;
+                    }
+                }
+            } else if (obj->speed <= 0x100 || d <= 0x400) {
+                if (obj->state_flags & 0x80000) {
+                    obj->misc_b[1] = func_8001FAC8(obj->misc_b[1], a, m[5], NULL);
+                } else {
+                    obj->misc_b[1] = a;
+                }
+                FRAME_TIME(t);
+                obj->speed += (m[0] * (s32)t) / 1020;
+            } else if (m[2] != 0) {
+                FRAME_TIME(t);
+                obj->speed -= (m[3] * (s32)t) / 1020;
+                if (obj->speed < 0) {
+                    obj->speed = 0;
+                }
+            } else {
+                obj->speed = 0;
+            }
+            if (obj->speed > m[1]) {
+                obj->speed = m[1];
+            }
+        } else {
+            stick = 0x100;
+            if (!(obj->status_a & 0x2000000) && m != D_8005C428 && m != D_8005C428 + 42) {
+                FRAME_TIME(t);
+                obj->speed -= (m[4] / 1020) * (s32)t;
+                if (obj->speed < 0) {
+                    obj->speed = 0;
+                }
+            }
+        }
+        stick = (stick * obj->speed) >> 8;
+        obj->misc_a[0] = ((func_8003C2F0(obj->misc_b[1]) >> 4) * stick) >> 8;
+        obj->misc_a[2] = ((func_8003C364(obj->misc_b[1]) >> 4) * stick) >> 8;
+    }
+moved:
+    if (obj == crash) {
+        *(Vec3 *)D_8006AED8 = *(Vec3 *)obj->xform.trans;
+        for (i = 7; i > 0; i--) {
+            ((s32 *)((u8 *)obj->unk8 + 0x4C))[i] = ((s32 *)((u8 *)obj->unk8 + 0x4C))[i - 1];
+        }
+        *(s32 *)((u8 *)obj->unk8 + 0x4C) = old_flags;
+    }
+    obj->status_a &= ((obj->status_a & 1) && !(obj->state_flags & 8) ? 0xF8CA0000 : 0xFACA0000) | 0x207E;
+    if (obj->status_b & 1) {
+        obj->xform.rot[1] = func_8001FAC8(obj->xform.rot[1], obj->misc_b[1], obj->misc_b[0], obj);
+    }
+    if (obj->status_b & 0x80000) {
+        obj->xform.rot[1] = func_8001FC40(obj->xform.rot[1], obj->misc_b[1], obj->misc_b[0], obj);
+    }
+    if (obj->status_b & 0x2000) {
+        obj->xform.rot[0] = func_8001FAC8(obj->xform.rot[0], obj->misc_b[2], *(s32 *)obj->unk124, NULL);
+    }
+    func_8001B0BC(obj, obj->xform.scale);
+    func_8001B630(obj, out);
+    obj->collider = NULL;
+    if (obj->status_b & 0x40) {
+        *(Vec3 *)old = *(Vec3 *)obj->xform.trans;
+        FRAME_TIME(t);
+        delta[0] = (obj->misc_a[0] * (s32)t) / 1020;
+        FRAME_TIME(t);
+        delta[1] = (obj->misc_a[1] * (s32)t) / 1020;
+        FRAME_TIME(t);
+        delta[2] = (obj->misc_a[2] * (s32)t) / 1020;
+        if (obj->status_b & 8) {
+            obj->event = 0xFF;
+            *(s16 **)0x1F80005C = D_8005D120;
+            if ((obj->state_flags >> 28) == 10) {
+                r = *(s32 **)((u8 *)OBJ_W(obj, 0x134) + 0x10);
+                *(s32 *)obj->unkFC = func_80044CA0(ret, obj, &D_800676B0, delta);
+                *(GoolObject **)D_800676B0.unk348 = crash;
+                func_8005D968(&D_800676B0);
+                n = ret[0] >> 8;
+                if (ret[0] < 0) {
+                    n = -ret[0] >> 8;
+                }
+                k = ret[2];
+                if (k < 0) {
+                    k = -k;
+                }
+                k >>= 8;
+                r[1] = func_8004F794(ret[0], ret[2]);
+                r[0] = 0x400 - func_8004F794(ret[1], func_8003D9DC(n * n + k * k) << 8);
+                r[2] = 0;
+                if (*(s32 *)obj->unkFC < OBJ_W(obj, 0x13C)) {
+                    *(s32 *)obj->unkFC = OBJ_W(obj, 0x13C);
+                }
+                OBJ_W(obj, 0x13C) = 0x80000000;
+                *(s32 *)OBJ_W(obj, 0x134) = *(s32 *)obj->unkFC;
+            } else {
+                func_8002D8E0();
+                func_8002AA94(obj, delta, D_80067E40);
+                if ((old_flags & 0x2000000) && !(obj->status_a & 1) && (old_flags & 1)) {
+                    obj->status_a |= 0x2000000;
+                }
+            }
+            func_8001AB64();
+        } else {
+            obj->xform.trans[0] += delta[0];
+            obj->xform.trans[1] += delta[1];
+            obj->xform.trans[2] += delta[2];
+        }
+        if (obj->status_b & 0x8000) {
+            func_80020670(obj, 0, path);
+            *(s32 *)obj->unkFC = path[1];
+            if (obj->status_a & 0x200) {
+                *(Vec3 *)obj->xform.trans = *(Vec3 *)old;
+            }
+        }
+        if (obj->status_b & 0x1000) {
+            k = obj->misc_b[2];
+            if (obj->misc_a[0] < k) {
+                v = -k;
+                if (obj->misc_a[0] >= v) {
+                    v = obj->misc_a[0];
+                }
+            } else {
+                v = k;
+            }
+            obj->misc_a[0] = v;
+            if (obj->misc_a[1] < k) {
+                v = -k;
+                if (obj->misc_a[1] >= v) {
+                    v = obj->misc_a[1];
+                }
+            } else {
+                v = k;
+            }
+            obj->misc_a[1] = v;
+            if (obj->misc_a[2] < k) {
+                v = -k;
+                if (obj->misc_a[2] >= v) {
+                    v = obj->misc_a[2];
+                }
+            } else {
+                v = k;
+            }
+            obj->misc_a[2] = v;
+        }
+        if ((obj->status_b & 0x4000) && *(s32 *)obj->unkFC >= obj->xform.trans[1]) {
+            if ((obj->state_flags >> 28) == 10) {
+                FRAME_TIME(t);
+                k = (u32)((s32)t * 125 << 12) / 34;
+                if (OBJ_W(obj, 0x17C) >= 0 && obj->misc_a[1] < -k && (u32)(obj->update_stamp - obj->unk110) >= 2) {
+                    a = ((obj->xform.rot[0] << 20) >> 20) / 4;
+                    a = a < 0x71 ? (a < -0x2D ? -0x2D : a) : 0x71;
+                    obj->unk114 = obj->misc_a[1];
+                    OBJ_W(obj, 0x17C) = (obj->misc_a[1] * (a >= 0 ? a + 0x80 : -a + 0x80)) >> 8;
+                    OBJ_W(obj, 0x178) = 0;
+                    goto bounce;
+                }
+                d = *(s32 *)obj->unkFC - obj->xform.trans[1];
+                if (d >= (s32)k / 30) {
+                bounce:
+                    v = OBJ_W(obj, 0x17C) + 0x1D292;
+                    obj->status_a |= 1;
+                    OBJ_W(obj, 0x17C) = v;
+                    obj->unk110 = game.frames;
+                    v /= 30;
+                    OBJ_W(obj, 0x178) += v;
+                    if (OBJ_W(obj, 0x178) > 0) {
+                        OBJ_W(obj, 0x178) = 0;
+                    }
+                    k = obj->xform.trans[1];
+                    if (k < *(s32 *)obj->unkFC + OBJ_W(obj, 0x178)) {
+                        k = *(s32 *)obj->unkFC + OBJ_W(obj, 0x178);
+                    }
+                    obj->xform.trans[1] = k;
+                    if (OBJ_W(obj, 0x17C) > 0) {
+                        obj->misc_a[1] = v * 22;
+                        FRAME_TIME(t);
+                        obj->misc_a[1] = (u32)(v * 374 * 2) / t;
+                    }
+                    goto done;
+                }
+                if ((obj->state_flags >> 28) == 10) {
+                    obj->misc_a[1] = d * ((obj->speed * 44) / 2048000);
+                    FRAME_TIME(t);
+                    OBJ_W(obj, 0x17C) = 0;
+                    obj->misc_a[1] = (u32)(obj->misc_a[1] * 34) / t;
+                }
+            }
+            obj->status_a |= 1;
+            obj->xform.trans[1] = *(s32 *)obj->unkFC;
+            obj->unk110 = game.frames;
+            if (obj->misc_a[1] < 0) {
+                obj->unk114 = obj->misc_a[1];
+                obj->misc_a[1] = 0;
+            }
+        }
+    }
+done:
+    if ((obj->status_b & 0x200000) && rider != NULL && (old_flags & 0x4000)) {
+        delta[0] = obj->xform.trans[0] - prev[0];
+        delta[1] = obj->xform.trans[1] - prev[1];
+        delta[2] = obj->xform.trans[2] - prev[2];
+        rider->xform.trans[0] += delta[0];
+        rider->xform.trans[1] += delta[1];
+        rider->xform.trans[2] += delta[2];
+        delta[0] = rider->xform.trans[0] - obj->xform.trans[0];
+        delta[1] = rider->xform.trans[1] - obj->xform.trans[1];
+        delta[2] = rider->xform.trans[2] - obj->xform.trans[2];
+        old[0] = ((obj->xform.rot[0] - prev[3]) << 20) >> 20;
+        old[1] = ((obj->xform.rot[1] - prev[4]) << 20) >> 20;
+        old[2] = obj->xform.rot[2];
+        if (old[0] != 0 || old[1] != 0) {
+            func_8001FFF0(delta, obj->xform.trans, old, NULL, 0, rider->xform.trans);
+            rider->misc_b[1] += old[1];
+        }
+    }
+    if (obj->status_b & 0x20) {
+        FRAME_TIME(t);
+        obj->misc_a[1] -= ((s32)t * 0x3E8000) / 1020;
+        if (obj->misc_a[1] < -0x2EE000) {
+            obj->misc_a[1] = -0x2EE000;
+        }
+    }
+    if (obj->status_b & 0x10) {
+        if (func_80031BD0((s32)obj, obj->xform.trans, crash->xform.trans, D_8006921C[0], D_8006921C[1], D_8006921C[2]) == 0) {
+            anim = (u8 *)obj->unkE8;
+            n = 1;
+            if (anim != NULL && anim[0] == 1) {
+                n = *(s32 *)(*(u8 **)((u8 *)obj->unk8 + 0x20) + 0x14);
+            }
+            for (i = 0; i < n; i++) {
+                func_8002D0E8(obj, 1, i);
+            }
+        }
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_8001E78C);
+#endif
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 

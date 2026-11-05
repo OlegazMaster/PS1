@@ -325,9 +325,70 @@ s32 func_80037EDC(GoolObject *obj, u32 op, u32 flags) {
     return 0;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_8003808C);
+s32 func_8001E3BC(GoolObject *sender, GoolObject *to, u32 event, s32 type, s32 argc, u32 *argv);
+/* Instruction: as func_80037EDC, with func_8001E3BC (type (op >> 21) & 7). */
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80038248);
+s32 func_8003808C(GoolObject *obj, u32 op, u32 flags) {
+    u32 argv[16];
+    GoolObject *to;
+    u32 *ev;
+    s32 n;
+    s32 i;
+
+    to = *(GoolObject **)((u8 *)obj + ((op >> 19) & 0x1C) + 0x40);
+    ev = GoolRef(obj, op & 0xFFF);
+    obj->status_a &= ~0x20000;
+    if (*GoolReg(obj, (op >> 12) & 0x3F) != 0 && to != NULL && ev != NULL) {
+        n = (op >> 18) & 7;
+        for (i = 0; i < n; i++) {
+            argv[i] = obj->sp[i - n];
+        }
+        func_8001E3BC(obj, to, *ev, (op >> 21) & 7, n, argv);
+    } else {
+        obj->unkD4 = 0;
+    }
+    if (!(obj->status_a & 0x20000)) {
+        obj->sp -= (op >> 18) & 7;
+    } else {
+        if (flags & 2) {
+            return -0xFF;
+        }
+        obj->sp--;
+    }
+    return 0;
+}
+
+s32 func_8001E34C(GoolObject *sender, u32 event, s32 type, s32 argc, u32 *argv);
+/* Instruction: as func_80037EDC, but sends the event to all the objects of
+ * type (op >> 21) & 7 (func_8001E34C). */
+
+s32 func_80038248(GoolObject *obj, u32 op, u32 flags) {
+    u32 argv[16];
+    u32 *ev;
+    s32 n;
+    s32 i;
+
+    ev = GoolRef(obj, op & 0xFFF);
+    obj->status_a &= ~0x20000;
+    if (*GoolReg(obj, (op >> 12) & 0x3F) != 0 && ev != NULL) {
+        n = (op >> 18) & 7;
+        for (i = 0; i < n; i++) {
+            argv[i] = obj->sp[i - n];
+        }
+        func_8001E34C(obj, *ev, (op >> 21) & 7, n, argv);
+    } else {
+        obj->unkD4 = 0;
+    }
+    if (!(obj->status_a & 0x20000)) {
+        obj->sp -= (op >> 18) & 7;
+    } else {
+        if (flags & 2) {
+            return -0xFF;
+        }
+        obj->sp--;
+    }
+    return 0;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800383DC);
 

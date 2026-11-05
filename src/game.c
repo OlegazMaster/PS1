@@ -3,6 +3,8 @@
 #include "game.h"
 #include "ns.h"
 
+extern s32 D_80060ABC; /* level.c: the current level */
+
 #ifndef NON_MATCHING
 char D_800609CC[] = "pb??B"; /* the literal of func_80030940 */
 #endif
@@ -12,7 +14,40 @@ char D_800609CC[] = "pb??B"; /* the literal of func_80030940 */
  * points. */
 
 
+extern u8 D_8005D120[];
+void func_80015798(void);
+#ifdef NON_MATCHING
+/* Starts a level: creates the objects of the interface (except in the
+ * levels 0x28..0x2A and 0x3A..0x3C) and loads their executables.
+ * Equivalent; the original computes the address of game again for the objects. */
+void func_8002FA1C(void) {
+    game.unk164 = 0;
+    game.unk18C = 0;
+    game.unk1F0 = 0;
+    game.unk1F4 = 0;
+    game.unk224 = 0;
+    game.unk220 = 0;
+    func_80015798();
+    game.pause_obj = 0;
+    if (D_80060ABC < 0x28 || (D_80060ABC >= 0x2B && (D_80060ABC >= 0x3D || D_80060ABC < 0x3A))) {
+        game.unk7C = (s32)GoolObjectCreate((GoolObject *)&game.handles[1], 4, 0, 0, NULL, 0);
+        game.unk78 = (s32)GoolObjectCreate((GoolObject *)&game.handles[1], 4, 1, 0, NULL, 0);
+        game.unk98 = (s32)GoolObjectCreate((GoolObject *)&game.handles[1], 4, 5, 0, NULL, 0);
+        game.unkD4 = (s32)GoolObjectCreate((GoolObject *)&game.handles[1], 4, 0x16, 0, NULL, 0);
+        NSOpen(&ns.ldat->exec_map[0], 0, 1);
+        NSOpen(&ns.ldat->exec_map[5], 0, 1);
+        NSOpen(&ns.ldat->exec_map[0x1D], 0, 1);
+        NSOpen(&ns.ldat->exec_map[0x22], 0, 1);
+        NSOpen(&ns.ldat->exec_map[3], 0, 1);
+        NSOpen(&ns.ldat->exec_map[4], 0, 1);
+        NSOpen(&ns.ldat->exec_map[9], 0, 1);
+    }
+    func_8002FDC4(1);
+    *(u8 **)0x1F80005C = D_8005D120;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/game", func_8002FA1C);
+#endif
 
 void *memset(void *dst, s32 c, s32 n);
 extern u8 D_8006B0E8[40][4][9]; /* save data (sys.c) */
@@ -454,7 +489,6 @@ u32 NSStringToEID(char *str);
 char NSAlphaNumChar(s32 idx);
 s32 NSCountEntries(NsState *nss, s32 type);
 s32 func_80032160(s32 n); /* random number below n */
-extern s32 D_80060ABC; /* level.c: the current level */
 #ifdef NON_MATCHING
 /* Picks one of the demos of the level at random: puts its EID ("pbNlB") in
  * *eid, or the null EID if there is none.

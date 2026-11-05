@@ -1092,7 +1092,183 @@ s32 func_80020638(void) {
     return -0xFF;
 }
 
+s32 func_80032DF8(s32 a, s32 b, s32 c, s32 d, s32 e, s32 f, s32 def);
+s32 func_80032EDC(s32 a, s32 b, s32 c, s32 f);
+u8 *func_80032710(u8 *item, s32 tag, s32 pos, s32 index, s32 *outcount, s32 mode, u8 *buf, s32 count, s32 def);
+s32 func_8004F794(s32 x, s32 z); /* angle of (x, z) */
+void *memset(void *dst, s32 c, s32 n);
+#define OBJ_RANGE(obj) (*(s32 *)((u8 *)(obj) + 0x134))
+#ifdef NON_MATCHING
+/* The point of the path (property 0x4B) of the entity of obj at progress
+ * prog (point << 8 | fraction), into out. With status_b 0x8000, follows obj
+ * instead: the nearest point of the path (its distance to the side goes to
+ * misc_c[1], its progress to unkD4); the angles of obj then face along the
+ * path. Returns the number of points (-14 without an entity).
+ * Equivalent; the original keeps origin in fp and dx in s7 (swapped here). */
+s32 func_80020670(GoolObject *obj, s32 prog, s32 *out) {
+    s32 next[3];
+    s32 dir[3];
+    s32 unused[8]; /* takes stack space in the original */
+    s32 near[3];
+    u8 buf[4];
+    u8 *ent;
+    u8 *hdr;
+    s32 *origin;
+    s32 shift;
+    s32 n;
+    s32 m;
+    s32 idx;
+    s32 frac;
+    s16 *pt;
+    s32 dx;
+    s32 dz;
+    s32 len;
+    s32 t;
+    s32 ax;
+    s32 az;
+    s32 base;
+    s32 nx;
+    s32 bx;
+    s32 bz;
+    s32 b2;
+    s32 nz;
+    u32 old;
+
+    ent = (u8 *)obj->unkF0;
+    if (obj == NULL || ent == NULL) {
+        return -0xE;
+    }
+    hdr = *(u8 **)(ent + 4);
+    if (*(s32 *)(hdr + 8) == 7) {
+        origin = *(s32 **)(hdr + 0x14);
+        shift = func_80032DF8((s32)ent, 0x30E, 0, 0, 0, 2, 2);
+    }
+    n = func_80032EDC((s32)ent, 0x4B, 0, 2);
+again:
+    idx = prog >> 8;
+    if (prog < 0) {
+        idx = -prog >> 8;
+    }
+    m = func_80032EDC((s32)ent, 0x4B, 0, 2);
+    if (idx == m - 1 && idx != 0) {
+        frac = (prog & 0xFF) + 0x100;
+        idx = m - 2;
+    } else {
+        frac = prog & 0xFF;
+    }
+    pt = (s16 *)func_80032710(ent, 0x4B, 0, 0, NULL, 2, NULL, 0, 0) + ((idx << 8) >> 8) * 3;
+    out[0] = ((pt[0] << shift) + origin[0]) << 8;
+    out[1] = ((pt[1] << shift) + origin[1]) << 8;
+    out[2] = ((pt[2] << shift) + origin[2]) << 8;
+    if (n == 1) {
+        return 1;
+    }
+    pt += 3;
+    next[0] = ((pt[0] << shift) + origin[0]) << 8;
+    next[1] = ((pt[1] << shift) + origin[1]) << 8;
+    next[2] = ((pt[2] << shift) + origin[2]) << 8;
+    dir[0] = next[0] - out[0];
+    dir[1] = next[1] - out[1];
+    dir[2] = next[2] - out[2];
+    if (obj->status_b & 0x8000) {
+        dx = obj->xform.trans[0] - out[0];
+        dz = obj->xform.trans[2] - out[2];
+        if ((prog >> 8) < n - 1 && (ABS(dx) > OBJ_RANGE(obj) * 2 || ABS(dz) > OBJ_RANGE(obj) * 2)) {
+            prog = (idx + 1) << 8;
+            goto again;
+        }
+        len = func_8003D9DC(((next[0] - out[0]) >> 8) * ((next[0] - out[0]) >> 8) +
+                            ((next[2] - out[2]) >> 8) * ((next[2] - out[2]) >> 8));
+        if (len != 0) {
+            memset(buf, 0, 4);
+            buf[0] = 0x80;
+            t = ((dx >> 4) * ((next[0] - out[0]) >> 4) + (dz >> 4) * ((next[2] - out[2]) >> 4)) / len;
+            frac = t / len;
+            if (frac >= 0x100 && (prog >> 8) < n - 1) {
+                prog = (idx + 1) << 8;
+                goto again;
+            }
+            near[0] = ((t >> 4) * ((next[0] - out[0]) >> 4)) / len + out[0];
+            near[2] = ((t >> 4) * ((next[2] - out[2]) >> 4)) / len + out[2];
+            nx = near[0] - obj->xform.trans[0];
+            if (nx < 0) {
+                nx = obj->xform.trans[0] - near[0];
+            }
+            nz = near[2] - obj->xform.trans[2];
+            if (nz < 0) {
+                nz = obj->xform.trans[2] - near[2];
+            }
+            obj->misc_c[1] = nz < nx ? nx + nz / 2 : nz + nx / 2;
+            if (obj->misc_c[1] > OBJ_RANGE(obj) || (frac < 0 && idx == 0) || frac >= 0x100) {
+                obj->status_a |= 0x200;
+            }
+            if ((next[2] - out[2]) * (obj->xform.trans[0] >> 8) - (next[0] - out[0]) * (obj->xform.trans[2] >> 8) -
+                    next[2] * (out[0] >> 8) + next[0] * (out[2] >> 8) < 0) {
+                obj->misc_c[1] = -obj->misc_c[1];
+            }
+            base = prog & ~0xFF;
+            if (frac < 0xFF) {
+                obj->unkD4 = base;
+                if (frac >= 0) {
+                    obj->unkD4 = base + frac;
+                }
+            } else {
+                obj->unkD4 = base + 0xFF;
+            }
+        } else {
+            obj->status_a |= 0x200;
+            b2 = prog & ~0xFF;
+            if (frac < 0xFF) {
+                obj->unkD4 = b2;
+                if (frac >= 0) {
+                    obj->unkD4 = b2 + frac;
+                }
+            } else {
+                obj->unkD4 = b2 + 0xFF;
+            }
+            obj->misc_c[1] = 0;
+        }
+    }
+    old = obj->status_a;
+    if (obj->unkF4 < 0 || (prog >> 8) >= n - 1) {
+        obj->status_a = old | 4;
+    } else {
+        obj->status_a = old & ~4;
+    }
+    if ((obj->status_a & 4) != (old & 4) && !(obj->status_a & 0x10)) {
+        obj->status_a |= 0x10;
+    } else {
+        obj->status_a &= ~0x10;
+    }
+    if (obj->status_b & 4) {
+        if ((obj->status_b & 2) && (obj->status_a & 4)) {
+            obj->misc_b[1] = func_8004F794(-dir[0], -dir[2]);
+        } else {
+            obj->misc_b[1] = func_8004F794(dir[0], dir[2]);
+        }
+        if (obj->status_b & 0x800) {
+            ax = ABS(dir[0]);
+            az = ABS(dir[2]);
+            obj->xform.rot[2] = func_8004F794(dir[0], dir[2]);
+            obj->misc_b[2] = -func_8004F794(dir[1], az < ax ? ax + az / 2 : az + ax / 2);
+        }
+    } else if (obj->status_b & 0x800) {
+        bx = ABS(dir[0]);
+        bz = ABS(dir[2]);
+        obj->misc_b[2] = func_8004F794(dir[1], bz < bx ? bx + bz / 2 : bz + bx / 2);
+        obj->xform.rot[2] = func_8004F794(-dir[0], -dir[2]);
+    }
+    next[0] = ((next[0] - out[0]) * frac) >> 8;
+    next[1] = ((next[1] - out[1]) * frac) >> 8;
+    next[2] = ((next[2] - out[2]) * frac) >> 8;
+    out[0] += next[0];
+    out[1] += next[1];
+    out[2] += next[2];
+    return n;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/interp", func_80020670);
+#endif
 
 /* Sets spawn flag 8 of the entities listed for zone in D_8006AEE8 (each
  * value: zone << 9 | entity). */

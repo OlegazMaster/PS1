@@ -77,7 +77,8 @@ segments:
       - [0x12694, c, camera]       # camera along its path
       - [0x1B294, c, coll]         # collision with the zone surfaces and objects
       - [0x2021C, c, game]         # game state: new game, level objects, spawns
-      - [0x21234, asm, "21234"]   # rest of the game C code, to be split into files
+      - [0x21234, c, math]         # geometry and random numbers
+      - [0x22A68, asm, "22A68"]   # rest of the game C code, to be split into files
       - [0x2A63C, asm, nd_asm]    # Naughty Dog's hand-written assembly (uses the GTE)
       - [0x35F50, asm, psyq]      # PSY-Q libraries (libcd, libgpu, libspu, libapi, ...)
       - [0x4C440, data, "4C440"]
@@ -91,7 +92,8 @@ segments:
       - [0x51130, .sdata, camera]
       - [0x511C0, .sdata, coll]
       - [0x511CC, .sdata, game]
-      - [0x511D4, sdata, "511D4"]
+      - [0x511D4, .sdata, math]
+      - [0x511DC, sdata, "511DC"]
       - { start: 0x51238, type: sbss, vram: 0x80060A38, name: heap_sbss }
       - { type: .sbss, vram: 0x80060A58, name: main }
       - { type: .sbss, vram: 0x80060A60, name: sys }

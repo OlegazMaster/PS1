@@ -223,23 +223,74 @@ typedef struct {
     s32 *unk10;
 } UnkCC;
 
-/* Render settings passed to the drawing functions (D_800676B0). */
+/* Render settings passed to the drawing functions (D_800676B0), set up for
+ * every frame by func_80021E94 from the properties of the camera path. */
 typedef struct {
-    u8 unk0[0xC];
+    Transform *unk0; /* 0x0: &D_80065C90.unk60, the camera */
+    void *unk4; /* 0x4: &D_80065C90.unk84.rot */
+    void *unk8; /* 0x8: &D_80065C90.unk124 */
     MATRIX *unkC; /* the current model matrix */
-    u8 unk10[0x18];
+    void *unk10; /* 0x10: &D_80065C90 */
+    void *unk14; /* 0x14..0x24: drawing functions of the level type */
+    void *unk18;
+    void *unk1C;
+    void *unk20;
+    void *unk24;
     void *unk28;
-    u8 unk2C[0x5C];
+    void *unk2C;
+    s32 unk30; /* 0x30: property 0x307 */
+    s32 unk34; /* 0x34: fog (property 0x186) */
+    s32 unk38;
+    s32 unk3C;
+    s32 unk40; /* 0x40: property 0x1B8 */
+    s32 unk44;
+    u8 unk48[0x8];
+    s32 unk50;
+    s32 unk54;
+    s32 unk58;
+    s32 unk5C;
+    u8 unk60[0x4];
+    s16 unk64;
+    s16 unk66;
+    s32 unk68;
+    s16 unk6C;
+    s16 unk6E;
+    s32 unk70;
+    s32 unk74; /* 0x74: property 0x1B6 */
+    s32 unk78;
+    s32 unk7C;
+    s32 unk80;
+    s32 unk84;
     s32 unk88;
-    u8 unk8C[0xC];
+    s32 unk8C;
+    s32 unk90;
+    s32 unk94;
     s32 unk98;
-    u8 unk9C[0x9C];
+    s32 unk9C;
+    u8 unkA0[0xC];
+    s32 unkAC;
+    s32 unkB0;
+    void *unkB4;
+    s32 unkB8[28];
+    s32 unk128;
+    s32 unk12C;
+    s32 unk130;
+    void *unk134;
     s32 unk138;
-    u8 unk13C[0x4];
+    void *unk13C;
     s32 unk140[64];
-    u8 unk240[0x138];
-    u32 unk378;
-} RenderState;
+    u8 unk240[0x100];
+    s16 unk340; /* 0x340: Crash relative to the camera */
+    s16 unk342;
+    s32 unk344;
+    u8 unk348[0x18];
+    s32 unk360;
+    u8 unk364[0x8];
+    s32 unk36C;
+    s32 unk370;
+    s32 unk374;
+    u32 unk378; /* 0x378: property 0x185, the render flags of the level */
+} RenderState; /* 0x37C */
 
 /* The state of a level saved at a checkpoint (func_8002FF3C). */
 typedef struct {

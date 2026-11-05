@@ -74,8 +74,367 @@ void func_800215E8(Entry *zone, u32 *path, s32 progress, u32 flags);
 void func_80025188(s32 *v);
 void func_80012EAC(void);
 
-/* .sdata: names of the water and terrain entries (string literals of
- * func_80021E94 while it is still assembly) */
+/* names of the water and terrain entries (defined after func_80021E94) */
+extern char D_80060930[];
+extern char D_80060938[];
+extern char D_80060940[];
+extern char D_80060948[];
+extern char D_80060950[];
+extern char D_80060958[];
+extern char D_80060960[];
+extern char D_80060968[];
+extern char D_80060970[];
+extern char D_80060978[];
+extern char D_80060980[];
+extern char D_80060988[];
+extern char D_80060990[];
+extern char D_80060998[];
+extern char D_800609A0[];
+extern char D_800609A8[];
+extern char D_800609B0[];
+extern char D_800609B8[];
+
+extern s32 paused;
+u32 NSStringToEID(char *str);
+void func_80011F68(void);
+void func_80019090(void *a, void *b);
+/* Drawing routines (in nd_asm). */
+extern u8 D_8003E520[];
+extern u8 D_8003F518[];
+extern u8 D_8003FA00[];
+extern u8 D_80041550[];
+extern u8 D_800415A4[];
+extern u8 D_80041618[];
+extern u8 nd_entry_80041648[];
+extern u8 D_800418C4[];
+extern u8 nd_entry_800418CC[];
+extern u8 D_80041C64[];
+extern u8 D_80041CF0[];
+extern u8 D_80041D28[];
+extern u8 D_80041DD8[];
+extern u8 D_80041E1C[];
+extern u8 D_80041E58[];
+extern u8 D_80041E88[];
+extern u8 D_80042648[];
+extern u8 D_80042764[];
+extern u8 D_800428D0[];
+extern u8 D_80042994[];
+extern u8 D_800429E4[];
+extern u8 D_80042ADC[];
+extern u8 D_80042EF8[];
+extern u8 D_80042F70[];
+extern u8 D_80043004[];
+extern RenderState D_800676B0; /* D_80065C90.render */
+#define RS D_800676B0
+/* The words after the render state (D_80065C90.unk1D9C..). */
+typedef struct {
+    RenderState r;
+    s32 unk37C;
+    s32 unk380;
+    s32 unk384;
+} RenderStateX;
+#define RSX (*(RenderStateX *)&D_800676B0)
+#define CAM (*(Unk80065C90 *)((u8 *)&D_800676B0 - 0x1A20))
+/* Loads the pages of a texture (the CLUTs of its items). */
+#define TPAGE_LOAD(t)                                                     \
+    for (i = 0; i < ((u16 *)(t))[1]; i++) {                               \
+        func_80019090((u8 *)(t) + (i * 0x10 + 8) + 4, (u8 *)(t) + 4);      \
+    }
+#ifdef NON_MATCHING
+/* Sets up the render settings of the frame (D_800676B0) from the
+ * properties of the camera path: the drawing functions of the level type,
+ * fog, far color, light, the objects lit by a point, water and terrain.
+ * Equivalent; differs in a few registers and in the scheduling of the start. */
+void func_80021E94(void) {
+    s16 *h1;
+    s16 *h2;
+    s16 *h3;
+    s16 *h4;
+    s32 *p1;
+    s32 *p3;
+    s32 *p4;
+    s32 *p5;
+    s32 *p6;
+    u8 b2AA[8];
+    u8 b2ED[8];
+    u8 b1B5[16];
+    u8 b2F9[8];
+    u32 eid[4];
+    s32 i;
+    u8 *t;
+    Entry *e;
+    GoolObject *o;
+    Transform *c1;
+    Transform *c2;
+    GoolObject *o1;
+    GoolObject *o2;
+    u8 v;
+
+    RS.unk0 = &CAM.unk60;
+    RS.unk4 = (u8 *)&CAM + 0x90;
+    RS.unk8 = (u8 *)&CAM + 0x124;
+    RS.unkC = &CAM.unk20;
+    RSX.unk384 = 3;
+    RSX.unk380 = 4;
+    RSX.unk37C = 4;
+    RS.unk10 = &CAM;
+    RS.unk36C = 6;
+    RS.unk14 = D_8003F518;
+    RS.unk340 = (crash->xform.trans[0] - RS.unk0->trans[0]) >> 8;
+    RS.unk342 = (crash->xform.trans[1] - RS.unk0->trans[1]) >> 8;
+    RS.unk344 = (crash->xform.trans[2] - RS.unk0->trans[2]) >> 8;
+    h1 = (s16 *)func_80032710(CAM.unkD4, 0x307, CAM.unkE0, 0, NULL, 0, 0, 0, 0);
+    if (h1 != NULL) {
+        RS.unk30 = *(u16 *)h1;
+    } else {
+        RS.unk30 = 6;
+    }
+    p1 = (s32 *)func_80032710(CAM.unkDC, 0x185, CAM.unkE0, 0, NULL, 0, 0, 0, 0);
+    if (p1 != NULL) {
+        RS.unk378 = *p1;
+    } else {
+        RS.unk378 = 0;
+    }
+    game.unk23C = RS.unk378;
+    func_80011F68();
+    RS.unk28 = (s32)RS.unk378 < 0 ? D_80041618 : D_80041550;
+    p3 = NULL;
+    if (RS.unk378 & 0x1001) {
+        p3 = (s32 *)func_80032710(CAM.unkDC, 0x186, CAM.unkE0, 0, NULL, 0, 0, 0, 0);
+    }
+    if (p3 != NULL) {
+        if (RS.unk378 & 1) {
+            RS.unk36C = 10;
+        }
+        RS.unk38 = p3[2];
+        RS.unk3C = p3[1];
+        game.unk370 = RS.unk370 = p3[3];
+        game.unk374 = RS.unk374 = p3[4];
+        if (!(RS.unk378 & 0x40000000)) {
+            RS.unk34 = p3[0] << 4;
+            game.unk1D4 = game.unk238 = p3[0];
+        } else {
+            RS.unk34 = game.unk238 << 4;
+        }
+    } else {
+        RS.unk370 = 0;
+        RS.unk374 = 0;
+        game.unk238 = 0x80000000;
+    }
+    if (RS.unk378 & 0x400000) {
+        h2 = (s16 *)func_80032710(CAM.unkDC, 0x2AA, CAM.unkE0, 0, NULL, 3, (s32)b2AA, 0, 0);
+        if (ns.ldat->lid == 0x28) {
+            RS.unk28 = D_800415A4;
+        }
+        if (h2 != NULL) {
+            RS.unk98 = h2[0];
+            RS.unk8C = h2[1];
+            RS.unk94 = h2[2];
+            RS.unk90 = h2[3];
+        }
+    } else {
+        RS.unk98 = 0;
+    }
+    if (RS.unk378 & 0x10) {
+        h3 = (s16 *)func_80032710(CAM.unkDC, 0x1B5, CAM.unkE0, 0, NULL, 3, (s32)b1B5, 0, 0);
+        if (h3 != NULL) {
+            if (paused == 0) {
+                RS.unk64 = RS.unk6C;
+                RS.unk66 = RS.unk6E;
+                RS.unk68 = RS.unk70;
+                if (game.display_flags & 0x10000000) {
+                    RS.unk6C -= game.unk1B4;
+                    RS.unk6E -= game.unk1B8;
+                    RS.unk70 -= game.unk1BC;
+                } else {
+                    RS.unk6C -= ((u16 *)h3)[0];
+                    RS.unk6E -= ((u16 *)h3)[1];
+                    RS.unk70 -= h3[2];
+                }
+            }
+            if (game.display_flags & 0x10000000) {
+                RS.unk88 = game.unk1C0;
+            } else {
+                game.unk1C0 = RS.unk88 = h3[3];
+            }
+            RS.unk80 = h3[4];
+            RS.unk84 = h3[5];
+        }
+        p4 = (s32 *)func_80032710(CAM.unkDC, 0x1B6, CAM.unkE0, 0, NULL, 0, 0, 0, 0);
+        if (p4 != NULL) {
+            RS.unk74 = p4[0];
+            RS.unk78 = p4[1];
+            RS.unk7C = p4[2];
+        }
+    } else {
+        RS.unk88 = 0;
+    }
+    if (RS.unk378 & 0x800004) {
+        func_80032710(CAM.unkDC, 0x1B7, CAM.unkE0, 0, NULL, 0, 0, 0, 0);
+        o1 = (GoolObject *)game.unk240;
+        RS.unk14 = D_80041E88;
+        RS.unk18 = nd_entry_80041648;
+        RS.unk1C = D_800418C4;
+        RS.unk20 = D_80042EF8;
+        RS.unk24 = D_80042F70;
+        RS.unk2C = D_8003E520;
+        RS.unk36C = 8;
+        RSX.unk37C = 5;
+        if (o1 != NULL) {
+            c1 = &CAM.unk60;
+            RS.unk58 = ((((o1->xform.trans[1] - c1->trans[1]) >> 8) & 0xFFFE) << 16) |
+                       (((o1->xform.trans[0] - CAM.unk60.trans[0]) >> 8) & 0xFFFF);
+            RS.unk5C = (o1->xform.trans[2] - c1->trans[2]) >> 8;
+        } else {
+            RS.unk58 = 0x80008000;
+            RS.unk5C = -0x8000;
+        }
+        o2 = (GoolObject *)game.unk138;
+        if (o2 != NULL) {
+            c2 = &CAM.unk60;
+            RS.unk50 = ((((o2->xform.trans[1] - c2->trans[1]) >> 8) & 0xFFFE) << 16) |
+                       (((o2->xform.trans[0] - c2->trans[0]) >> 8) & 0xFFFF);
+            RS.unk54 = (o2->xform.trans[2] - c2->trans[2]) >> 8;
+        } else {
+            RS.unk50 = 0x80008000;
+            RS.unk54 = -0x8000;
+        }
+    }
+    if (RS.unk378 & 8) {
+        p5 = (s32 *)func_80032710(CAM.unkDC, 0x1B8, CAM.unkE0, 0, NULL, 0, 0, 0, 0);
+        if (p5 != NULL) {
+            RS.unk40 = p5[0];
+            RS.unk44 = p5[1];
+        }
+        RS.unk14 = D_80041E1C;
+        RS.unk18 = D_80041C64;
+        RS.unk1C = D_80041D28;
+        RS.unk20 = D_80041CF0;
+        RS.unk24 = D_80041DD8;
+        RS.unk360 = game.unk280;
+    }
+    if (RS.unk378 & 0x8000000) {
+        p6 = (s32 *)func_80032710(CAM.unkDC, 0x1B8, CAM.unkE0, 0, NULL, 0, 0, 0, 0);
+        if (p6 != NULL) {
+            RS.unk40 = p6[0];
+            RS.unk44 = p6[1];
+        }
+        RS.unk14 = D_80043004;
+        RS.unk18 = D_800428D0;
+        RS.unk1C = D_800429E4;
+        RS.unk20 = D_80042994;
+        RS.unk24 = D_80042ADC;
+        RS.unk2C = D_8003FA00;
+        RS.unk36C = 8;
+        RS.unk360 = 0x282C300;
+        RSX.unk37C = 5;
+    }
+    if (RS.unk378 & 0x40) {
+        RS.unk14 = D_80041E58;
+        RS.unk18 = nd_entry_80041648;
+        RS.unk1C = nd_entry_800418CC;
+        RS.unk20 = D_80042648;
+        RS.unk24 = D_80042764;
+    }
+    if (RS.unk378 & 0x4000000) {
+        h4 = (s16 *)func_80032710(CAM.unkD8, 0x2F9, CAM.unkE0, 0, NULL, 3, (s32)b2F9, 0, 0);
+        game.unk2F0 = h4[0] << 8;
+        game.unk2F4 = h4[1] << 8;
+        game.unk2F8 = h4[2] << 8;
+        game.unk2FC = h4[3] << 8;
+    }
+    game.unk360 = func_80032DF8(CAM.unkDC, 0x345, CAM.unkE0, 0, 0, 3, 0);
+    if (RS.unk378 & 0x1000000) {
+        func_80032710(CAM.unkD8, 0x2ED, CAM.unkE0, 0, NULL, 3, (s32)b2ED, 0, 0);
+        eid[0] = NSStringToEID(D_80060930);
+        e = (Entry *)NSOpen(eid, 1, 0);
+        for (i = 0; i < 14; i++) {
+            RS.unkB8[i] = (s32)e->items[i];
+        }
+        eid[0] = NSStringToEID(D_80060938);
+        e = (Entry *)NSOpen(eid, 1, 0);
+        for (i = 0; i < 14; i++) {
+            RS.unkB8[i + 14] = (s32)e->items[i];
+        }
+        RS.unk128 = RS.unkB8[0];
+        if (RS.unk378 & 0x8000000) {
+            RS.unk9C = -0x12C0;
+            RS.unk28 = D_800415A4;
+            RS.unkAC = 0;
+            RS.unkB0 = 0;
+            t = e->items[14];
+            TPAGE_LOAD(t);
+            RS.unkB4 = t + 8;
+        } else {
+            RS.unk9C = 0;
+            switch ((u32)ns.ldat->lid) {
+            case 25:
+                eid[0] = NSStringToEID(D_80060940);
+                eid[1] = NSStringToEID(D_80060948);
+                eid[2] = NSStringToEID(D_80060950);
+                break;
+            case 13:
+                eid[0] = NSStringToEID(D_80060958);
+                eid[1] = NSStringToEID(D_80060960);
+                eid[2] = NSStringToEID(D_80060968);
+                break;
+            case 33:
+                eid[0] = NSStringToEID(D_80060970);
+                eid[1] = NSStringToEID(D_80060978);
+                eid[2] = NSStringToEID(D_80060980);
+                break;
+            case 39:
+                eid[0] = NSStringToEID(D_80060988);
+                eid[1] = NSStringToEID(D_80060990);
+                eid[2] = NSStringToEID(D_80060998);
+                break;
+            }
+            RS.unkAC = (s32)((Entry *)NSOpen(&eid[0], 1, 0))->items[0];
+            RS.unkB0 = (s32)((Entry *)NSOpen(&eid[1], 1, 0))->items[0];
+            e = (Entry *)NSOpen(&eid[2], 1, 0);
+            RS.unk130 = (s32)e->items[0];
+            t = e->items[1];
+            TPAGE_LOAD(t);
+            RS.unk134 = t + 8;
+            t = e->items[2];
+            TPAGE_LOAD(t);
+            RS.unk13C = t + 8;
+            t = e->items[3];
+            TPAGE_LOAD(t);
+            RS.unkB4 = t + 8;
+            t = e->items[4];
+            RS.unk12C = (s32)t;
+            v = t[((crash->xform.trans[2] >> 19) << 6) + (crash->xform.trans[0] >> 20)];
+            game.unk2F0 = -(((crash->xform.trans[0] >> 19) & 1 ? v >> 4 : v & 0xF) << 8);
+        }
+    }
+    if (RS.unk378 & 0x10000000) {
+        switch ((u32)ns.ldat->lid) {
+        case 19:
+            eid[3] = NSStringToEID(D_800609A0);
+            break;
+        case 23:
+            eid[3] = NSStringToEID(D_800609A8);
+            break;
+        case 31:
+            eid[3] = NSStringToEID(D_800609B0);
+            break;
+        case 5:
+            eid[3] = NSStringToEID(D_800609B8);
+            break;
+        }
+        e = (Entry *)NSOpen(&eid[3], 1, 0);
+        t = e->items[0];
+        TPAGE_LOAD(t);
+        RS.unkB4 = t + 8;
+        RS.unkB8[0] = (s32)e->items[1];
+    }
+}
+#else
+INCLUDE_ASM("asm/us/nonmatchings/camera", func_80021E94);
+#endif
+
+/* .sdata: names of the water and terrain entries  */
 char D_80060930[] = "Wat1R";
 char D_80060938[] = "Wat2R";
 char D_80060940[] = "Wat6R";
@@ -94,8 +453,6 @@ char D_800609A0[] = "Ter1R";
 char D_800609A8[] = "Ter2R";
 char D_800609B0[] = "Ter3R";
 char D_800609B8[] = "Ter4R";
-
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80021E94);
 
 s32 func_80032710(s32 a, s32 id, s32 pos, s32 b, s32 *out, s32 c, s32 d, s32 e, s32 f);
 void func_80022DA0(s32 count, u32 *refs, u32 flags, s32 n);

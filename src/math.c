@@ -190,7 +190,43 @@ s32 func_80031E34(s32 a, s32 b, s32 t, s32 max) {
     return (a + ((t * d) >> 8)) & 0xFFF;
 }
 
+#ifdef NON_MATCHING
+/* The yaw (out[1]) and pitch (out[0]) of the direction -v; pitch -0x400
+ * when it points more than a quarter turn away from yaw.
+ * Equivalent; the original keeps the first product in another register. */
+void func_80031E84(s32 *out, s32 *v, s32 yaw) {
+    s32 x;
+    s32 z;
+    s32 a;
+    s32 d;
+    s32 c;
+
+    x = -v[0];
+    z = -v[2];
+    a = func_8004F794(x, z) & 0xFFF;
+    yaw &= 0xFFF;
+    d = a - yaw;
+    if (d > 0x800) {
+        d -= 0x1000;
+    } else if (d < -0x800) {
+        d += 0x1000;
+    }
+    out[1] = a;
+    if ((u32)(d + 0x400) <= 0x800) {
+        a = -a;
+        c = func_8003C364(a);
+        yaw = (((z >> 8) * c) >> 4) - (((x >> 8) * func_8003C2F0(a)) >> 4);
+        func_8003C2F0(a);
+        func_8003C364(a);
+        out[0] = func_8004F794(v[1], yaw) & 0xFFF;
+    } else {
+        out[0] = -0x400;
+    }
+    out[2] = 0;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/math", func_80031E84);
+#endif
 
 /* Angle a turned halfway towards b (12-bit angles). */
 

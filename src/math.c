@@ -23,7 +23,130 @@ void func_80030A34(s32 *out, s32 len, s32 pitch, s32 yaw) {
     out[2] = (t * func_8003C364(yaw)) >> 4;
 }
 
+/* Where an edge of a box crosses a height. */
+typedef struct {
+    s32 x;
+    s32 hit; /* 1 if the edge crosses it */
+    s32 z;
+} Cut;
+extern u32 D_8005C824[6][4]; /* the corners of the 6 faces of a box */
+extern s8 D_8005C904[6][4]; /* the 12 edges (cuts) along the 6 faces */
+#ifdef NON_MATCHING
+/* Cuts the box pts (8 corners) at height y: puts in out the segment (2
+ * points) where each face crosses y. Returns the number of segments.
+ * Equivalent; the original allocates the registers differently. */
+s32 func_80030AD8(s32 y, s32 *pts, Vec3 *out) {
+    s32 *q[4];
+    Cut cuts[12];
+    u8 used[12];
+    u32 *f;
+    s32 i;
+    s32 k;
+    s32 n;
+    s32 t;
+    Cut *e;
+    Cut *hit;
+    s32 *p;
+    s32 *r;
+    s32 *on;
+    s8 *idx;
+
+    f = D_8005C824[0];
+    e = cuts;
+    for (i = 0; i < 4; i++) {
+        q[0] = &pts[*f++ * 3];
+        q[1] = &pts[*f++ * 3];
+        q[2] = &pts[*f++ * 3];
+        q[3] = &pts[*f++ * 3];
+        p = q[0];
+        for (k = 0; k < 3; k++, e++, p = r) {
+            e->hit = 0;
+            r = q[k + 1];
+            if (p[1] <= r[1]) {
+                if (p[1] < y && y < r[1]) {
+                    t = ((y - p[1]) << 8) / (r[1] - p[1]);
+                    e->x = (((r[0] - p[0]) * t) >> 8) + p[0];
+                    e->hit = 1;
+                    e->z = (((r[2] - p[2]) * t) >> 8) + p[2];
+                }
+            } else if (r[1] < y && y < p[1]) {
+                t = ((y - r[1]) << 8) / (p[1] - r[1]);
+                e->x = (((p[0] - r[0]) * t) >> 8) + r[0];
+                e->hit = 1;
+                e->z = (((p[2] - r[2]) * t) >> 8) + r[2];
+            }
+        }
+    }
+    n = 0;
+    f = D_8005C824[0];
+    ((s32 *)used)[2] = 0;
+    ((s32 *)used)[1] = 0;
+    ((s32 *)used)[0] = 0;
+    for (i = 0; i < 6; i++) {
+        q[0] = &pts[*f++ * 3];
+        q[1] = &pts[*f++ * 3];
+        q[2] = &pts[*f++ * 3];
+        q[3] = &pts[*f++ * 3];
+        hit = NULL;
+        on = NULL;
+        idx = D_8005C904[i];
+        for (k = 0; k < 4; k++) {
+            e = &cuts[*idx++];
+            p = q[k];
+            if (e->hit == 1) {
+                if (hit == NULL) {
+                    hit = e;
+                    continue;
+                }
+                out->v[0] = hit->x;
+                out->v[1] = y;
+                out->v[2] = hit->z;
+                out++;
+                out->v[0] = e->x;
+                out->v[1] = y;
+                out->v[2] = e->z;
+                out++;
+                n++;
+                goto next;
+            }
+            if (p[1] == y) {
+                if (on == NULL) {
+                    on = p;
+                    continue;
+                }
+                if (q[(k - 1) & 3][1] == y) {
+                    if (used[D_8005C904[i][(k - 1) & 3]]) {
+                        goto next;
+                    }
+                    used[D_8005C904[i][(k - 1) & 3]] = 1;
+                }
+                *out++ = *(Vec3 *)on;
+                *out++ = *(Vec3 *)p;
+                n++;
+                goto next;
+            }
+        }
+        if (hit == NULL) {
+            if (on != NULL) {
+                out[0] = *(Vec3 *)on;
+                out[1] = *(Vec3 *)on;
+                return 1;
+            }
+        } else {
+            out->v[0] = hit->x;
+            out->v[1] = y;
+            out->v[2] = hit->z;
+            n++;
+            out++;
+            *out++ = *(Vec3 *)on;
+        }
+    next:;
+    }
+    return n;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/math", func_80030AD8);
+#endif
 
 /* The height (y) at (x, z) of the quad (4 points x, y, z): found on the
  * line between the two edges that cross z. -999999999 if there are not two. */

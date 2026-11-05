@@ -17,3 +17,4 @@ func_80017834
 func_8002C604
 func_8002DA74
 func_8003116C
+func_80030AD8

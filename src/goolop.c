@@ -179,7 +179,38 @@ INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80036B88);
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037300);
 
+#ifdef NON_MATCHING
+/* Instruction: creates op & 0x3F objects (0: count popped) of executable
+ * (op >> 12) & 0xFF, subtype (op >> 6) & 0x3F, with (op >> 20) & 0xF
+ * arguments from the stack; unkD4 gets the last one.
+ * pop++ goes through a temporary in the original (addiu v0 / move s5) */
+void func_800376F8(GoolObject *obj, u32 op) {
+    s32 count;
+    s32 pop;
+    s32 i;
+    GoolObject *o;
+
+    count = op & 0x3F;
+    pop = (op >> 20) & 0xF;
+    if (count == 0) {
+        pop = pop + 1;
+        count = *(obj->sp - pop);
+    }
+    for (i = 0; i < count; i++) {
+        o = GoolObjectCreate(obj, (op >> 12) & 0xFF, (op >> 6) & 0x3F, (op >> 20) & 0xF,
+                             &obj->sp[-((op >> 20) & 0xF)], (op >> 24) == 0x46);
+        if ((s32)o < -0xFE) {
+            o->creator = obj;
+            obj->unkD4 = (s32)o;
+        } else {
+            obj->unkD4 = 0;
+        }
+    }
+    obj->sp -= pop;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800376F8);
+#endif
 
 s32 func_80033864(GoolObject *obj, u32 ref, s32 vol);
 /* Instruction: plays a sound (entry and volume). */
@@ -480,7 +511,22 @@ void func_800388C8(GoolObject *obj, u32 op) {
     *obj->sp++ = func_800450D4(b, a, &D_800676B0);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800389C8);
+s32 func_8004F794(s32 x, s32 z); /* angle of (x, z) */
+s32 func_8003D9DC(s32 x); /* square root */
+/* Instruction: the angles (pitch, yaw) of a vector. */
+
+void func_800389C8(GoolObject *obj, u32 op) {
+    s32 *out = (s32 *)GoolRef(obj, (op >> 12) & 0xFFF);
+    s32 *v = (s32 *)GoolRef(obj, op & 0xFFF);
+    s32 x;
+    s32 z;
+
+    x = (v[0] < 0 ? -v[0] : v[0]) >> 8;
+    z = (v[2] < 0 ? -v[2] : v[2]) >> 8;
+    out[1] = func_8004F794(v[0], v[2]);
+    out[0] = 0x400 - func_8004F794(v[1], func_8003D9DC(x * x + z * z) << 8);
+    out[2] = 0;
+}
 
 /* x with its low bits sign-extended. */
 

@@ -205,7 +205,62 @@ s32 func_8002CD8C(GoolObject *obj, s32 *pos) {
     return -0xFF;
 }
 
+void func_8002C230(GoolObject *obj, s32 *pos, s32 *to, CollQuery *q, s32 *hit);
+s32 func_8002F0F8(s32 *pos, s32 gx, s32 gz, s32 *cx, s32 *cz, GoolObject *obj, s32 a);
+void func_8002CAE4(GoolObject *obj, s32 *pos, s32 *to, CollQuery *q);
+/* One collision step of obj from pos by step: collides with the surfaces,
+ * keeps it on a free cell of the grid around it and puts the result in out. */
+
+void func_8002EC2C(s32 *pos, s32 *prev, GoolObject *obj, CollQuery *q);
+
+#ifdef NON_MATCHING
+/* Equivalent; the original schedules the loads of cx and cz differently. */
+void func_8002CEA8(GoolObject *obj, CollQuery *q, s32 *pos, s32 *step, s32 *out) {
+    s32 to[3];
+    s32 d[3];
+    s32 snap[3];
+    s32 hit;
+    s32 cx;
+    s32 cz;
+    s32 gx;
+    s32 gz;
+    s32 v;
+    s32 i;
+
+    for (i = 0; i < 3; i++) {
+        d[i] = step[i];
+    }
+    for (i = 0; i < 3; i++) {
+        to[i] = pos[i] + d[i];
+    }
+    func_8002C230(obj, pos, to, q, &hit);
+    func_8002EC2C(pos, to, obj, q);
+    gx = ((to[0] - pos[0]) << 2) / 0x2000 + 16;
+    gz = ((to[2] - pos[2]) << 2) / 0x2000 + 16;
+    if (func_8002F0F8(pos, gx, gz, &cx, &cz, obj, 0)) {
+        v = (((cx - 16) << 13) >> 2) + pos[0];
+        snap[0] = v;
+        to[0] = v;
+        v = (((cz - 16) << 13) >> 2) + pos[2];
+        snap[2] = v;
+    } else {
+        to[0] = pos[0];
+        v = pos[2];
+    }
+    to[2] = v;
+    q->steps++;
+    if ((gx != 16 || gz != gx) && (gx != cx || gz != cz)) {
+        obj->status_a |= 0x100;
+    }
+    func_8002CAE4(obj, pos, to, q);
+    func_8002CD8C(obj, to);
+    for (i = 0; i < 3; i++) {
+        out[i] = to[i];
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002CEA8);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002D0E8);
 

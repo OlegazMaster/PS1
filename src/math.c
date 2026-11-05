@@ -1,6 +1,7 @@
 #include "common.h"
 #include "gool.h"
 #include "game.h"
+#include "ns.h"
 
 /* Geometry (boxes, quads, angles, distances) and random numbers. */
 
@@ -20,13 +21,39 @@ INCLUDE_ASM("asm/us/nonmatchings/math", func_8003148C);
 
 INCLUDE_ASM("asm/us/nonmatchings/math", func_800317C0);
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80031868);
+s32 func_800317C0(void *hdr, s32 *pos);
+/* Whether pos is in zone. */
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_8003188C);
+s32 func_80031868(Entry *zone, s32 *pos) {
+    return func_800317C0(zone->items[1], pos);
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_8003191C);
+/* Whether the point p is inside the box b (x0, y0, z0, x1, y1, z1). */
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_800319B8);
+s32 func_8003188C(s32 *p, s32 *b) {
+    if (p[0] >= b[0] && p[1] >= b[1] && p[2] >= b[2] && p[0] < b[3] && p[1] < b[4] && p[2] < b[5]) {
+        return 1;
+    }
+    return 0;
+}
+
+/* Whether the boxes a and b overlap. */
+
+s32 func_8003191C(s32 *a, s32 *b) {
+    if (a[1] <= b[4] && a[4] > b[1] && a[3] > b[0] && a[5] > b[2] && a[0] <= b[3] && a[2] <= b[5]) {
+        return 1;
+    }
+    return 0;
+}
+
+/* Whether the box a is inside the box b. */
+
+s32 func_800319B8(s32 *a, s32 *b) {
+    if (a[0] >= b[0] && a[1] >= b[1] && a[2] >= b[2] && a[3] < b[3] && a[4] < b[4] && a[5] < b[5]) {
+        return 1;
+    }
+    return 0;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/math", func_80031A54);
 
@@ -36,17 +63,58 @@ INCLUDE_ASM("asm/us/nonmatchings/math", func_80031BD0);
 
 INCLUDE_ASM("asm/us/nonmatchings/math", func_80031C74);
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80031CF0);
+s32 func_8003D9DC(s32 x); /* square root */
+/* Distance (in x, z) between a and b. */
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80031D4C);
+s32 func_80031CF0(s32 *a, s32 *b) {
+    s32 d[3];
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80031DA8);
+    d[0] = (a[0] - b[0]) >> 8;
+    d[2] = (a[2] - b[2]) >> 8;
+    return func_8003D9DC(d[0] * d[0] + d[2] * d[2]) << 8;
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80031DDC);
+/* The same, coarser (for far points). */
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80031E10);
+s32 func_80031D4C(s32 *a, s32 *b) {
+    s32 d[3];
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80031E34);
+    d[0] = (a[0] - b[0]) >> 16;
+    d[2] = (a[2] - b[2]) >> 16;
+    return func_8003D9DC(d[0] * d[0] + d[2] * d[2]) << 16;
+}
+
+s32 func_8004F794(s32 x, s32 z); /* angle of (x, z) */
+/* Angle (in x, z) from a to b. */
+
+s32 func_80031DA8(s32 *a, s32 *b) {
+    return func_8004F794(b[0] - a[0], b[2] - a[2]) & 0xFFF;
+}
+
+/* Angle (in x, y) from a to b. */
+
+s32 func_80031DDC(s32 *a, s32 *b) {
+    return func_8004F794(b[0] - a[0], b[1] - a[1]) & 0xFFF;
+}
+
+/* Angle a turned towards b by t / 256 of the way. */
+
+s32 func_80031E10(s32 a, s32 b, s32 t) {
+    return (a + ((t * (((b - a) << 20) >> 20)) >> 8)) & 0xFFF;
+}
+
+/* The same, turning by at most max. */
+
+s32 func_80031E34(s32 a, s32 b, s32 t, s32 max) {
+    s32 d = ((b - a) << 20) >> 20;
+
+    if (d > 0 && d > max) {
+        d = max;
+    } else if (d < 0 && d < -max) {
+        d = -max;
+    }
+    return (a + ((t * d) >> 8)) & 0xFFF;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/math", func_80031E84);
 

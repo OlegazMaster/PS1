@@ -224,7 +224,13 @@ typedef struct {
     s32 unk20;
     s32 unk24;
     s32 unk28;
-    u8 unk2C[0x20];
+    u8 unk2C[0xC];
+    s16 vol_target; /* 0x38: volume faded to (flag 0x40) */
+    u16 pitch_target; /* 0x3A: pitch slid to (flag 0x80) */
+    s32 vol_time; /* 0x3C */
+    s32 vol_step; /* 0x40 */
+    s32 pitch_time; /* 0x44 */
+    s32 pitch_step; /* 0x48 */
 } Music; /* 0x4C */
 extern Music D_8006CF78;
 s32 func_80033000(u32 eid);
@@ -625,7 +631,179 @@ fail:
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033864);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033C54);
+/* Changes a setting (op & 0xFFFFFFF, from *arg) of the voice with handle
+ * id (0: of the next sound, -1: the voices of owner, -2: all voices); the
+ * high bits of op set flags 1, 2 and 4 (4: fade to the value). Op 13 and 14
+ * read the EID or a value of the sound entry. */
+
+s32 func_80033C54(s32 id, u32 op, u32 *arg, s32 owner) {
+    SpuVoiceAttr attr;
+    s32 unused2[10]; /* takes stack space in the original */
+    s32 in[3];
+    s32 unused[3];
+    Voice *v;
+    Music *m;
+    s32 i;
+    u32 cmd;
+    Entry *e;
+    s32 *data;
+    GoolObject *o;
+    s32 k;
+    u8 b;
+    s32 t;
+
+    if (!(game.display_flags & 0x1000) && !(((GoolObject *)owner)->state_flags & 0x40000)) {
+        return 0;
+    }
+    if (id < -98) {
+        return 0;
+    }
+    for (i = D_80060B04, v = &D_8006C7D8[i]; i < 24; i++, v++) {
+        cmd = op & 0xFFFFFFF;
+        if (id != 0 && id != -2 && id != -1 && v->handle != id) {
+            continue;
+        }
+        if (id == -1 && v->owner != owner) {
+            continue;
+        }
+        m = id == 0 ? &D_8006CF78 : (Music *)&v->flags;
+        if (id != 0 && !m->f3) {
+            continue;
+        }
+        if ((s32)op < 0) {
+            m->f0 = 1;
+        }
+        if (op & 0x40000000) {
+            m->f1 = 1;
+        }
+        if (op & 0x20000000) {
+            m->f2 = 1;
+        }
+        attr.mask = 0;
+        switch (cmd) {
+        case 0:
+            if (m->f2) {
+                m->vol_target = (u32)(*arg * D_80060AF0[0]) >> 14;
+                m->vol_time = D_80060A00;
+                if (id != 0) {
+                    m->vol_step = (m->vol_target - m->unk1A) / D_80060A00;
+                }
+                m->f6 = 1;
+            } else {
+                m->unk1A = (u32)(*arg * D_80060AF0[0]) >> 14;
+                if (id != 0) {
+                    attr.mask |= 3;
+                    *(SpuVolume *)&attr.vol_left = *(SpuVolume *)func_8003328C(m, &m->unk20, m->unk1A);
+                }
+            }
+            break;
+        case 1:
+            if (m->f2) {
+                m->pitch_target = *arg;
+                m->pitch_time = D_80060A00;
+                m->f7 = 1;
+                m->pitch_step = (m->pitch_target - (u16)m->unk1E) / D_80060A00;
+            } else {
+                m->unk1E = *arg;
+                if (id != 0) {
+                    attr.mask = 0x10;
+                    attr.pitch = (u16)m->unk1E * D_800690B4[0] / 4096;
+                }
+            }
+            break;
+        case 2:
+            *(Vec3 *)in = *(Vec3 *)arg;
+            func_800202CC(in, (s32 *)arg, 1);
+        case 3:
+            *(Vec3 *)unused = *(Vec3 *)arg;
+            if (!m->f2) {
+                *(Vec3 *)&m->unk20 = *(Vec3 *)arg;
+                if (id != 0) {
+                    *(Vec3 *)v->pos = *(Vec3 *)arg;
+                    attr.mask = 3;
+                    *(SpuVolume *)&attr.vol_left = *(SpuVolume *)func_8003328C(m, &m->unk20, m->unk1A);
+                }
+            }
+            break;
+        case 4:
+            m->unk18 = *arg;
+            break;
+        case 5:
+            m->unk8 = *arg;
+            break;
+        case 14:
+            if (*arg == 0x100) {
+                return (*(u32 *)m & 0x40010) == 0;
+            }
+            e = (Entry *)NSOpen((u32 *)v->unk10, 1, 0);
+            if ((s32)e >= -0xFE) {
+                return 0;
+            }
+            if (e->item_count < 2) {
+                return 0;
+            }
+            o = (GoolObject *)m->unk8;
+            data = (s32 *)e->items[1];
+            k = o->update_stamp - o->state_stamp + 2;
+            if (k < 0) {
+                return 0;
+            }
+            if (k >= data[0]) {
+                return 0;
+            }
+            b = *((u8 *)data + k / 2 + 4);
+            if (k & 1) {
+                return b >> 4;
+            }
+            return b & 0xF;
+        case 13:
+            if (arg != NULL) {
+                m->eid = *arg;
+                break;
+            }
+            return m->eid != 0x6396347F;
+        case 6:
+            if ((D_80060A00 = *arg) == 0) {
+                D_80060A00 = 1;
+            }
+            break;
+        case 7:
+            m->unk1C = *arg;
+            m->f4 = 1;
+            break;
+        case 8:
+            if (*arg == 1) {
+                /* called without its (unused) argument */
+                m->type = ((s32 (*)())func_80033000)();
+            } else {
+                m->type = *arg;
+            }
+            break;
+        case 10:
+            m->f14 = *arg >> 8;
+            break;
+        case 11:
+            m->f13 = *arg >> 8;
+            break;
+        case 12:
+            m->unk19 = *arg;
+            break;
+        case 9:
+            break;
+        }
+        if (attr.mask != 0) {
+            attr.voice = 1 << i;
+            func_80051F54(&attr);
+        }
+        if (id >= 0) {
+            return 0;
+        }
+    }
+    if (id >= 0) {
+        return -1;
+    }
+    return 0;
+}
 
 void func_80051714(s32 on, s32 voices); /* SpuSetKey */
 void func_80013E64(s32 a);

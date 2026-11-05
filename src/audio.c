@@ -383,7 +383,32 @@ void func_800351EC(void) {
     }
 }
 
+/* A sequence of the music. */
+typedef struct {
+    s16 id;
+    u8 unk2[0x2];
+    s32 unk4;
+    u8 unk8[0x8];
+    s16 vol_left; /* 0x10 */
+    s16 vol_right;
+} Seq;
+#ifdef NON_MATCHING
+/* Starts the sequence s as id with the volume vol (left << 16 | right).
+ * Equivalent; the original stores unk4 after loading the arguments. */
+void func_80035224(Seq *s, s32 vol, s32 id) {
+    if (D_80060AFC[0] >= 2 && id == 1) {
+        s->vol_left = s->vol_right = *(u16 *)D_80060B08;
+    } else {
+        s->vol_left = vol >> 16;
+        s->vol_right = vol;
+    }
+    s->id = id;
+    s->unk4 = -1;
+    func_80056DAC(D_80060B1C[1], id, s->vol_left, s->vol_right);
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80035224);
+#endif
 
 void func_80052DD4(s16 a);
 void func_8005AA68(s16 a);

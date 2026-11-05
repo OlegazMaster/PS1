@@ -210,7 +210,68 @@ s32 func_8003116C(s32 *pt, s32 *quad) {
 INCLUDE_ASM("asm/us/nonmatchings/math", func_8003116C);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_8003148C);
+void func_80018DD4(s32 *in, MATRIX *m, s32 *out); /* turns a vector by m */
+/* The box out around the box b turned by the matrix m and moved to pos. */
+
+void func_8003148C(s32 *out, s32 *b, MATRIX *m, s32 *pos) {
+    s32 t[3];
+    s32 c[3];
+    s32 e[3][4];
+    s32 d;
+
+    c[0] = (b[0] + b[3]) >> 1;
+    c[1] = (b[1] + b[4]) >> 1;
+    c[2] = (b[2] + b[5]) >> 1;
+    c[0] /= 16;
+    c[1] /= 16;
+    c[2] /= 16;
+    func_80018DD4(c, m, t);
+    t[0] <<= 4;
+    t[1] <<= 4;
+    t[2] <<= 4;
+    t[0] += pos[0];
+    t[1] += pos[1];
+    t[2] += pos[2];
+    d = (b[3] - b[0]) >> 2;
+    if ((e[0][0] = (d * m->m[0][0]) >> 12) < 0) {
+        e[0][0] = -e[0][0];
+    }
+    if ((e[0][1] = (d * m->m[1][0]) >> 12) < 0) {
+        e[0][1] = -e[0][1];
+    }
+    if ((e[0][2] = (d * m->m[2][0]) >> 12) < 0) {
+        e[0][2] = -e[0][2];
+    }
+    d = (b[4] - b[1]) >> 2;
+    if ((e[1][0] = (d * m->m[0][1]) >> 12) < 0) {
+        e[1][0] = -e[1][0];
+    }
+    if ((e[1][1] = (d * m->m[1][1]) >> 12) < 0) {
+        e[1][1] = -e[1][1];
+    }
+    if ((e[1][2] = (d * m->m[2][1]) >> 12) < 0) {
+        e[1][2] = -e[1][2];
+    }
+    d = (b[5] - b[2]) >> 2;
+    if ((e[2][0] = (d * m->m[0][2]) >> 12) < 0) {
+        e[2][0] = -e[2][0];
+    }
+    if ((e[2][1] = (d * m->m[1][2]) >> 12) < 0) {
+        e[2][1] = -e[2][1];
+    }
+    if ((e[2][2] = (d * m->m[2][2]) >> 12) < 0) {
+        e[2][2] = -e[2][2];
+    }
+    d = (e[0][0] + e[1][0] + e[2][0]) * 2;
+    out[3] = t[0] + d;
+    out[0] = t[0] - d;
+    d = (e[0][1] + e[1][1] + e[2][1]) * 2;
+    out[4] = t[1] + d;
+    out[1] = t[1] - d;
+    d = (e[0][2] + e[1][2] + e[2][2]) * 2;
+    out[5] = t[2] + d;
+    out[2] = t[2] - d;
+}
 
 /* Whether p is inside the box b (position and size, in 1/256 units). */
 

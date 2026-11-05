@@ -146,7 +146,8 @@ INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80035538);
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800356B8);
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80035ABC);
+void func_80035ABC(void) {
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80035AC4);
 
@@ -182,9 +183,31 @@ INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80038248);
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800383DC);
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800385C0);
+u32 *func_80035410(GoolObject *obj, u32 op);
+/* The word operand x of obj refers to: 0xE1F pops the stack, 0xE00.. a
+ * field of obj, else func_80035410. */
+static __inline__ u32 *GoolRef(GoolObject *obj, u32 x) {
+    if ((x & 0xE00) == 0xE00) {
+        if (x == 0xE1F) {
+            return --obj->sp;
+        }
+        return (u32 *)&obj->self + (x & 0x1FF);
+    }
+    return func_80035410(obj, x);
+}
+s32 func_8006F280(u32 *p); /* overlay */
+/* Instruction: pushes the result of an overlay function on a word. */
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_8003864C);
+void func_800385C0(GoolObject *obj, u32 op) {
+    *obj->sp++ = func_8006F280(GoolRef(obj, op & 0xFFF));
+}
+
+void func_8006F514(u32 v); /* overlay */
+/* Instruction: passes a word to an overlay function. */
+
+void func_8003864C(GoolObject *obj, u32 op) {
+    func_8006F514(*GoolRef(obj, op & 0xFFF));
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800386BC);
 
@@ -194,4 +217,8 @@ INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800388C8);
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800389C8);
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80038B2C);
+/* x with its low bits sign-extended. */
+
+s32 func_80038B2C(s32 x, s32 bits) {
+    return (x << (32 - bits)) >> (32 - bits);
+}

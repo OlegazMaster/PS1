@@ -136,9 +136,9 @@ void func_80032FC8(s32 vol) {
     func_80051A74(&attr);
 }
 
-/* The music type of the level (6 for some levels, else 5). */
+/* The music type of the level (6 for some levels, else 5); eid is not used. */
 
-s32 func_80033000(void) {
+s32 func_80033000(u32 eid) {
     switch (ns.ldat->lid) {
     case 5:
     case 10:
@@ -162,7 +162,72 @@ s32 func_80033000(void) {
     }
 }
 
+/* The music being played (D_8006CF78). */
+typedef struct {
+    u32 f0 : 1;
+    u32 f1 : 1;
+    u32 f2 : 1;
+    u32 f3 : 1;
+    u32 f4 : 1;
+    u32 f5 : 1;
+    u32 f6 : 1;
+    u32 f7 : 1;
+    u32 f8 : 1;
+    u32 type : 4; /* bits 9..12 */
+    u32 f13 : 1;
+    u32 f14 : 1;
+    u32 f15 : 3;
+    u32 f18 : 1;
+    u32 : 13;
+    u8 unk4[0x4];
+    s32 unk8;
+    u8 unkC[0x4];
+    u32 eid; /* 0x10 */
+    s32 unk14;
+    u8 unk18;
+    u8 unk19;
+    s16 unk1A;
+    s16 unk1C;
+    s16 unk1E;
+    s32 unk20;
+    s32 unk24;
+    s32 unk28;
+} Music;
+extern Music D_8006CF78;
+s32 func_80033000(u32 eid);
+#ifdef NON_MATCHING
+/* Resets the music state.
+ * Equivalent; the original loads the null EID only once. */
+void func_80033050(void) {
+    D_8006CF78.unk8 = 1;
+    D_8006CF78.unk18 = 1;
+    D_8006CF78.unk19 = 0x80;
+    D_8006CF78.unk1A = 0x3FFF;
+    D_8006CF78.eid = 0x6396347F;
+    D_8006CF78.unk1E = 0x1000;
+    D_8006CF78.unk1C = 0;
+    D_8006CF78.unk14 = 0;
+    D_8006CF78.unk20 = 0;
+    D_8006CF78.unk24 = 0;
+    D_8006CF78.unk28 = 0;
+    D_8006CF78.f1 = 0;
+    D_8006CF78.f0 = 0;
+    D_8006CF78.f2 = 0;
+    D_8006CF78.f3 = 0;
+    D_8006CF78.f4 = 0;
+    D_8006CF78.f5 = 0;
+    D_8006CF78.f6 = 0;
+    D_8006CF78.f7 = 0;
+    D_8006CF78.f8 = 0;
+    D_8006CF78.type = func_80033000(D_8006CF78.eid);
+    D_8006CF78.f13 = 1;
+    D_8006CF78.f14 = 0;
+    D_8006CF78.f15 = 0;
+    D_8006CF78.f18 = 0;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033050);
+#endif
 
 void func_8003314C(void) {
 }
@@ -205,7 +270,40 @@ void func_80033280(s16 a) {
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_8003328C);
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", AudioVoiceFree);
+/* A voice of the SPU (D_8006C7D8, 24 of them). */
+typedef struct {
+    s32 handle;
+    u32 flags; /* 0x4: bit 3 in use */
+    u8 unk8[0x4];
+    s32 owner; /* 0xC */
+    u8 unk10[0x8];
+    s32 unk18;
+    u8 unk1C;
+    u8 unk1D;
+    u8 unk1E[0x32];
+} Voice; /* 0x50 */
+extern Voice D_8006C7D8[24];
+void func_80033C54(s32 handle, u32 a, u32 *b, s32 owner);
+/* Stops the voices of owner (from voice D_80060B04 on). */
+
+void AudioVoiceFree(s32 owner) {
+    u32 arg;
+    Voice *v;
+    s32 i;
+
+    if (owner == 0) {
+        return;
+    }
+    for (i = D_80060B04, v = &D_8006C7D8[i]; i < 24; i++, v++) {
+        if (((v->flags >> 3) & 1) && v->owner == owner) {
+            arg = 0;
+            D_80060A00 = 60;
+            func_80033C54(v->handle, 0x40000000, &arg, v->owner);
+            v->owner = 0;
+            v->unk1D = 0;
+        }
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_8003359C);
 
@@ -219,7 +317,31 @@ INCLUDE_ASM("asm/us/nonmatchings/audio", func_800342B8);
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034310);
 
+extern s16 D_8006CFC8[]; /* the sequences of the music, every 20 bytes */
+void func_80056DAC(s16 a, s16 b, s32 c, s32 d);
+#ifdef NON_MATCHING
+/* Sets the volume of the music.
+ * Equivalent; the original computes vol >> 7 in another register first. */
+void func_80034B00(s16 vol) {
+    s32 i;
+    s32 v;
+
+    D_80060AF0[1] = vol;
+    if (D_80060B18 == 3) {
+        v = vol >> 7;
+        for (i = 0; i < D_80060AFC[0]; i++) {
+            func_80056DAC(D_80060B1C[1], D_8006CFC8[i * 10], v, v);
+        }
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034B00);
+#endif
+
+extern s32 D_80068F84;
+void func_80056B54(s32 a);
+void func_8005AA38(u8 a);
+/* Resets the music player. */
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034B8C);
 

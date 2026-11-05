@@ -19,3 +19,4 @@ func_8002DA74
 func_8003116C
 func_80030AD8
 func_80032710
+func_80033050

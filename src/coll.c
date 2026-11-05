@@ -37,7 +37,120 @@ typedef struct {
     s32 steps; /* 0x1050: collision steps of the move */
 } CollQuery;
 
+extern s32 D_8006C2C8[3]; /* the last move that did not move the object */
+s32 func_8004F794(s32 x, s32 z); /* angle of (x, z) */
+s32 func_80031CF0(s32 *a, s32 *b); /* distance between two points */
+s32 func_8003C2F0(s32 angle); /* sin */
+s32 func_8003C364(s32 angle); /* cos */
+s32 func_8001E34C(GoolObject *sender, u32 event, s32 type, s32 argc, u32 *argv);
+void func_80027D6C(s32 type, s32 *args);
+void func_8002AF70(GoolObject *obj, CollQuery *q, s32 *pos, s32 *delta);
+#define ABS_DIFF(a, b) ((a) - (b) >= 0 ? (a) - (b) : (b) - (a))
+#ifdef NON_MATCHING
+/* Moves obj by delta, colliding with the zone and the objects (q), and sends
+ * it the event of the surface it touched. A move that changes nothing is
+ * remembered and not tried again.
+ * Equivalent; the original allocates three registers differently. */
+void func_8002AA94(GoolObject *obj, s32 *delta, CollQuery *q) {
+    s32 pos[3];
+    s32 d[3];
+    s32 msg;
+    u32 arg;
+    Transform *t;
+    s32 a;
+    s32 b;
+    s32 f;
+    s32 speed;
+    u32 ev;
+    s32 type;
+
+    if (obj == NULL) {
+        D_80060AC8 = 0;
+        return;
+    }
+    *(s32 *)((u8 *)obj->unk8 + 0x48) = 0;
+    if (ns.ldat->lid == 10 || ns.ldat->lid == 17) {
+        if (obj->state_flags & 0x2000000) {
+            D_800609C0 = 0x27AC4;
+        } else {
+            D_800609C0 = 0xF424;
+        }
+    } else {
+        D_800609C0 = 0xF424;
+    }
+    t = &obj->xform;
+    pos[0] = t->trans[0];
+    pos[1] = t->trans[1];
+    pos[2] = t->trans[2];
+    d[0] = delta[0];
+    d[1] = delta[1];
+    d[2] = delta[2];
+    if (D_80060AC8 != 0 && ABS_DIFF(D_8006C2C8[0], delta[0]) < 10 && ABS_DIFF(D_8006C2C8[1], delta[1]) < 10
+        && ABS_DIFF(D_8006C2C8[2], delta[2]) < 10) {
+        d[0] = d[2] = 0;
+    }
+    func_8002AF70(obj, q, pos, d);
+    if (D_80060AC8 == 0 && (delta[0] != 0 || delta[2] != 0) && ABS_DIFF(t->trans[0], pos[0]) < 2
+        && ABS_DIFF(t->trans[1], pos[1]) < 2 && ABS_DIFF(t->trans[2], pos[2]) < 2) {
+        D_8006C2C8[0] = delta[0];
+        D_8006C2C8[1] = delta[1];
+        D_80060AC8 = 1;
+        D_8006C2C8[2] = delta[2];
+    } else {
+        D_80060AC8 = 0;
+    }
+    if ((d[0] != 0 || d[2] != 0) && (obj->status_a & 0x100)) {
+        a = func_8004F794(delta[0], delta[2]) & 0xFFF;
+        b = func_8004F794(pos[0] - t->trans[0], pos[2] - t->trans[2]) & 0xFFF;
+        f = func_80031CF0(t->trans, pos) * 15;
+        a = ((a - b) << 20) >> 20;
+        if (a < 0) {
+            a = -a;
+        }
+        speed = f * 2;
+        if (a > 0x3F4) {
+            speed = 0;
+        }
+        obj->misc_a[0] = ((func_8003C2F0(b) >> 4) * speed) >> 8;
+        obj->misc_a[2] = ((func_8003C364(b) >> 4) * speed) >> 8;
+    }
+    t->trans[0] = pos[0];
+    t->trans[1] = pos[1];
+    t->trans[2] = pos[2];
+    if (obj->status_a & 0x400) {
+        ev = obj->event;
+        if (ev >= 0x40000) {
+            if (ev > 0x40024) {
+                msg = (ev - 0x40024) << 8;
+                type = 0x100;
+            } else {
+                msg = 0x100 << (ev - 0x4001D);
+                type = 0;
+            }
+            func_80027D6C(type, &msg);
+            return;
+        }
+        arg = 0x6400;
+        switch (obj->event) {
+        case 0x900:
+            if (!(obj->status_a & 1)) {
+                GoolSendEvent(NULL, obj, obj->event, 1, &arg);
+            }
+            break;
+        case 0x3000:
+        case 0x3100:
+            func_8001E34C(NULL, obj->event, 0, 0, NULL);
+            break;
+        case 0x1F00:
+        default:
+            GoolSendEvent(NULL, obj, obj->event, 1, &arg);
+            break;
+        }
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002AA94);
+#endif
 
 void func_8002CEA8(GoolObject *obj, CollQuery *q, s32 *pos, s32 *step, s32 *out);
 /* Moves obj at pos by delta in steps of at most 25600 across and 153600 up

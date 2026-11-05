@@ -33,6 +33,7 @@ s32 D_80060A30 = 765634;
 s32 D_80060A34 = 0;
 
 u32 *func_80035410(GoolObject *obj, u32 op);
+u32 *func_80035538(GoolObject *obj, u32 op, s32 push);
 /* The word operand x of obj refers to: 0xE1F pops the stack, 0xE00.. a
  * field of obj, else func_80035410. */
 static __inline__ u32 *GoolRef(GoolObject *obj, u32 x) {
@@ -304,7 +305,83 @@ INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80035D08);
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80036B88);
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037300);
+extern GoolObject *crash;
+extern Entry *cur_zone;
+s32 func_800296F8(Vec3 *pos, Vec3 *out);
+void *func_80029C1C(void *unused, s32 *pos);
+void *func_80029E40(GoolObject *obj, s32 *pos);
+void func_8002A22C(GoolObject *obj, s32 *pos, s32 mode, s32 flag);
+void func_8002A728(GoolObject *obj);
+/* Instruction: positions relative to the camera, the floor, etc. of the
+ * position of obj (a vector of obj selected by bits 12-14 for some); the
+ * result goes to the vector selected by bits 15-17 and a word. */
+
+void func_80037300(GoolObject *obj, u32 op) {
+    Vec3 a;
+    Vec3 b;
+    Vec3 c;
+    Vec3 d;
+    Vec3 e;
+    Vec3 f;
+    Vec3 *v;
+    u32 sub;
+    s32 mode;
+    s32 alt;
+    s32 low;
+    Entry *zone;
+    s32 *pos;
+
+    v = (Vec3 *)&obj->xform + ((op >> 12) & 7);
+    func_80035538(obj, op & 0xFFF, 0);
+    switch ((op >> 18) & 7) {
+    case 0:
+        a = *(Vec3 *)&obj->xform;
+        b = *v;
+        a.v[1] += *(s32 *)((u8 *)obj->unk8 + 0x40) / 2;
+        obj->unkD4 = func_800296F8(&a, &b);
+        if ((op & 0xFFF) != 0xBE0) {
+            *(Vec3 *)GoolDst(obj, op & 0xFFF) = b;
+        }
+        ((Vec3 *)&obj->xform)[(op >> 15) & 7] = a;
+        break;
+    case 1:
+        c = *(Vec3 *)&obj->xform;
+        d = *(Vec3 *)&obj->xform;
+        if (obj == crash || obj->parent == crash) {
+            func_80029E40(obj, c.v);
+        }
+        obj->unkD4 = (s32)func_80029C1C(obj, d.v);
+        if ((op & 0xFFF) != 0xBE0) {
+            *(Vec3 *)GoolDst(obj, op & 0xFFF) = e;
+        }
+        ((Vec3 *)&obj->xform)[(op >> 15) & 7] = d;
+        break;
+    case 2:
+    case 3:
+    case 4:
+    case 5:
+        sub = (op >> 18) & 7;
+        low = sub == 4 || sub == 5;
+        alt = sub == 5 || sub == 3;
+        e = *(Vec3 *)&obj->xform;
+        pos = e.v;
+        zone = obj->zone ? obj->zone : cur_zone;
+        if (((ZoneHdr *)zone->items[0])->unk2DC & 1) {
+            mode = alt ? 6 : 2;
+        } else {
+            mode = alt ? 5 : 1;
+        }
+        func_8002A22C(obj, pos, mode, !low);
+        if ((op & 0xFFF) != 0xBE0) {
+            *(Vec3 *)GoolDst(obj, op & 0xFFF) = f;
+        }
+        ((Vec3 *)&obj->xform)[(op >> 15) & 7] = e;
+        break;
+    case 6:
+        func_8002A728(obj);
+        break;
+    }
+}
 
 #ifdef NON_MATCHING
 /* Instruction: creates op & 0x3F objects (0: count popped) of executable
@@ -389,7 +466,6 @@ s32 NSCountAvailablePages(void);
 s32 NSCountAvailablePages2(u32 **list, s32 len);
 /* Instruction: entry operations (open, page in, count free pages). */
 
-u32 *func_80035538(GoolObject *obj, u32 op, s32 push);
 
 void func_80037AE4(GoolObject *obj, u32 op) {
     s32 sub;

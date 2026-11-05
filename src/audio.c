@@ -35,45 +35,76 @@ s32 D_80060B10[2];
 s32 D_80060B18;
 s16 D_80060B1C[2];
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F28);
+/* An empty debug function (the arguments are like printf's). */
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F30);
+/* An empty debug function. */
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F38);
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F40);
+/* Two words passed by value (to the empty functions below). */
+typedef struct {
+    s32 v[2];
+} Pair;
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F48);
+/* Empty functions (left out of this version of the game). */
+void func_80032F28(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F50);
+void func_80032F30(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F58);
+void func_80032F38(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F60);
+void func_80032F40(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F68);
+void func_80032F48(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F70);
+void func_80032F50(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F78);
+void func_80032F58(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F80);
+void func_80032F60(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F88);
+void func_80032F68(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F90);
+void func_80032F70(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032F98);
+void func_80032F78(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032FA0);
+void func_80032F80(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032FA8);
+void func_80032F88(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032FB0);
+void func_80032F90(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032FB8);
+void func_80032F98(s32 a, s32 b, s32 c, Pair d) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032FC0);
+void func_80032FA0(s32 a, s32 b, s32 c, Pair d) {
+}
+
+void func_80032FA8(s32 a, s32 b, s32 c, Pair d) {
+}
+
+void func_80032FB0(s32 a, s32 b, s32 c, Pair d) {
+}
+
+void func_80032FB8(s32 a, s32 b, s32 c, Pair d) {
+}
+
+void func_80032FC0(s32 a, s32 b, s32 c, Pair d) {
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032FC8);
 

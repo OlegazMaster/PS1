@@ -46,9 +46,17 @@ typedef struct {
     u8 unk10[0x8];
     s32 unk18;
     u8 unk1C;
-    u8 unk1D;
-    u8 unk1E[0x32];
-} Voice; /* 0x50 */
+    u8 unk1D; /* priority */
+    s16 vol; /* 0x1E */
+    s16 unk20;
+    u16 pitch; /* 0x22 */
+    s32 pos[3]; /* 0x24: of the sound, relative to the camera */
+    s32 objpos[3]; /* 0x30: of its owner */
+    s16 unk3C;
+    s32 unk40;
+    s32 unk44;
+    u8 unk48[0x8];
+} Voice; /* 0x50: a handle then a copy of the Music settings */
 extern Voice D_8006C7D8[24];
 
 /* A sequence of the music (D_8006CFC8: the two of the music). */
@@ -219,7 +227,8 @@ typedef struct {
     s32 unk20;
     s32 unk24;
     s32 unk28;
-} Music;
+    u8 unk2C[0x20];
+} Music; /* 0x4C */
 extern Music D_8006CF78;
 s32 func_80033000(u32 eid);
 #ifdef NON_MATCHING
@@ -408,12 +417,35 @@ void AudioVoiceFree(s32 owner) {
 }
 
 typedef struct {
+    s16 left;
+    s16 right;
+} SpuVolume;
+typedef struct {
     u32 voice;
     u32 mask;
-    s16 vol_left;
+    s16 vol_left; /* 0x8 */
     s16 vol_right;
-    u8 unkC[0x34];
-} SpuVoiceAttr;
+    s16 volmode_left;
+    s16 volmode_right;
+    s16 volx_left;
+    s16 volx_right;
+    u16 pitch; /* 0x14 */
+    u16 note;
+    u16 sample_note;
+    s16 envx;
+    u32 addr; /* 0x1C */
+    u32 loop_addr;
+    s32 a_mode; /* 0x24 */
+    s32 s_mode;
+    s32 r_mode;
+    u16 ar; /* 0x30 */
+    u16 dr;
+    u16 sr;
+    u16 rr;
+    u16 sl; /* 0x38 */
+    u16 adsr1;
+    u16 adsr2;
+} SpuVoiceAttr; /* 0x40 */
 void func_80052844(SpuVoiceAttr *attr); /* SpuGetVoiceAttr */
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 s32 func_80032160(s32 n);
@@ -473,7 +505,7 @@ void *func_80015414(u32 eid); /* the page of an entry, if in memory */
 /* Prepares m to play the entry *ref: from memory if its page is there (state
  * 2), else it is loaded (state 1). Returns 0, or an error code. */
 
-s32 func_80033760(Music *m, u32 *ref) {
+s32 func_80033760(Music *m, u32 *ref, GoolObject *obj) {
     u32 eid;
     void *page;
     u32 e;
@@ -507,7 +539,94 @@ end:
     return ret;
 }
 
+s32 func_800202CC(s32 *in, s32 *out, s32 unused); /* interp.c: to camera space */
+void func_80051F54(SpuVoiceAttr *attr); /* SpuSetVoiceAttr */
+void func_80051274(s32 on, u32 voices); /* SpuSetReverbVoice */
+extern s32 D_800690B4[]; /* game.unk21C: the pitch factor */
+#ifdef NON_MATCHING
+/* Plays the sound ref (an entry, or with bit 0 an address in the sound
+ * memory) for obj at volume vol, with the settings in D_8006CF78 (which are
+ * reset). Returns the handle of the voice, or -99.
+ * Equivalent; the original keeps the voice and ref in swapped registers. */
+s32 func_80033864(GoolObject *obj, u32 ref, s32 vol) {
+    SpuVoiceAttr attr;
+    s32 out[3];
+    Voice *v;
+    s32 i;
+    s32 x;
+    GoolObject *o;
+
+    if (game.unkE8 == 0 || (!(game.display_flags & 0x1000) && !(obj->state_flags & 0x40000))) {
+        goto fail;
+    }
+    i = func_8003359C();
+    if (i <= 0) {
+        goto fail;
+    }
+    v = &D_8006C7D8[i];
+    if (ref & 1) {
+        ref &= ~1;
+    } else {
+        ref = func_80033760(&D_8006CF78, (u32 *)ref, obj);
+        if (ref == -14) {
+            goto fail;
+        }
+        if (D_8006CF78.f15 != 0) {
+            D_8006CF78.f18 = 1;
+        }
+    }
+    *(Music *)&v->flags = D_8006CF78;
+    v->vol = (vol * D_80060AF0[0]) >> 14;
+    if ((v->flags >> 6) & 1) {
+        v->unk44 = (v->unk3C - v->vol) / v->unk40;
+    }
+    if (v->owner == 1) {
+        v->owner = (s32)obj;
+    }
+    if (v->owner != 0) {
+        o = (GoolObject *)v->owner;
+        *(Vec3 *)v->objpos = *(Vec3 *)o->xform.trans;
+        func_800202CC(o->xform.trans, out, 1);
+        *(Vec3 *)v->pos = *(Vec3 *)out;
+    }
+    func_80033050();
+    v->flags = (v->flags & 0xFE07FFFF) | ((i & 0x3F) << 19);
+    attr.mask = 0xFF93;
+    attr.voice = 1 << i;
+    if ((u8)((GoolObject *)v->owner)->unk120 - 6 < 2u || ((v->flags >> 9) & 0xF) == 0) {
+        attr.vol_left = attr.vol_right = v->vol >= 0x3FFF ? 0x3FFF : (v->vol < 0 ? 0 : v->vol);
+        v->flags &= ~0x1E00;
+    } else {
+        if ((v->flags >> 14) & 1) {
+            printf(D_8001056C, vol, D_80060AF0[0], v->vol);
+        }
+        *(SpuVolume *)&attr.vol_left = *(SpuVolume *)func_8003328C((Music *)&v->flags, v->pos, v->vol);
+    }
+    attr.pitch = v->pitch * D_800690B4[0] / 4096;
+    attr.addr = ref;
+    attr.a_mode = 1;
+    attr.s_mode = 1;
+    attr.r_mode = 3;
+    attr.ar = 0;
+    attr.dr = 0;
+    attr.sr = 0;
+    attr.rr = 0;
+    attr.sl = 15;
+    func_80051F54(&attr);
+    func_80051274((v->flags >> 13) & 1, attr.voice);
+    if (!(v->flags & 0x40010)) {
+        func_80051714(1, attr.voice);
+    }
+    v->handle = ++D_80060AE8;
+    v->flags |= 8;
+    return v->handle;
+fail:
+    func_80033050();
+    return -99;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033864);
+#endif
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033C54);
 

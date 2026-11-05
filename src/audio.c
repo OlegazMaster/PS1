@@ -664,9 +664,25 @@ INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034B00);
 extern s32 D_80068F84;
 void func_80056B54(s32 a);
 void func_8005AA38(u8 a);
-/* Resets the music player. */
+#ifdef NON_MATCHING
+/* Resets the music player.
+ * Equivalent; the original keeps the 1 in s0 and does not reorder the stores. */
+void func_80034B8C(void) {
+    s32 on = 1;
 
+    D_80060A08 = on;
+    func_80056B54(on);
+    func_80034B00((D_80068F84 * 0x3FFF00) >> 16);
+    D_80060AF8 = 0x6396347F;
+    D_80060B18 = 0;
+    D_80060B1C[1] = -1;
+    D_80060B1C[0] = -1;
+    D_80060B04 = 16;
+    func_8005AA38(*(u8 *)&D_80060B04);
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034B8C);
+#endif
 
 void func_80034C0C(void) {
     D_80060B00 = -0x1F0;

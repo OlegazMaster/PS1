@@ -85,7 +85,114 @@ void func_8002AF70(GoolObject *obj, CollQuery *q, s32 *pos, s32 *delta) {
     }
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002B1CC);
+/* What touching a surface of type flags does to obj: bits 4..9 give the
+ * event it gets (0x700 ..., 0x900 deadly, ...), bits 1..3 its kind. Returns
+ * whether the surface is solid. */
+
+s32 func_8002B1CC(GoolObject *obj, u32 flags) {
+    s32 kind;
+
+    if (flags != 0) {
+        kind = ((flags & 0xE) >> 1) + 1;
+    } else {
+        kind = 0;
+    }
+    switch ((flags & 0x3F0) >> 4) {
+    case 1:
+        obj->event = 0x700;
+        obj->status_a |= 0x400;
+        break;
+    case 2:
+        obj->event = 0xC00;
+        obj->status_a |= 0x400;
+        break;
+    case 5:
+        obj->event = 0x1E00;
+        obj->status_a |= 0x400;
+        break;
+    case 4:
+        obj->event = 0x1F00;
+        obj->status_a |= 0x400;
+        break;
+    case 3:
+        obj->event = 0x2100;
+        obj->status_a |= 0x400;
+        break;
+    case 12:
+        obj->event = 0x2300;
+        obj->status_a |= 0x400;
+        break;
+    case 11:
+        obj->event = 0x900;
+        obj->status_a |= 0x400;
+        return 1;
+    case 6:
+        obj->event = 0xD00;
+        obj->status_a |= 0x400;
+        break;
+    case 13:
+        obj->event = 0x3300;
+        obj->status_a |= 0x400;
+        break;
+    case 18:
+        obj->event = 0x2100;
+        obj->status_a |= 0x400;
+        break;
+    case 14:
+        if ((obj->state_flags >> 28) == 0xE) {
+            obj->status_a |= 0x400;
+        } else {
+            obj->status_a |= 0x2000400;
+        }
+        obj->event = 0x3500;
+        break;
+    case 15:
+        obj->status_a |= 0x4000000;
+        break;
+    case 7:
+    case 8:
+    case 9:
+    case 10:
+        obj->event = 0x1200;
+        obj->status_a |= 0x2000;
+        break;
+    case 27:
+        obj->event = 0x3000;
+        obj->status_a |= 0x400;
+        break;
+    case 28:
+        obj->event = 0x3100;
+        obj->status_a |= 0x400;
+        break;
+    case 29:
+    case 30:
+    case 31:
+    case 32:
+    case 33:
+    case 34:
+    case 35:
+    case 36:
+    case 37:
+    case 38:
+        obj->event = ((flags & 0x3F0) >> 4) + 0x40000;
+        obj->status_a |= 0x400;
+        break;
+    }
+    if (kind == 4) {
+        obj->event = 0x900;
+        obj->status_a |= 0x400;
+        return 1;
+    }
+    if (kind == 6) {
+        obj->event = 0x4000;
+        obj->status_a |= 0x400;
+        return 0;
+    }
+    if (kind == 5 || kind == 3) {
+        return 1;
+    }
+    return 0;
+}
 
 s32 func_8002B1CC();
 s32 func_8003BD18(GoolObject *obj, CollQuery *q, s32 *box, s32 *box2, s32 top, s32 a, s32 best, s32 (*cb)());

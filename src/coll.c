@@ -627,4 +627,104 @@ s32 func_8002EDA8(u32 x, u32 y) {
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002EDF0);
 
+extern s8 D_8005C074[]; /* (dx, dz) offsets of the cells around a cell, nearest first */
+extern CollQuery D_80067E40;
+s32 func_8002EDF0(s32 a, s32 b, s32 *pos, GoolObject *obj);
+#ifdef NON_MATCHING
+/* Finds the free cell of the 32x32 grid nearest to (gx, gz) and puts it in
+ * (cx, cz); restarts from the centre, then pushes obj out, when there is
+ * none. Returns tries + 2, or 0 if it gave up.
+ * Equivalent; the original keeps tries in a register and gz on the stack. */
+s32 func_8002F0F8(s32 *pos, s32 gx, s32 gz, s32 *cx, s32 *cz, GoolObject *obj, s32 tries) {
+    s8 *off;
+    s32 i;
+    s32 a;
+    s32 b;
+    s32 x;
+    s32 z;
+    s32 z2;
+    u32 *row;
+
+loop:
+    off = D_8005C074;
+    if (func_8002EDA8(gx, gz) || (((ZoneHdr *)((Entry *)D_80065C90.unkCC)->items[0])->unk2DC & 0x100000)) {
+        *cx = gx;
+        *cz = gz;
+        return tries + 2;
+    }
+    for (i = 0; i < 0x98; i++) {
+        a = off[0];
+        b = off[1];
+        off += 2;
+        x = gx + a;
+        z = gz + b;
+        if (func_8002EDA8(x, z)) {
+            goto found;
+        }
+        z2 = gz - b;
+        if (func_8002EDA8(x, z2)) {
+            goto found2;
+        }
+        x = gx - a;
+        if (func_8002EDA8(x, z)) {
+            goto found;
+        }
+        if (func_8002EDA8(x, z2)) {
+            goto found2;
+        }
+        if (a != b) {
+            x = gx + b;
+            z = gz + a;
+            if (func_8002EDA8(x, z)) {
+                goto found;
+            }
+            z2 = gz - a;
+            if (func_8002EDA8(x, z2)) {
+                goto found2;
+            }
+            x = gx - b;
+            if (func_8002EDA8(x, z)) {
+                goto found;
+            }
+            if (func_8002EDA8(x, z2)) {
+                goto found2;
+            }
+        }
+    }
+    if ((gx != 16 || gz != gx) && (obj->collider == NULL || (obj->collider->id >> 16) != 0x22)) {
+        row = D_80060ADC;
+        for (i = 0; i < 32; i++) {
+            if (*row != -1) {
+                gx = 16;
+                gz = gx;
+                tries++;
+                goto loop;
+            }
+            row++;
+        }
+    }
+    if (tries < 0x100 && (obj->collider == NULL || (obj->collider->id >> 16) != 0x22)) {
+        obj->status_a |= 0x8000;
+        if (func_8002EDF0(0, 0, pos, obj)) {
+            func_8002EDF0(1, 1, pos, obj);
+            func_8002E4F0(pos, pos, obj, &D_80067E40, 0);
+        }
+        tries = 0x100;
+        goto loop;
+    }
+    obj->status_a |= 0x100000;
+    *cx = 16;
+    *cz = 16;
+    return 0;
+found:
+    *cx = x;
+    *cz = z;
+    return tries + 2;
+found2:
+    *cx = x;
+    *cz = z2;
+    return tries + 2;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002F0F8);
+#endif

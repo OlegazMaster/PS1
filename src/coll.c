@@ -1031,11 +1031,96 @@ s32 func_8002EDA8(u32 x, u32 y) {
     return 0;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002EDF0);
-
 extern s8 D_8005C074[]; /* (dx, dz) offsets of the cells around a cell, nearest first */
 extern CollQuery D_80067E40;
 s32 func_8002EDF0(s32 a, s32 b, s32 *pos, GoolObject *obj);
+
+/* Marks (set) or clears on the grid D_80060ADC the cells covered by the
+ * walls among the surfaces of D_80067E40 around pos (mode 0: walls near the
+ * floor, mode 1: the other ones above it). Returns how many it marked. */
+
+s32 func_8002EDF0(s32 set, s32 mode, s32 *pos, GoolObject *obj) {
+    CollQuery *q;
+    s32 i;
+    s32 n;
+    u16 *rec;
+    u32 f;
+    s32 kind;
+    u16 lx;
+    u16 ly;
+    u16 lz;
+    u16 res;
+    s32 x0;
+    s32 x1;
+    s32 z0;
+    s32 b[6];
+    s32 size[3];
+
+    q = &D_80067E40;
+    i = 0;
+    for (n = 0; i < q->count; i++) {
+        rec = q->recs[i];
+        if (rec[0] == 0) {
+            i++;
+            size[0] = rec[1] << 8;
+            size[1] = rec[2] << 8;
+            size[2] = rec[3] << 8;
+            rec = q->recs[i];
+            lx = rec[1];
+            ly = rec[2];
+            lz = rec[3];
+            continue;
+        }
+        f = (rec[0] >> 2) | 1;
+        if (f != 0) {
+            kind = ((f & 0xE) >> 1) + 1;
+        } else {
+            kind = 0;
+        }
+        if (kind == 5 || kind == 0) {
+            continue;
+        }
+        switch (mode) {
+        case 0:
+            if (kind != 2 && kind != 6) {
+                continue;
+            }
+            break;
+        case 1:
+            if (kind == 2 || kind == 6) {
+                continue;
+            }
+            break;
+        }
+        /* res is still the one of the previous surface here (a bug) */
+        b[1] = q->box[1] + ((s16)rec[2] << 4) - pos[1];
+        b[4] = b[1] + (size[1] >> (ly < res ? ly : res));
+        switch (mode) {
+        case 0:
+            if (b[1] > 0x6400 || b[4] < -0x19000) {
+                continue;
+            }
+            break;
+        case 1:
+            if (b[4] < 0) {
+                continue;
+            }
+            break;
+        }
+        b[0] = q->box[0] + ((s16)rec[1] << 4) - pos[0];
+        b[2] = q->box[2] + ((s16)rec[3] << 4) - pos[2];
+        res = rec[0] & 7;
+        b[3] = b[0] + (size[0] >> (lx < res ? lx : res));
+        b[5] = b[2] + (size[2] >> (lz < res ? lz : res));
+        x0 = (b[0] << 2) / 0x2000;
+        x1 = (b[3] << 2) / 0x2000;
+        z0 = (b[2] << 2) / 0x2000;
+        func_8002D990(x0, z0, x1, (b[5] << 2) / 0x2000, set);
+        n++;
+    }
+    return n;
+}
+
 #ifdef NON_MATCHING
 /* Finds the free cell of the 32x32 grid nearest to (gx, gz) and puts it in
  * (cx, cz); restarts from the centre, then pushes obj out, when there is

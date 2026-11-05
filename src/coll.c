@@ -9,7 +9,6 @@
 
 /* .sdata */
 s32 D_800609C0 = 0xF424;
-char D_800609C4[] = "vcm?X"; /* name of the wall map entry of a level (? = level) */
 
 /* .sbss */
 s32 D_80060AC8;
@@ -2027,10 +2026,134 @@ found2:
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002F0F8);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002F42C);
+/* A range lo..hi with its data (one word per 256 steps). */
+typedef struct {
+    s32 lo;
+    s32 hi;
+    s32 *data;
+} CollRange;
+/* Finds the range of the list r (ended by a NULL data) holding x; puts in out
+ * x rounded down to a multiple of step from its start and returns its data
+ * there. NULL if none. */
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002F4DC);
+s32 *func_8002F42C(s32 *out, s32 x, s32 step, CollRange *r) {
+    s32 n;
+    s32 *p;
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002F648);
+    for (; r->data != NULL; r++) {
+        if (x >= r->lo && r->hi >= x) {
+            n = (x - r->lo) / step;
+            p = r->data + (n >> 8);
+            *out = r->lo + n * step;
+            return p;
+        }
+    }
+    return NULL;
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002F678);
+s32 func_8003D9DC(s32 x); /* square root */
+/* Puts in out the point p projected (in x, z) on the line through (x0, z0)
+ * and (x1, z1). */
+
+void func_8002F4DC(s32 *out, s32 *p, s32 x0, s32 x1, s32 z0, s32 z1) {
+    s32 dx;
+    s32 dz;
+    s32 pz;
+    s32 px;
+    s32 len;
+    s32 nz;
+    s32 nx;
+
+    dx = (x1 - x0) >> 8;
+    dz = (z1 - z0) >> 8;
+    pz = (p[2] - z0) >> 8;
+    px = (p[0] - x0) >> 8;
+    len = func_8003D9DC(dx * dx + dz * dz);
+    nz = (dz << 12) / len;
+    nx = (dx << 12) / len;
+    pz = (pz * nz - px * nx) >> 12;
+    out[0] = x0 - ((pz * nx) >> 16);
+    out[1] = p[1];
+    out[2] = ((pz * nz) >> 16) + z0;
+}
+
+/* Puts in out the point b mirrored (in x) around a. */
+
+void func_8002F648(s32 *out, s32 *a, s32 *b) {
+    out[0] = a[0] - (b[0] - a[0]);
+    out[1] = b[1];
+    out[2] = b[2];
+}
+
+extern s32 D_80061034[]; /* the level */
+u32 NSStringToEID(char *str);
+char NSAlphaNumChar(s32 idx);
+/* Marks on the grid D_80060ADC (func_8002D944) the walls of the level's wall
+ * map (entry "vcm?X") in the rows around pos (one row each side). */
+
+void func_8002F678(s32 *pos, s32 unused1, s32 unused2) {
+    char name[8] = "vcm?X";
+    u32 eid;
+    s32 *map;
+    s32 size;
+    s32 x;
+    s32 lo;
+    s32 hi;
+    s32 i;
+    s32 z;
+    s32 zi;
+    u32 *col;
+    s32 z0;
+    s32 z1;
+    u32 w;
+    u32 wh;
+    s32 x0;
+    s32 x1;
+
+    name[3] = NSAlphaNumChar(D_80061034[0]);
+    eid = NSStringToEID(name);
+    map = (s32 *)((Entry *)NSOpen(&eid, 1, 0))->items[0];
+    size = map[3];
+    zi = ((pos[2] - map[2]) >> 8) / size;
+    x = (pos[0] - map[0]) >> 8;
+    col = (u32 *)(map + 7);
+    lo = zi - 1;
+    hi = zi + 1;
+    for (z = 1; z >= 0; z--) {
+        for (i = lo; i <= hi; i++) {
+            if ((col[i * 3] & 0x1FFF) + 3 < x / size) {
+                col++;
+                break;
+            }
+        }
+    }
+    for (i = lo; i <= hi; i++) {
+        z0 = ((((i * size) << 8) + map[2] - pos[2]) << 2) / 0x2000 + 16;
+        z1 = (((((i + 1) * size) << 8) + map[2] - pos[2]) << 2) / 0x2000 + 16;
+        w = col[i * 3];
+        if (w != -1) {
+            wh = w >> 16;
+            x0 = w >> 30;
+            x0 &= 1;
+            x0 += wh & 0x1FFF;
+            x0 = (((x0 * size << 8) + map[0] - pos[0]) << 2) / 0x2000 + 16;
+            x1 = w & 0xC000;
+            x1 = (w & 0x1FFF) - (x1 == 0);
+            x1 = ((((x1 * size + size / 2) << 8) + map[0] - pos[0]) << 2) / 0x2000 + 16;
+            for (z = z0; z <= z1; z++) {
+                if ((w >> 16) & 0x4000) {
+                    x0--;
+                } else if (!((w >> 16) & 0x8000)) {
+                    x0++;
+                }
+                if (w & 0x4000) {
+                    x1--;
+                } else if (!(w & 0x8000)) {
+                    x1++;
+                }
+                func_8002D944(x0, z);
+                func_8002D944(x1, z);
+            }
+        }
+    }
+}

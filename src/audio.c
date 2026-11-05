@@ -23,17 +23,17 @@ s32 D_80060A24 = 0x1F800040;
 s32 D_80060A28 = 0;
 
 /* .sbss */
-s32 D_80060AE8;
-s32 D_80060AEC;
-s16 D_80060AF0[4];
-s32 D_80060AF8;
-s16 D_80060AFC[2];
-s32 D_80060B00;
-s32 D_80060B04;
-s32 D_80060B08[2];
-s32 D_80060B10[2];
-s32 D_80060B18;
-s16 D_80060B1C[2];
+static s32 D_80060AE8;
+static s32 D_80060AEC;
+static s16 D_80060AF0[4];
+static s32 D_80060AF8;
+static s16 D_80060AFC[2];
+static s16 D_80060B00;
+static s32 D_80060B04;
+static s32 D_80060B08[2];
+static s32 D_80060B10[2];
+static s32 D_80060B18;
+static s16 D_80060B1C[2];
 
 /* An empty debug function (the arguments are like printf's). */
 
@@ -106,21 +106,102 @@ void func_80032FB8(s32 a, s32 b, s32 c, Pair d) {
 void func_80032FC0(s32 a, s32 b, s32 c, Pair d) {
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80032FC8);
+/* Sets the main volume (0..255 -> 0..0x3FFF). */
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033000);
+typedef struct {
+    s32 mask;
+    s16 mvol_left;
+    s16 mvol_right;
+    s16 mvolmode_left;
+    s16 mvolmode_right;
+    s16 mvolx_left;
+    s16 mvolx_right;
+    s16 cd_left;
+    s16 cd_right;
+    s32 cd_reverb;
+    s32 cd_mix;
+    s16 ext_left;
+    s16 ext_right;
+    s32 ext_reverb;
+    s32 ext_mix;
+} SpuCommonAttr;
+void func_80051A74(SpuCommonAttr *attr); /* SpuSetCommonAttr */
+
+void func_80032FC8(s32 vol) {
+    SpuCommonAttr attr;
+
+    attr.mask = 3;
+    attr.mvol_left = vol * 0x81;
+    attr.mvol_right = vol * 0x81;
+    func_80051A74(&attr);
+}
+
+/* The music type of the level (6 for some levels, else 5). */
+
+s32 func_80033000(void) {
+    switch (ns.ldat->lid) {
+    case 5:
+    case 10:
+    case 13:
+    case 14:
+    case 17:
+    case 19:
+    case 20:
+    case 21:
+    case 23:
+    case 25:
+    case 28:
+    case 31:
+    case 32:
+    case 33:
+    case 37:
+    case 39:
+        return 6;
+    default:
+        return 5;
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033050);
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_8003314C);
+void func_8003314C(void) {
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033154);
+void func_80033154(void) {
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_8003315C);
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033238);
+void func_80050554(s32 on); /* SpuSetReverb */
+/* Turns the reverb off. */
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80033280);
+typedef struct {
+    s32 mask;
+    s32 mode;
+    s16 depth_left;
+    s16 depth_right;
+    s32 delay;
+    s32 feedback;
+} SpuReverbAttr;
+void func_800508C4(SpuReverbAttr *attr); /* SpuSetReverbModeParam */
+
+void func_80033238(void) {
+    SpuReverbAttr attr;
+
+    if (D_80060A04 != 0) {
+        attr.mask = 7;
+        attr.mode = 0;
+        attr.depth_left = 0;
+        attr.depth_right = 0;
+        func_800508C4(&attr);
+        func_80050554(0);
+        D_80060A04 = 0;
+    }
+}
+
+void func_80033280(s16 a) {
+    D_80060AF0[0] = a;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_8003328C);
 
@@ -142,24 +223,55 @@ INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034B00);
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034B8C);
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034C0C);
+void func_80034C0C(void) {
+    D_80060B00 = -0x1F0;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034C1C);
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034D14);
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_8003505C);
+void func_8003505C(void) {
+    if (D_80060B18 == 0) {
+        D_80060B18 = 1;
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80035078);
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_800351EC);
+void func_8005321C(void);
+void func_8003529C(s16 a, s32 all);
+/* Stops the music. */
+
+void func_800351EC(void) {
+    if (D_80060A08 != 0) {
+        func_8003529C(D_80060B1C[1], 1);
+        func_8005321C();
+        D_80060A08 = 0;
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80035224);
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_8003529C);
+void func_80052DD4(s16 a);
+void func_8005AA68(s16 a);
+/* Stops the sequence a and (with all) the other one. */
+
+void func_8003529C(s16 a, s32 all) {
+    if (a != -1) {
+        func_80052DD4(a);
+    }
+    if (all && D_80060B1C[0] != -1) {
+        func_8005AA68(D_80060B1C[0]);
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_800352FC);
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80035410);
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80035538);
+
+/* Elements that the assembly of this file reaches by name; ns.c also reads
+ * D_80060B1C (static here so that GCC reaches its elements through $gp). */
+__asm__(".globl D_80060B1C\n.set D_80060AF2, D_80060AF0 + 2\n.set D_80060AFE, D_80060AFC + 2\n.set D_80060B1E, D_80060B1C + 2");

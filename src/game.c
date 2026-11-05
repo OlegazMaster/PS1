@@ -3,11 +3,11 @@
 #include "game.h"
 #include "ns.h"
 
+char D_800609CC[] = "pb??B"; /* until func_80030940 is in C */
+
 /* The state of the game: a new game, the objects of a level, the spawn
  * points. */
 
-/* .sdata */
-char D_800609CC[] = "pb??B";
 
 INCLUDE_ASM("asm/us/nonmatchings/game", func_8002FA1C);
 
@@ -357,16 +357,94 @@ void func_80030388(SaveState *save) {
 INCLUDE_ASM("asm/us/nonmatchings/game", func_80030388);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/game", func_80030780);
+/* The bounds of an object (obj->unk8 + 0x30). */
+typedef struct {
+    s32 v[6];
+} Bounds;
+/* A recorded demo (an entry item). */
+typedef struct {
+    u8 unk0[0x4];
+    s32 unk4;
+    u8 unk8[0x4];
+    s32 unkC; /* 0xC: game.unk19C */
+    SaveState save; /* 0x10: where it starts */
+    u32 ticks; /* 0xC7C */
+    Bounds bounds; /* 0xC80: of the player */
+    s32 unkC98;
+    u8 pad[1]; /* 0xC9C: the pad input */
+} Demo;
+extern Demo *D_80060A88; /* sys.c: the loaded demo */
 
-INCLUDE_ASM("asm/us/nonmatchings/game", func_80030794);
+/* Forgets the loaded demo. */
 
-INCLUDE_ASM("asm/us/nonmatchings/game", func_8003079C);
+void func_80030780(void) {
+    D_80060A88 = NULL;
+    game.unk204 = 0;
+}
 
-INCLUDE_ASM("asm/us/nonmatchings/game", func_800307EC);
+void func_80030794(void) {
+}
 
+extern s32 D_80060A2C; /* random seeds */
+extern s32 D_80060A30;
+
+void func_8003079C(void) {
+    D_80060A2C = 12345;
+    D_80060A30 = 765634;
+    game.unk74 = 0x100;
+    game.unk2E0 = 0x1F;
+    game.unk210 = 0;
+    game.unkF0 = 0;
+    game.unkE0 = 0;
+    game.unk2A4 = -1;
+    game.unk2A8 = 0;
+}
+
+void func_800307EC(void) {
+}
+
+extern u8 *D_80060A60; /* sys.c: the next pad input of the demo */
+typedef struct {
+    u8 unk0[0x10];
+    u32 ticks; /* 0x10 */
+} Unk80061A80;
+extern Unk80061A80 *D_80061A80[];
+void func_80032154(s32 a);
+#ifdef NON_MATCHING
+/* Starts playing the loaded demo.
+ * Equivalent; the original reads the demo in another order. */
+void func_800307F4(void) {
+    Demo *demo;
+
+    game.unk204 = 2;
+    D_80060A60 = D_80060A88->pad;
+    func_80032154(D_80060A88->unk4);
+    demo = D_80060A88;
+    D_80061A80[0]->ticks = demo->ticks;
+    game.unk19C = demo->unkC;
+    *(Bounds *)((u8 *)crash->unk8 + 0x30) = demo->bounds;
+    game.unk174 = -1;
+    func_80030388(&demo->save);
+    func_8003079C();
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/game", func_800307F4);
+#endif
 
-INCLUDE_ASM("asm/us/nonmatchings/game", func_800308B8);
+/* Loads the demo of entry *eid and starts it (*eid becomes the null EID). */
+
+void func_800308B8(u32 *eid) {
+    u32 args[2];
+    Entry *entry;
+
+    ns.draw_skip_counter = 0;
+    entry = (Entry *)NSOpen(eid, 1, 1);
+    *eid = 0x6396347F;
+    D_80060A88 = (Demo *)entry->items[0];
+    args[1] = 0x6400;
+    args[0] = 0;
+    GoolObjectCreate((GoolObject *)&game.handles[1], 4, 8, 2, args, 1);
+    func_800307F4();
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/game", func_80030940);

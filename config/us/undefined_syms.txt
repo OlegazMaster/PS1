@@ -4,3 +4,7 @@ D_800608BA = tpage_rect + 2;
 /* __main loads %hi of this address; the jump table itself is now in ns.c. */
 jtbl_80010000 = 0x80010000;
 scratchpad = 0x1F800000;
+/* Elements of arrays of src/audio.c that its assembly reaches directly. */
+D_80060AF2 = D_80060AF0 + 2;
+D_80060AFE = D_80060AFC + 2;
+D_80060B1E = D_80060B1C + 2;

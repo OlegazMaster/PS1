@@ -242,7 +242,121 @@ void func_8001B630(GoolObject *obj, s32 *out) {
 
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001B7A0);
 
+#ifdef NON_MATCHING
+/* Draws (with draw set) or measures the string str of font at x, scaled by
+ * 1 << shift; returns its width. Escapes: ~c1 (color), ~p. (skip a character
+ * if a stack value is 1), ~sx..~ ~sy..~ (scale), ~x..~ ~y..~ (move), ~l
+ * (new line), ~n ~% (new line, back to x); '\n' starts a line, '&' ends.
+ * Equivalent; the original keeps '~' and the buffers in registers and spills width, color and the y scale. */
+s32 func_8001C3F8(GoolObject *obj, char *str, s32 x, Font *font, Entry *tex, s32 shift, s32 draw) {
+    s32 box[12]; /* x, top, -, right, bottom (the rest takes stack space in the original) */
+    char sbuf[8];
+    char nbuf[8];
+    s32 width;
+    s32 color;
+    s32 ysc;
+    s32 xsc;
+    s32 y;
+    Glyph *g;
+    s32 i;
+    char k;
+    char ch;
+    u8 c;
+
+    xsc = 400;
+    color = 1;
+    width = 0;
+    ysc = 400;
+    box[0] = x;
+    y = 0;
+    if (*str != 0) do {
+        if (*str == '~') do {
+            str++;
+            switch (*str++) {
+            case 'c':
+                color = *str++ == '1';
+                break;
+            case 'p':
+                if (*(obj->sp - (*str++ - '.')) == 1) {
+                    str++;
+                }
+                if (*str == 0) {
+                    return width;
+                }
+                break;
+            case 's':
+                k = *str++;
+                i = 0;
+                while ((ch = *str++) != '~') {
+                    sbuf[i++] = ch;
+                }
+                sbuf[i] = 0;
+                if (k == 'x') {
+                    xsc = atoi(sbuf);
+                } else {
+                    ysc = atoi(sbuf);
+                }
+                break;
+            case 'x':
+            case 'y':
+                i = 0;
+                k = str[-1];
+                while ((ch = *str++) != '~') {
+                    nbuf[i++] = ch;
+                }
+                nbuf[i] = 0;
+                if (k == 'x') {
+                    box[0] += atoi(nbuf);
+                } else {
+                    y += atoi(nbuf);
+                }
+                break;
+            case 'l':
+                if (*str == 0) {
+                    return width;
+                }
+                y -= font->glyphs[0].h << shift;
+                break;
+            case '%':
+            case 'n':
+                if (*str == 0) {
+                    return width;
+                }
+                y -= font->glyphs[0].h << shift;
+                box[0] = x;
+                break;
+            default:
+                goto normal;
+            }
+        } while (*str == '~');
+    normal:
+        c = *str;
+        if (c == '\n') {
+            y -= font->glyphs[0].h << shift;
+            box[0] = x;
+        } else if (c == '&') {
+            return width;
+        } else {
+            g = &font->glyphs[c - ' '];
+            box[3] = box[0] + (xsc << shift);
+            box[4] = y + (g->h << shift);
+            box[1] = box[4] - (ysc << shift);
+            if (width < box[3]) {
+                width = box[3];
+            }
+            if (draw && g->tex) {
+                func_80019090(g->unk4, font->unk4);
+                func_800192F8(obj, g, obj->unk118, tex, box, draw, color, 0);
+            }
+            box[0] += ((g->w << shift) * xsc) / 400;
+        }
+        str++;
+    } while (*str != 0);
+    return width;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/obj", func_8001C3F8);
+#endif
 
 s32 func_8003C3D0(Transform *xform, Transform *cam, s32 flag, s32 scale, MATRIX *rot, s32 h, s32 b, s32 flag2);
 int sprintf(char *buf, const char *fmt, ...);

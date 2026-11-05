@@ -37,6 +37,8 @@ typedef struct {
     s32 steps; /* 0x1050: collision steps of the move */
 } CollQuery;
 
+extern GoolObject *crash;
+void func_8003F520(s32 *in, s32 *out, void *model, s32 *pos, s32 n, s32 a); /* turns n points by a model's matrix */
 extern s32 D_8006C2C8[3]; /* the last move that did not move the object */
 s32 func_8004F794(s32 x, s32 z); /* angle of (x, z) */
 s32 func_80031CF0(s32 *a, s32 *b); /* distance between two points */
@@ -446,7 +448,187 @@ s32 func_8002B838(GoolObject *obj, s32 *pos, CollQuery *q) {
     return 0;
 }
 
+extern u32 D_8005C824[6][4]; /* the corners of the 6 faces of a box */
+s32 func_8003116C(s32 *pt, s32 *quad); /* whether pt is inside the quad (x, z pairs) */
+s32 func_80030F88(s32 x, s32 z, s32 *quad); /* height of the quad (x, y, z) at (x, z) */
+#ifdef NON_MATCHING
+/* The height of the top (up) or the bottom (!up) of the collision record
+ * rec where box lies over or under it, between best and top (each
+ * -999999999 for no limit); with vert, it must also be inside the height of
+ * box. For a turned box (kind 1), c gets the lowest corner of the face
+ * found. -999999999 if none.
+ * Equivalent; the original allocates the registers differently. */
+s32 func_8002B9A4(s32 *rec, s32 *box, s32 up, s32 vert, s32 best, s32 top, s32 *c) {
+    s32 pts[8][3];
+    s32 *q[4];
+    s32 quad[4][3];
+    s32 flat[4][2];
+    s32 pt[2];
+    s32 i;
+    s32 k;
+    s32 j;
+    u32 *face;
+    s32 m;
+    s32 cross;
+    s32 cx;
+    s32 cy;
+    s32 cz;
+    s32 h;
+    s32 y;
+    s32 *a;
+    s32 *b;
+    s32 *d;
+
+    switch (rec[0] & 7) {
+    case 0:
+        m = 0;
+        if (*(u32 *)((u8 *)crash->unk8 + 0x4C) & 1) {
+            m = ((GoolObject *)rec[1])->hotspot_size;
+        }
+        if (vert && (box[1] > rec[6] || box[4] < rec[3])) {
+            break;
+        }
+        if (up) {
+            if (best != -999999999 && rec[6] < best) {
+                break;
+            }
+            if (top != -999999999 && top < rec[6]) {
+                break;
+            }
+        } else {
+            if (best != -999999999 && best < rec[3]) {
+                break;
+            }
+            if (top != -999999999 && rec[3] < top) {
+                break;
+            }
+        }
+        if (box[3] - m < rec[2] || box[0] + m > rec[5] || box[5] - m < rec[4] || box[2] + m > rec[7]) {
+            break;
+        }
+        if (up) {
+            return rec[6];
+        }
+        return rec[3];
+    case 1:
+        if (vert && (box[1] > rec[15] || box[4] < rec[12])) {
+            break;
+        }
+        if (up) {
+            if (best != -999999999 && rec[15] < best) {
+                break;
+            }
+            if (top != -999999999 && top < rec[12]) {
+                break;
+            }
+        } else {
+            if (best != -999999999 && best < rec[12]) {
+                break;
+            }
+            if (top != -999999999 && rec[15] < top) {
+                break;
+            }
+        }
+        if (box[3] < rec[11] || box[0] > rec[14] || box[5] < rec[13] || box[2] > rec[16]) {
+            break;
+        }
+        pts[0][0] = pts[1][0] = pts[4][0] = pts[5][0] = rec[2];
+        pts[2][0] = pts[3][0] = pts[6][0] = pts[7][0] = rec[5];
+        pts[0][1] = pts[3][1] = pts[4][1] = pts[7][1] = rec[3];
+        pts[1][1] = pts[2][1] = pts[5][1] = pts[6][1] = rec[6];
+        pts[0][2] = pts[1][2] = pts[2][2] = pts[3][2] = rec[4];
+        pts[4][2] = pts[5][2] = pts[6][2] = pts[7][2] = rec[7];
+        func_8003F520(pts[0], pts[0], ((GoolObject *)rec[1])->unk8, rec + 8, 8, 7);
+        face = D_8005C824[0];
+        for (i = 0; i < 6; i++) {
+            q[0] = pts[*face++];
+            q[1] = pts[*face++];
+            q[2] = pts[*face++];
+            q[3] = pts[*face++];
+            cross = ((q[1][2] - q[0][2]) >> 7) * ((q[2][0] - q[0][0]) >> 7);
+            cross -= ((q[1][0] - q[0][0]) >> 7) * ((q[2][2] - q[0][2]) >> 7);
+            if (up ? cross >= 0 : cross <= 0) {
+                continue;
+            }
+            cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) >> 2;
+            cz = (q[0][2] + q[1][2] + q[2][2] + q[3][2]) >> 2;
+            for (k = 0; k < 4; k++) {
+                a = q[k];
+                flat[k][0] = (a[0] - cx) >> 7;
+                flat[k][1] = (a[2] - cz) >> 7;
+            }
+            pt[0] = (((box[0] + box[3]) >> 1) - cx) >> 7;
+            pt[1] = (((box[2] + box[5]) >> 1) - cz) >> 7;
+            if (!func_8003116C(pt, flat[0])) {
+                continue;
+            }
+            cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) >> 2;
+            for (k = 0; k < 4; k++) {
+                quad[k][0] = flat[k][0];
+                quad[k][2] = flat[k][1];
+                quad[k][1] = (q[k][1] - cy) >> 7;
+            }
+            h = func_80030F88(pt[0], pt[1], quad[0]);
+            if (h == -999999999) {
+                continue;
+            }
+            h = (h << 7) + cy;
+            if (vert && (box[4] < h || h < box[1])) {
+                break;
+            }
+            if (up) {
+                if (best != -999999999 && h < best) {
+                    break;
+                }
+                if (top != -999999999 && top < h) {
+                    break;
+                }
+                if (c != NULL) {
+                    j = 0;
+                    y = q[0][1];
+                    for (i = 1; i < 4; i++) {
+                        if (q[i][1] < y) {
+                            y = q[i][1];
+                            j = i;
+                        }
+                    }
+                    c[1] = y - cy;
+                    a = q[j];
+                    b = q[(j + 1) & 3];
+                    d = q[(j - 1) & 3];
+                    if (b[1] == y) {
+                        if (d[1] == y) {
+                            c[0] = 0;
+                            c[2] = 0;
+                        } else {
+                            c[0] = ((a[0] + b[0]) >> 1) - cx;
+                            c[2] = ((a[2] + b[2]) >> 1) - cz;
+                        }
+                    } else if (d[1] == y) {
+                        c[0] = ((a[0] + d[0]) >> 1) - cx;
+                        c[2] = ((a[2] + d[2]) >> 1) - cz;
+                    } else {
+                        c[0] = a[0] - cx;
+                        c[2] = a[2] - cz;
+                    }
+                }
+            } else {
+                if (best != -999999999 && best < h) {
+                    break;
+                }
+                if (top != -999999999 && h < top) {
+                    break;
+                }
+            }
+            return h;
+        }
+        break;
+    }
+    return -999999999;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002B9A4);
+#endif
 
 s32 func_800319B8(s32 *a, s32 *b); /* whether box a lies inside box b */
 s32 func_8002A7A8(s32 *pos, GoolObject *obj, CollQuery *q);
@@ -865,7 +1047,6 @@ void func_8002CEA8(GoolObject *obj, CollQuery *q, s32 *pos, s32 *step, s32 *out)
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002CEA8);
 #endif
 
-extern GoolObject *crash;
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 /* A collision box of a model (0x28 bytes): kind (bits 0..2), the offset of
  * its centre and the box around it (in 1/256 units of the scale). */
@@ -1136,7 +1317,6 @@ void func_8002D990(s32 x0, s32 y0, s32 x1, s32 y1, s32 set) {
 }
 
 s32 func_80030AD8(s32 y, s32 *pts, s32 *out); /* cuts the box at height y into segments */
-void func_8003F520(s32 *in, s32 *out, void *model, s32 *pos, s32 n, s32 a);
 #define CELL(v, o) ((((v) - (o)) << 2) / 0x2000 + 16)
 #define CLAMP_SPAN(v, x) \
     v = x; \

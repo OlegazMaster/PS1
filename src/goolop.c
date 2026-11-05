@@ -2,6 +2,7 @@
 #include "gool.h"
 #include "game.h"
 #include "ns.h"
+#include "pad.h"
 
 /* The GOOL instructions (operands, the instructions that read the pad,
  * play sounds, send events, change states...). The bytecode interpreter
@@ -38,6 +39,16 @@ static __inline__ u32 *GoolRef(GoolObject *obj, u32 x) {
     if ((x & 0xE00) == 0xE00) {
         if (x == 0xE1F) {
             return --obj->sp;
+        }
+        return (u32 *)&obj->self + (x & 0x1FF);
+    }
+    return func_80035410(obj, x);
+}
+/* Like GoolRef for a destination: 0xE1F pushes on the stack. */
+static __inline__ u32 *GoolDst(GoolObject *obj, u32 x) {
+    if ((x & 0xE00) == 0xE00) {
+        if (x == 0xE1F) {
+            return obj->sp++;
         }
         return (u32 *)&obj->self + (x & 0x1FF);
     }
@@ -164,14 +175,130 @@ u32 *func_80035538(GoolObject *obj, u32 op, s32 push) {
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80035538);
 #endif
 
+/* For each combination of the d-pad buttons: the direction (8: none), the
+ * angle, the magnitude and the stick position it stands for. */
+typedef struct {
+    s32 dir;
+    s32 angle;
+    s32 mag;
+    s32 stick;
+} PadDir;
+extern PadDir D_8005BF00[16];
+#define PAD_DIR(b) D_8005BF00[((b) & 0xF000) >> 12].dir
+
+#ifdef NON_MATCHING
+/* Whether pad idx satisfies the button test op: buttons tapped or held
+ * (now or in the previous frame), then a direction (9..12: a d-pad button,
+ * else one of the 8 directions) tapped or held; bit 20 negates it.
+ * Equivalent; the original keeps the negated result in a0 (v1 here). */
+s32 func_800356B8(u32 op, s32 idx) {
+    s32 r;
+    s32 dir;
+    u32 b;
+    u32 m;
+
+    r = 1;
+    switch ((op >> 12) & 3) {
+    case 1:
+        b = pads.pads[idx].tapped & 0xFFF;
+        r = b & op;
+        break;
+    case 2:
+        b = pads.pads[idx].held & 0xFFF;
+        r = b & op;
+        break;
+    case 4:
+        m = op & 0xFFF;
+        r = m & (pads.pads[idx].held | pads.pads[idx].held_prev);
+        break;
+    case 3:
+        m = op & 0xFFF;
+        r = m & (pads.pads[idx].tapped | pads.pads[idx].tapped_prev);
+        break;
+    }
+    if (!r) {
+        return (op & 0x100000) ? !r : r;
+    }
+    dir = (op >> 16) & 0xF;
+    switch ((op >> 14) & 3) {
+    case 1:
+        switch (dir) {
+        case 9:
+            r = pads.pads[idx].tapped & 0x1000;
+            break;
+        case 10:
+            r = pads.pads[idx].tapped & 0x2000;
+            break;
+        case 11:
+            r = pads.pads[idx].tapped & 0x4000;
+            break;
+        case 12:
+            r = pads.pads[idx].tapped & 0x8000;
+            break;
+        default:
+            r = dir == PAD_DIR(pads.pads[idx].held) && dir != PAD_DIR(pads.pads[idx].held_prev);
+            break;
+        }
+        break;
+    case 2:
+        switch (dir) {
+        case 9:
+            r = pads.pads[idx].held & 0x1000;
+            break;
+        case 10:
+            r = pads.pads[idx].held & 0x2000;
+            break;
+        case 11:
+            r = pads.pads[idx].held & 0x4000;
+            break;
+        case 12:
+            r = pads.pads[idx].held & 0x8000;
+            break;
+        default:
+            r = dir == PAD_DIR(pads.pads[idx].held);
+            break;
+        }
+        break;
+    case 3:
+    case 4:
+        r = 0;
+        if (((op >> 16) & 0xF) == PAD_DIR(pads.pads[idx].held) ||
+            ((op >> 16) & 0xF) == PAD_DIR(pads.pads[idx].held_prev)) {
+            r = 1;
+        }
+        break;
+    }
+    return (op & 0x100000) ? !r : r;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800356B8);
+#endif
 
 void func_80035ABC(void) {
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80035AC4);
+s32 func_80032DF8(s32 a, s32 b, s32 c, s32 d, s32 e, s32 f, s32 def);
+/* Instruction: pushes the value of property (b >> 8) of the zone item of
+ * obj (0 without one). */
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80035BE0);
+void func_80035AC4(GoolObject *obj, u32 op) {
+    u32 a = *GoolRef(obj, (op >> 12) & 0xFFF);
+    u32 b = *GoolRef(obj, op & 0xFFF);
+
+    *obj->sp++ = obj->unkF0 ? func_80032DF8(obj->unkF0, b >> 8, a, 0, 0, 0, 0) : 0;
+}
+
+/* Instruction: sets a word to the value of property (a >> 8) of the zone
+ * item of obj (0 without one). */
+
+void func_80035BE0(GoolObject *obj, u32 op) {
+    u32 a = *GoolRef(obj, (op >> 12) & 0xFFF);
+    u32 *dst = GoolDst(obj, op & 0xFFF);
+
+    if (dst) {
+        *dst = obj->unkF0 ? func_80032DF8(obj->unkF0, a >> 8, 0, 0, 0, 2, 0) : 0;
+    }
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80035D08);
 

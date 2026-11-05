@@ -971,7 +971,6 @@ void func_8002D990(s32 x0, s32 y0, s32 x1, s32 y1, s32 set) {
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002DA74);
 
-extern s32 D_80068EF4[];
 void func_8002DA74(s32 *rec, s32 *box, s32 *pos, s32 a);
 /* Collides obj, moving from prev to pos, with the objects of the collision
  * records: marks the cells they take on the grid D_80060ADC (with a, also
@@ -1006,7 +1005,7 @@ void func_8002E4F0(s32 *pos, s32 *prev, GoolObject *obj, CollQuery *q, s32 a) {
     nofloor = !(((ZoneHdr *)((Entry *)D_80065C90.unkCC)->items[0])->unk2DC & 0x100000);
     x0 = pos[0];
     z0 = pos[2];
-    if (D_80068EF4[0] != 0) {
+    if (game.unk5C != 0) {
         collider = obj->collider;
         gz = ((prev[2] - z0) << 2) / 0x2000 + 16;
         bit = ((prev[0] - x0) << 2) / 0x2000 + 16;

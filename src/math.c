@@ -25,7 +25,66 @@ void func_80030A34(s32 *out, s32 len, s32 pitch, s32 yaw) {
 
 INCLUDE_ASM("asm/us/nonmatchings/math", func_80030AD8);
 
-INCLUDE_ASM("asm/us/nonmatchings/math", func_80030F88);
+/* The height (y) at (x, z) of the quad (4 points x, y, z): found on the
+ * line between the two edges that cross z. -999999999 if there are not two. */
+
+s32 func_80030F88(s32 x, s32 z, s32 *quad) {
+    s32 found;
+    s32 i;
+    s32 *p;
+    s32 *q;
+    s32 *p1;
+    s32 *q1;
+    s32 d0;
+    s32 d1;
+    s32 e0;
+    s32 e1;
+    s32 f;
+    s32 xa;
+    s32 ya;
+    s32 xb;
+    s32 yb;
+    s32 n;
+
+    found = 0;
+    p = quad;
+    for (i = 0; i < 4; i++, p = q) {
+        q = &quad[((i + 1) & 3) * 3];
+        d1 = q[2] - z;
+        d0 = z - p[2];
+        if ((d0 <= 0 && d1 <= 0) || (d0 >= 0 && d1 >= 0)) {
+            if (!found) {
+                found = 1;
+                e0 = d0;
+                e1 = d1;
+                p1 = p;
+                q1 = q;
+                continue;
+            }
+            n = e0 + e1;
+            if (n == 0) {
+                n = 1;
+            }
+            f = (e0 << 12) / n;
+            xa = ((f * (q1[0] - p1[0])) >> 12) + p1[0];
+            ya = ((f * (q1[1] - p1[1])) >> 12) + p1[1];
+            n = d0 + d1;
+            if (n == 0) {
+                n = 1;
+            }
+            f = (d0 << 12) / n;
+            xb = ((f * (q[0] - p[0])) >> 12) + p[0];
+            yb = ((f * (q[1] - p[1])) >> 12) + p[1];
+            n = xb - xa;
+            if (n == 0) {
+                n = 1;
+            }
+            f = ((x - xa) << 12) / n;
+            return ((f * (yb - ya)) >> 12) + ya;
+        }
+    }
+    return -999999999;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/math", func_8003116C);
 

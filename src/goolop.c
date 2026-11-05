@@ -43,6 +43,13 @@ static __inline__ u32 *GoolRef(GoolObject *obj, u32 x) {
     }
     return func_80035410(obj, x);
 }
+/* The word register r of obj refers to: 0x1F pops the stack. */
+static __inline__ u32 *GoolReg(GoolObject *obj, u32 r) {
+    if (r == 0x1F) {
+        return --obj->sp;
+    }
+    return (u32 *)&obj->self + r;
+}
 
 #ifdef NON_MATCHING
 /* The value that GOOL operand op of obj refers to: a field of a linked
@@ -284,7 +291,39 @@ s32 func_80037DAC(GoolObject *obj, u32 op, u32 flags) {
     return 0;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037EDC);
+/* Instruction: if a condition (register (op >> 12) & 0x3F) holds, sends the
+ * event *operand to the object linked at (op >> 21) & 7 with the top
+ * (op >> 18) & 7 words of the stack as arguments. */
+
+s32 func_80037EDC(GoolObject *obj, u32 op, u32 flags) {
+    u32 argv[16];
+    GoolObject *to;
+    u32 *ev;
+    s32 n;
+    s32 i;
+
+    to = *(GoolObject **)((u8 *)obj + ((op >> 19) & 0x1C) + 0x40);
+    ev = GoolRef(obj, op & 0xFFF);
+    obj->status_a &= ~0x20000;
+    if (*GoolReg(obj, (op >> 12) & 0x3F) != 0 && to != NULL && ev != NULL) {
+        n = (op >> 18) & 7;
+        for (i = 0; i < n; i++) {
+            argv[i] = obj->sp[i - n];
+        }
+        GoolSendEvent(obj, to, *ev, n, argv);
+    } else {
+        obj->unkD4 = 0;
+    }
+    if (!(obj->status_a & 0x20000)) {
+        obj->sp -= (op >> 18) & 7;
+    } else {
+        if (flags & 2) {
+            return -0xFF;
+        }
+        obj->sp--;
+    }
+    return 0;
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_8003808C);
 

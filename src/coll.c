@@ -1135,7 +1135,332 @@ void func_8002D990(s32 x0, s32 y0, s32 x1, s32 y1, s32 set) {
     }
 }
 
+s32 func_80030AD8(s32 y, s32 *pts, s32 *out); /* cuts the box at height y into segments */
+void func_8003F520(s32 *in, s32 *out, void *model, s32 *pos, s32 n, s32 a);
+#define CELL(v, o) ((((v) - (o)) << 2) / 0x2000 + 16)
+#define CLAMP_SPAN(v, x) \
+    v = x; \
+    if (v < -1) { \
+        v = -1; \
+    } \
+    if (v >= 33) { \
+        v = 32; \
+    }
+#define ADD_SPAN(lo, hi, v) \
+    if (v < *(lo)) { \
+        *(lo) = v; \
+    } \
+    if (*(hi) < v) { \
+        *(hi) = v; \
+    }
+#ifdef NON_MATCHING
+/* Marks on the grid D_80060ADC (around pos) the cells taken by the turned
+ * box of the collision record rec (kind 1), cut at three heights inside
+ * box; with a, the cells of its edges are also given to func_8002D944.
+ * Equivalent; the original allocates the registers differently. */
+void func_8002DA74(s32 *rec, s32 *box, s32 *pos, s32 a) {
+    s32 pts[8][3];
+    s32 seg[12][3];
+    s8 spans[32][2];
+    s32 top;
+    s32 mid;
+    s32 y;
+    s32 lastz;
+    s8 *span;
+    s32 n;
+    s32 i;
+    s32 *p;
+    s32 minx;
+    s32 maxx;
+    s32 minz;
+    s32 maxz;
+    s32 x0;
+    s32 z0;
+    s32 x1;
+    s32 z1;
+    s32 dx;
+    s32 dz;
+    s32 step;
+    s32 e;
+    s32 inc;
+    s32 inc2;
+    s32 end;
+    s32 cnt;
+    s32 last;
+    s32 v;
+    s8 *lo;
+    s8 *hi;
+    u32 *grid;
+
+    if (!func_8003191C(box, rec + 11)) {
+        return;
+    }
+    pts[0][0] = pts[1][0] = pts[4][0] = pts[5][0] = rec[2];
+    pts[2][0] = pts[3][0] = pts[6][0] = pts[7][0] = rec[5];
+    pts[0][1] = pts[3][1] = pts[4][1] = pts[7][1] = rec[3];
+    pts[1][1] = pts[2][1] = pts[5][1] = pts[6][1] = rec[6];
+    pts[0][2] = pts[1][2] = pts[2][2] = pts[3][2] = rec[4];
+    pts[4][2] = pts[5][2] = pts[6][2] = pts[7][2] = rec[7];
+    func_8003F520(pts[0], pts[0], ((GoolObject *)rec[1])->unk8, rec + 8, 8, 7);
+    top = box[4];
+    y = box[1];
+    mid = (top + y) >> 1;
+    if (rec[15] < top) {
+        top = rec[15];
+    }
+    if (y < rec[12]) {
+        y = rec[12];
+    }
+    if (rec[15] < mid) {
+        mid = rec[15];
+    }
+    if (mid < rec[12]) {
+        mid = rec[12];
+    }
+    for (;;) {
+        n = func_80030AD8(y, pts[0], seg[0]);
+        if (n < 3) {
+            goto next;
+        }
+        maxx = minx = seg[0][0];
+        maxz = minz = seg[0][2];
+        for (i = n * 2 - 2, p = seg[1]; i >= 0; i--, p += 3) {
+            if (p[0] < minx) {
+                minx = p[0];
+            }
+            if (maxx < p[0]) {
+                maxx = p[0];
+            }
+            if (p[2] < minz) {
+                minz = p[2];
+            }
+            if (maxz < p[2]) {
+                maxz = p[2];
+            }
+        }
+        maxx = CELL(maxx, pos[0]);
+        maxz = CELL(maxz, pos[2]);
+        minx = CELL(minx, pos[0]);
+        minz = CELL(minz, pos[2]);
+        /* from here: the window of cells looked at */
+        if (a) {
+            if (maxx < -16 || maxz < -16 || minx >= 48 || minz >= 48) {
+                goto next;
+            }
+            minx = minz = -16;
+            maxx = 47;
+        } else {
+            if (maxx < 0 || maxz < 0 || minx >= 32 || minz >= 32) {
+                goto next;
+            }
+            maxx = 31;
+            minx = minz = 0;
+        }
+        maxz = maxx;
+        for (i = 15; i >= 0; i--) {
+            ((s32 *)spans)[15 - i] = 0xFE21FE21; /* lo 33, hi -2 */
+        }
+        for (i = n - 1, p = seg[0]; i >= 0; i--) {
+            x0 = CELL(p[0], pos[0]);
+            z0 = CELL(p[2], pos[2]);
+            p += 3;
+            x1 = CELL(p[0], pos[0]);
+            z1 = CELL(p[2], pos[2]);
+            p += 3;
+            if (z1 < z0) {
+                v = z0;
+                z0 = z1;
+                z1 = v;
+                v = x0;
+                x0 = x1;
+                x1 = v;
+            }
+            if (maxz < z0 || z1 < minz) {
+                continue;
+            }
+            dz = z1 - z0;
+            dx = x1 - x0;
+            if (dz == 0) {
+                if ((u32)z0 < 32) {
+                    span = spans[z0];
+                    CLAMP_SPAN(v, x0);
+                    ADD_SPAN(&span[0], &span[1], v);
+                    CLAMP_SPAN(v, x1);
+                    ADD_SPAN(&span[0], &span[1], v);
+                }
+                if (!a) {
+                    continue;
+                }
+                if (x1 < x0) {
+                    v = x0;
+                    x0 = x1;
+                    x1 = v;
+                }
+                if (maxx < x0 || x1 < minx) {
+                    continue;
+                }
+                if (x0 < minx) {
+                    x0 = minx;
+                }
+                if (maxx < x1) {
+                    x1 = maxx;
+                }
+                do {
+                    func_8002D944(x0 - 16, z0 - 16);
+                    x0 += 8;
+                } while (x0 <= x1);
+                if (x0 != x1) {
+                    func_8002D944(x1 - 16, z0 - 16);
+                }
+                continue;
+            }
+            step = 1;
+            if (dx < 0) {
+                dx = -dx;
+                step = -1;
+            }
+            if (maxz < z1) {
+                z1 = maxz;
+            }
+            if (dz < dx) {
+                /* more along x: one point per column */
+                inc = dz * 2;
+                inc2 = (dz - dx) * 2;
+                e = inc - dx;
+                while (z0 < minz) {
+                    if (e > 0) {
+                        e += inc2;
+                        z0++;
+                    } else {
+                        e += inc;
+                    }
+                    x0 += step;
+                }
+                span = spans[z0 < 0 ? 0 : z0];
+                if ((u32)z0 < 32) {
+                    CLAMP_SPAN(v, x0);
+                    ADD_SPAN(&span[0], &span[1], v);
+                }
+                cnt = 0;
+                last = 12345;
+                end = x1 + step;
+                lo = span;
+                hi = span + 1;
+                for (;;) {
+                    if (a && x0 >= minx && x0 <= maxx) {
+                        if (--cnt <= 0) {
+                            cnt = 8;
+                            func_8002D944(x0 - 16, z0 - 16);
+                            last = 12345;
+                        } else {
+                            last = x0;
+                            lastz = z0;
+                        }
+                    }
+                    if (e <= 0) {
+                        x0 += step;
+                        e += inc;
+                        if (x0 == end) {
+                            break;
+                        }
+                        continue;
+                    }
+                    e += inc2;
+                    if ((u32)z0 < 32) {
+                        CLAMP_SPAN(v, x0);
+                        ADD_SPAN(lo, hi, v);
+                        hi += 2;
+                        lo += 2;
+                    }
+                    x0 += step;
+                    if (x0 == end) {
+                        break;
+                    }
+                    z0++;
+                    if (z1 < z0) {
+                        break;
+                    }
+                    if ((u32)z0 < 32) {
+                        CLAMP_SPAN(v, x0);
+                        ADD_SPAN(lo, hi, v);
+                    }
+                }
+            } else {
+                /* more along z: one point per row */
+                inc = dx * 2;
+                inc2 = (dx - dz) * 2;
+                e = inc - dz;
+                while (z0 < minz) {
+                    if (e > 0) {
+                        e += inc2;
+                        x0 += step;
+                    } else {
+                        e += inc;
+                    }
+                    z0++;
+                }
+                cnt = 0;
+                last = 12345;
+                lo = spans[z0 < 0 ? 0 : z0];
+                hi = lo + 1;
+                do {
+                    if ((u32)z0 < 32) {
+                        CLAMP_SPAN(v, x0);
+                        ADD_SPAN(lo, hi, v);
+                        hi += 2;
+                        lo += 2;
+                    }
+                    if (a && x0 >= minx && x0 <= maxx) {
+                        if (--cnt <= 0) {
+                            cnt = 8;
+                            func_8002D944(x0 - 16, z0 - 16);
+                            last = 12345;
+                        } else {
+                            last = x0;
+                            lastz = z0;
+                        }
+                    }
+                    if (e > 0) {
+                        e += inc2;
+                        x0 += step;
+                    } else {
+                        e += inc;
+                    }
+                    z0++;
+                } while (z0 <= z1);
+            }
+            if (a && last != 12345) {
+                func_8002D944(last - 16, lastz - 16);
+            }
+        }
+        lo = spans[0];
+        grid = D_80060ADC;
+        for (i = 31; i >= 0; i--) {
+            minx = *lo++;
+            maxx = *lo++;
+            if (maxx >= -1) {
+                if (minx < 0 && maxx >= 0) {
+                    minx = 0;
+                }
+                if (maxx >= 32 && minx < 32) {
+                    maxx = 31;
+                }
+                if ((u32)minx < 32 && (u32)maxx < 32) {
+                    *grid |= ((u32)-1 >> minx) & (-1 << (31 - maxx));
+                }
+            }
+            grid++;
+        }
+    next:
+        if (y == top) {
+            break;
+        }
+        y = (y == mid) ? top : mid;
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002DA74);
+#endif
 
 void func_8002DA74(s32 *rec, s32 *box, s32 *pos, s32 a);
 /* Collides obj, moving from prev to pos, with the objects of the collision

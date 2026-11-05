@@ -229,7 +229,47 @@ void func_80037A00(GoolObject *obj, u32 op) {
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037AE4);
 
+/* Instruction: changes the state of obj to op & 0x3FF with (op >> 10) & 0xF
+ * popped arguments, unless the state is not allowed (its flags against
+ * status_c, with 0x402 while obj is hurt). */
+
+s32 GoolObjectChangeState(GoolObject *obj, u32 state, s32 argc, u32 *argv);
+
+#ifdef NON_MATCHING
+/* Equivalent; the original pops the stack in v0. */
+s32 func_80037BEC(GoolObject *obj, u32 op, u32 flags) {
+    u32 argv[16];
+    s32 n;
+    s32 i;
+    s32 r;
+    u32 sc;
+    u32 f;
+    u32 m;
+
+    n = (op >> 10) & 0xF;
+    for (i = n - 1; i >= 0; i--) {
+        argv[i] = *--obj->sp;
+    }
+    sc = obj->status_c;
+    f = ((u32 *)obj->global->items[4])[(op & 0x3FF) * 4];
+    if ((u32)(obj->invincibility_state - 2) < 3) {
+        m = (sc | 0x402) & f;
+    } else {
+        m = sc & f;
+    }
+    if (m) {
+        return 0;
+    }
+    r = GoolObjectChangeState(obj, op & 0x3FF, n, argv);
+    if (r >= -0xFE || !(flags & 2)) {
+        obj->sp--;
+        r = 0;
+    }
+    return r;
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80037BEC);
+#endif
 
 /* Instruction: sets the animation of obj (op & 0x7F: frame, (op >> 7) &
  * 0x1FF: offset in its code), then as func_80037DAC. */
@@ -429,7 +469,16 @@ void func_800387A8(GoolObject *obj, u32 op) {
     func_8006F21C(v, code, *a, *b);
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800388C8);
+s32 func_800450D4(u32 *a, u32 *b, RenderState *rs); /* nd_asm */
+extern RenderState D_800676B0;
+/* Instruction: pushes the result of func_800450D4 on two words. */
+
+void func_800388C8(GoolObject *obj, u32 op) {
+    u32 *b = GoolRef(obj, (op >> 12) & 0xFFF);
+    u32 *a = GoolRef(obj, op & 0xFFF);
+
+    *obj->sp++ = func_800450D4(b, a, &D_800676B0);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_800389C8);
 

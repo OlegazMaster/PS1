@@ -3,7 +3,10 @@
 #include "game.h"
 #include "ns.h"
 
-char D_800609CC[] = "pb??B"; /* until func_80030940 is in C */
+#ifndef NON_MATCHING
+char D_800609CC[] = "pb??B"; /* the literal of func_80030940 */
+#endif
+
 
 /* The state of the game: a new game, the objects of a level, the spawn
  * points. */
@@ -447,4 +450,32 @@ void func_800308B8(u32 *eid) {
     func_800307F4();
 }
 
+u32 NSStringToEID(char *str);
+char NSAlphaNumChar(s32 idx);
+s32 NSCountEntries(NsState *nss, s32 type);
+s32 func_80032160(s32 n); /* random number below n */
+extern s32 D_80060ABC; /* level.c: the current level */
+#ifdef NON_MATCHING
+/* Picks one of the demos of the level at random: puts its EID ("pbNlB") in
+ * *eid, or the null EID if there is none.
+ * Equivalent; the original reads D_80060ABC before writing *eid. */
+void func_80030940(u32 *eid) {
+    s32 n = NSCountEntries(&ns, 0x13);
+    char name[8] = "pb??B";
+
+    if (n == 0) {
+        *eid = 0x6396347F;
+        if (D_80060ABC != 2) {
+            game.game_state = 0;
+        }
+    } else {
+        name[2] = func_80032160(n) + '0';
+        name[3] = NSAlphaNumChar(ns.lid);
+        *eid = NSStringToEID(name);
+        ns.draw_skip_counter = -1;
+        game.unk204 = 3;
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/game", func_80030940);
+#endif

@@ -28,7 +28,10 @@ typedef struct {
     s32 count; /* 0x1004 */
     s32 box[6]; /* 0x1008 */
     s32 box2[6]; /* 0x1020 */
-    u8 unk1038[0x18];
+    u8 unk1038[0x4];
+    s32 ceil_a; /* 0x103C: ceiling found (0 if none) */
+    s32 ceil_b; /* 0x1040 */
+    u8 unk1044[0xC];
     s32 steps; /* 0x1050: collision steps of the move */
 } CollQuery;
 
@@ -273,7 +276,104 @@ INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002C230);
 
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002C604);
 
+s32 func_8002C604(GoolObject *obj, s32 *to, CollQuery *q, s32 *ceil, s32 flag);
+s32 func_8001FD08(s32 cur, s32 target, s32 step);
+#define ALL_FLAG(b, i) ((b)[i] & 0x100000)
+/* Keeps obj moving from pos to to under the ceiling: stops it below the
+ * ceiling found by func_8002C604 (in state 2 it slides there and gets
+ * event 0x3300). */
+
+#define ALL_FLAG(b, i) ((b)[i] & 0x100000)
+
+#define ALL_FLAG(b, i) ((b)[i] & 0x100000)
+
+#define ALL_FLAG(b, i) ((b)[i] & 0x100000)
+
+#define ALL_FLAG(b, i) ((b)[i] & 0x100000)
+
+#define ALL_FLAG(b, i) ((b)[i] & 0x100000)
+
+#ifdef NON_MATCHING
+/* Equivalent; the original reloads to[1] and orders two loads differently. */
+void func_8002CAE4(GoolObject *obj, s32 *pos, s32 *to, CollQuery *q) {
+    s32 ceil;
+    u32 arg;
+    u32 flag;
+    s32 c;
+    s32 *b;
+    s32 *pc;
+    s32 y;
+    s32 h;
+    s32 lo;
+    s32 lim;
+    s32 v;
+    s32 top;
+
+    flag = 0;
+    pc = &ceil;
+    if (obj->status_a & 0x100000) {
+        b = (s32 *)obj->unk8;
+        if (ALL_FLAG(b, 19) && ALL_FLAG(b, 20) && ALL_FLAG(b, 21) && ALL_FLAG(b, 22) && ALL_FLAG(b, 23) && ALL_FLAG(b, 24) && ALL_FLAG(b, 25)) {
+            flag = flag < (u32)ALL_FLAG(b, 26);
+        }
+    }
+    c = func_8002C604(obj, to, q, pc, flag);
+    if (c == -999999999) {
+        q->ceil_a = 0;
+        q->ceil_b = 0;
+    } else {
+        q->ceil_a = c;
+        q->ceil_b = ceil;
+    }
+    if (c != -999999999) {
+        y = to[1];
+        h = *(s32 *)((u8 *)obj->unk8 + 0x40);
+        top = y + h;
+        lo = ceil;
+        if (c < lo) {
+            lo = c;
+        }
+        if (lo - 1 < top && !(obj->status_a & 1)) {
+            lim = c - h - 1;
+            if ((obj->state_flags >> 28) == 2) {
+                v = y;
+                if (lim < v) {
+                    v = lim;
+                }
+                to[1] = func_8001FD08(pos[1], v, 0x4E20);
+            } else {
+                v = pos[1];
+                if (v >= y) {
+                    v = y;
+                }
+                if (v < lim) {
+                    v = lim;
+                }
+                to[1] = v;
+                if (ceil < to[1] + *(s32 *)((u8 *)obj->unk8 + 0x40)) {
+                    to[1] = ceil - *(s32 *)((u8 *)obj->unk8 + 0x40) - 1;
+                }
+            }
+            obj->status_a |= 0x80;
+            if (obj->misc_a[1] > 0) {
+                obj->misc_a[1] = 0;
+            }
+            return;
+        }
+    }
+    if ((obj->state_flags >> 28) == 2) {
+        if (c == -999999999) {
+            to[1] = pos[1];
+            return;
+        }
+        arg = 0;
+        to[1] = func_8001FD08(pos[1], c - *(s32 *)((u8 *)obj->unk8 + 0x40) - 1, 0x4E20);
+        GoolSendEvent(NULL, obj, 0x3300, 1, &arg);
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/coll", func_8002CAE4);
+#endif
 
 Entry *func_80028D8C(Entry *zone, s32 *pos);
 /* Finds the zone obj at pos is in; if there is none and pos is below the

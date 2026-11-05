@@ -303,7 +303,148 @@ void func_80035BE0(GoolObject *obj, u32 op) {
 
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80035D08);
 
+void *memset(void *dst, s32 c, s32 n);
+s32 func_8003C2F0(s32 angle); /* sin */
+s32 func_8003C364(s32 angle); /* cos */
+void func_80020670(GoolObject *obj, s32 a, s32 *pos);
+void func_8001FFF0(s32 *in, s32 *pos, s32 *a, s32 *b, s32 unused, s32 *out);
+void func_800200C8(GoolObject *obj, s32 unused, s32 *in, s32 *out);
+s32 func_800202CC(s32 *in, s32 *out, s32 unused);
+s32 func_800203A4(s32 *in, s32 *out);
+/* A frame of vertex animation: its origin, its scale and, after count
+ * 0x28-byte items at 0x1C, the vertices (3 bytes each: x, z, y). */
+typedef struct {
+    s16 x;
+    s16 y;
+    s32 z;
+    s16 sx;
+    s16 sy;
+    s32 sz;
+    u8 unk10[4];
+    s32 count;
+} VtxFrame;
+#define FRAME_VERTEX(f, i) ((u8 *)(f) + ((f)->count * 0x28 + 0x1C) + (i) * 3)
+#ifdef NON_MATCHING
+/* Instruction: vector operations on vector (op >> 12) & 7 of obj (and
+ * vector (op >> 15) & 7 or a linked object): moves it along the path,
+ * velocity from the angle, transforms or projects it, a vertex of the
+ * model of a linked object.
+ * Equivalent; the loads and the stores of the vertex case (3, 6) are scheduled differently. */
+void func_80036B88(GoolObject *obj, u32 op) {
+    Vec3 t;
+    s32 in[3];
+    s32 sc[3];
+    s32 zero[3];
+    s32 unused[4]; /* takes stack space in the original */
+    s32 *v;
+    u32 *x;
+    s32 *dst;
+    GoolObject *link;
+    GoolObject *src;
+    s32 r;
+    s32 d;
+    s32 *scr;
+    VtxFrame *fa;
+    VtxFrame *fb;
+    s32 *scale;
+    s32 *s;
+    u8 *vtx;
+
+    v = ((Vec3 *)&obj->xform + ((op >> 12) & 7))->v;
+    x = GoolRef(obj, op & 0xFFF);
+    switch ((op >> 18) & 7) {
+    case 0:
+        if (x != NULL && obj->unkF0 != 0) {
+            t = *(Vec3 *)v;
+            func_80020670(obj, *x, t.v);
+            *(Vec3 *)v = t;
+            *(s32 *)obj->unkFC = v[1];
+        }
+        break;
+    case 2:
+        v[0] = ((func_8003C2F0(obj->misc_b[1] & 0xFFF) >> 4) * (s32)*x) >> 8;
+        if ((u8)(*(u8 *)&obj->unk120 - 6) >= 2) {
+            v[2] = ((func_8003C364(obj->misc_b[1] & 0xFFF) >> 4) * (s32)*x) >> 8;
+        } else {
+            v[1] = ((func_8003C364(obj->misc_b[1] & 0xFFF) >> 4) * (s32)*x) >> 8;
+        }
+        obj->speed = *x;
+        break;
+    case 4:
+    case 5:
+        in[2] = *x;
+        in[1] = *--obj->sp;
+        in[0] = *--obj->sp;
+        dst = ((Vec3 *)&obj->xform + ((op >> 15) & 7))->v;
+        if (((op >> 18) & 7) == 4) {
+            src = *(GoolObject **)((u8 *)obj + ((op >> 19) & 0x1C) + 0x40);
+            r = ((in[2] >> 2) * func_8003C364(-src->xform.rot[0])) >> 12;
+            dst[1] = (((in[2] >> 2) * func_8003C2F0(-src->xform.rot[0])) >> 10) + src->xform.trans[1];
+            dst[0] = ((r * func_8003C2F0(src->xform.rot[1])) >> 10) + src->xform.trans[0];
+            dst[2] = ((r * func_8003C364(src->xform.rot[1])) >> 10) + src->xform.trans[2];
+        } else {
+            func_8001FFF0(in, v, obj->misc_b, NULL, 0, dst);
+        }
+        break;
+    case 3:
+    case 6:
+        link = *(GoolObject **)((u8 *)obj + ((op >> 19) & 0x1C) + 0x40);
+        if (*(u8 **)&link->unkE8 == NULL || **(u8 **)&link->unkE8 != 1) {
+            break;
+        }
+        fa = *(VtxFrame **)((u8 *)link->unk8 + 0x20);
+        fb = *(VtxFrame **)((u8 *)link->unk8 + 0x24);
+        vtx = FRAME_VERTEX(fa, *x >> 8);
+        scale = *(s32 **)(*(u8 **)((u8 *)link->unk8 + 0x28) + 0x10);
+        s = scale;
+        in[0] = (fa->x + (vtx[0] << 5)) << 8;
+        in[1] = (fa->y + (vtx[2] << 5)) << 8;
+        in[2] = (fa->z + (vtx[1] << 5)) << 8;
+        if (fa != fb) {
+            vtx = FRAME_VERTEX(fb, *x >> 8);
+            in[0] = in[0] + ((fb->x + (vtx[0] << 5)) << 8);
+            in[1] = in[1] + ((fb->y + (vtx[2] << 5)) << 8);
+            in[0] >>= 1;
+            in[1] >>= 1;
+            in[2] = in[2] + ((fb->z + (vtx[1] << 5)) << 8);
+            in[2] >>= 1;
+        }
+        if (((op >> 18) & 7) == 3) {
+            memset(zero, 0, sizeof(zero));
+            func_8001FFF0(in, link->xform.trans, zero, scale, 0, v);
+        } else {
+            func_800200C8(link, 0, in, v);
+            sc[0] = (s[0] * link->xform.scale[0]) >> 12;
+            sc[1] = (s[1] * link->xform.scale[1]) >> 12;
+            sc[2] = (s[2] * link->xform.scale[2]) >> 12;
+            if (fa != fb) {
+                v[0] += ((fa->sx + fb->sx) * sc[0]) >> 5;
+                v[1] += ((fa->sy + fb->sy) * sc[1]) >> 5;
+                v[2] += ((fa->sz + fb->sz) * sc[2]) >> 5;
+            } else {
+                v[0] += (fa->sx * sc[0]) >> 4;
+                v[1] += (fa->sy * sc[1]) >> 4;
+                v[2] += (fa->sz * sc[2]) >> 4;
+            }
+        }
+        break;
+    case 1:
+        scr = ((Vec3 *)&obj->xform + ((op >> 15) & 7))->v;
+        func_800203A4(v, scr);
+        if (x[0] != 0 && (d = scr[2] >> 8) != 0) {
+            x[0] = (s32)(x[0] * 0x118) / d;
+            x[1] = (s32)(x[1] * 0x118) / d;
+            x[2] = (s32)(x[2] * 0x118) / d;
+        }
+        break;
+    case 7:
+        func_800202CC(v, ((Vec3 *)&obj->xform + ((op >> 15) & 7))->v, 0);
+        break;
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80036B88);
+#endif
 
 extern GoolObject *crash;
 extern Entry *cur_zone;

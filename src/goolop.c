@@ -304,7 +304,424 @@ void func_80035BE0(GoolObject *obj, u32 op) {
     }
 }
 
+extern s32 D_8005C1A4[3]; /* a point (the camera's) */
+extern u32 spawns[];
+extern s32 ticks_elapsed;
+extern s32 next_lid;
+extern Entry *D_80065D60[];
+typedef struct {
+    u32 categories;
+    GoolObject *obj;
+    GoolObject *nearest_obj;
+    s32 dist;
+    u32 event;
+} GoolNearestQuery;
+s32 func_80031A54(s32 *a, s32 *b);
+s32 func_80031B50(s32 *a, s32 *b);
+s32 func_80031C74(s32 *a, s32 *b);
+s32 func_80031CF0(s32 *a, s32 *b);
+s32 func_80031D4C(s32 *a, s32 *b);
+s32 func_80031DA8(s32 *a, s32 *b);
+s32 func_80031DDC(s32 *a, s32 *b);
+GoolObject *GoolObjectHasPidFlags(GoolObject *obj, s32 pid_flags);
+s32 func_80019ACC(GoolObject *obj, GoolNearestQuery *query);
+GoolObject *func_8001ABF8(s32 pid_flags);
+void func_80020F68(s32 pid);
+void func_80021008(s32 pid);
+Entry *func_80028D8C(Entry *zone, s32 *pos);
+void func_8002FF3C(GoolObject *obj, SaveState *save, s32 a, s32 mode);
+void func_80030388(SaveState *save);
+s32 GoolObjectAddChild(GoolObject *child, GoolObject *parent);
+void func_80033154(s32 a);
+void func_80034C0C(void);
+void func_80034C1C(s32 p);
+void GoolZoneNeighborObjectsTerminate(void);
+void NSCdSeek(s32 idx);
+void func_8002FCA0(s32 mode);
+u8 *func_80032710(u8 *item, s32 tag, s32 pos, s32 index, s32 *outcount, s32 mode, u8 *buf, s32 count, s32 def);
+void func_8001B0BC(GoolObject *obj, s32 *scale);
+void func_8001B630(GoolObject *obj, s32 *out);
+void func_80072194(void); /* overlay */
+void func_800302AC(s32 level, s32 idx, s32 a, s32 b);
+s32 *func_8002D0E8(GoolObject *obj, s32 a, s32 idx, s32 unused); /* takes a collision box */
+void func_8002D85C(void); /* releases it */
+s32 func_8003188C(s32 *point, s32 *box); /* point in box */
+s32 func_80017CA8(GoolObject *obj, u32 msg, s32 arg);
+#define LINK(obj, op) (*(GoolObject **)((u8 *)(obj) + (((op) >> 10) & 0x1C) + 0x40))
+#ifdef NON_MATCHING
+/* Miscellaneous instruction: distances and angles between objects or to
+ * the camera, normalizing a vector, fields of linked objects, the spawn
+ * flags of entities, zones, saves, music, the level, analog sticks, the
+ * nearest object, collision boxes.
+ * Equivalent; differs in registers of cases 3 and 4 and in the scheduling of the loads of cur_zone (an explicit lui in the original). */
+void func_80035D08(GoolObject *obj, u32 op) {
+    u32 *x;
+    s32 sub;
+    s32 *a;
+    s32 *pa;
+    s32 *pb;
+    s32 *b;
+    s32 *v;
+    s32 len;
+    s32 vx;
+    s32 vy;
+    s32 vz;
+    s32 d;
+    s32 i;
+    GoolHandle *h;
+    GoolObject *r;
+    u32 *p;
+    u32 t;
+    Entry *zone;
+    s32 type;
+    u8 *pad;
+    s16 *ids;
+    s16 *list;
+    s32 id;
+    s32 n;
+    u32 *flags;
+    GoolObject *o;
+    GoolObject *l;
+    s32 *box;
+    s32 buf[2];
+    GoolNearestQuery query;
+    s32 count;
+    u32 arg;
+
+    x = GoolRef(obj, op & 0xFFF);
+    sub = (s32)(op << 12) >> 27;
+    switch ((op >> 20) & 0xF) {
+    case 1:
+    case 6:
+        pa = (s32 *)x;
+        if (((op >> 20) & 0xF) != 6) {
+            pa = obj->xform.trans;
+        }
+        if (sub & 8) {
+            pb = D_8005C1A4;
+        } else {
+            pb = LINK(obj, op)->xform.trans;
+        }
+        switch (sub & 7) {
+        case 0:
+        case 4:
+            *obj->sp++ = func_80031A54(pa, pb);
+            break;
+        case 1:
+            *obj->sp++ = func_80031C74(pa, pb);
+            break;
+        case 2:
+        case 6:
+            *obj->sp++ = func_80031B50(pa, pb);
+            break;
+        case 3:
+            *obj->sp++ = func_80031CF0(pa, pb);
+            break;
+        case 7:
+            *obj->sp++ = func_80031D4C(pa, pb);
+            break;
+        }
+        break;
+    case 5:
+        len = (s32)*--obj->sp >> 8;
+        v = (s32 *)x;
+        vx = v[0] >> 8;
+        vz = v[2] >> 8;
+        if (sub & 1) {
+            d = func_8003D9DC(vx * vx + vz * vz);
+        } else {
+            vy = (s32)x[1] >> 8;
+            d = func_8003D9DC(vx * vx + vy * vy + vz * vz);
+            if (d != 0) {
+                x[1] = ((vy * len) / d) << 8;
+            } else {
+                x[1] = 0;
+            }
+        }
+        if (len > 0x10) {
+            d /= 16;
+            if (d == 0) {
+                goto zero;
+            }
+            v[0] = ((vx * len) / 16 / d) << 8;
+            v[2] = ((vz * len) / 16 / d) << 8;
+        } else if (d == 0) {
+        zero:
+            v[2] = 0;
+            v[0] = 0;
+        } else if (len >= 0x1000) {
+            v[0] = ((vx * len) / d) << 8;
+            v[2] = ((vz * len) / d) << 8;
+        } else {
+            v[0] = (v[0] * len) / d;
+            v[2] = (v[2] * len) / d;
+        }
+        break;
+    case 2:
+        if ((u8)(*(u8 *)&obj->unk120 - 6) >= 2) {
+            if (!(sub & 1)) {
+                pa = LINK(obj, op)->xform.trans;
+            } else {
+                pa = D_8005C1A4;
+            }
+            *obj->sp++ = func_80031DA8(pa, (s32 *)x);
+        } else {
+            *obj->sp++ = func_80031DDC(LINK(obj, op)->xform.trans, (s32 *)x);
+        }
+        break;
+    case 3:
+        o = LINK(obj, op);
+        p = obj->sp;
+        *p++ = ((u32 *)&o->self)[*x >> 8];
+        obj->sp = p;
+        break;
+    case 4:
+        o = LINK(obj, op);
+        ((u32 *)&o->self)[*x >> 8] = *--obj->sp;
+        break;
+    case 7:
+        if (x == NULL) {
+            break;
+        }
+        if (*x == 0 || !(spawns[*x >> 8] & 1)) {
+            *obj->sp++ = 0;
+            break;
+        }
+        i = 3;
+        do {
+            r = (GoolObject *)GoolObjectSearchTree((GoolObject *)&game.handles[i++], (GoolTraverseFunc)GoolObjectHasPidFlags, *x);
+        } while (r == NULL && i < 5);
+        *obj->sp++ = (u32)r;
+        break;
+    case 8:
+        if (x == NULL) {
+            break;
+        }
+        if (sub != 0) {
+            spawns[*x >> 8] &= ~2;
+        } else {
+            spawns[*x >> 8] |= 2;
+        }
+        break;
+    case 10:
+        if (x == NULL) {
+            break;
+        }
+        switch (sub) {
+        case 0:
+            spawns[*x >> 8] &= ~4;
+            break;
+        case 1:
+            spawns[*x >> 8] |= 4;
+            break;
+        case 4:
+            func_80021008(*x);
+        case 2:
+            spawns[*x >> 8] &= ~8;
+            break;
+        case 5:
+            func_80020F68(*x);
+        case 3:
+            spawns[*x >> 8] |= 8;
+            break;
+        case 9:
+            spawns[*x >> 8] |= 1;
+            break;
+        case 8:
+            spawns[*x >> 8] &= ~1;
+            break;
+        }
+        break;
+    case 11:
+        switch (sub) {
+        case 1:
+            p = obj->sp++;
+            if (x != NULL) {
+                t = !(spawns[*x >> 8] & 2);
+            } else {
+                t = 0;
+            }
+            *p = t;
+            break;
+        case 2:
+            p = obj->sp++;
+            if (x != NULL) {
+                t = spawns[*x >> 8] & 4;
+            } else {
+                t = 0;
+            }
+            *p = t;
+            break;
+        case 3:
+            p = obj->sp++;
+            if (x != NULL) {
+                t = spawns[*x >> 8] & 8;
+            } else {
+                t = 0;
+            }
+            *p = t;
+            break;
+        }
+        break;
+    case 9:
+        if (x == NULL) {
+            zone = cur_zone;
+        } else {
+            zone = func_80028D8C(cur_zone, (s32 *)x);
+        }
+        if ((s32)zone < -0xFE) {
+            LINK(obj, op)->zone = zone;
+        }
+        break;
+    case 12:
+        switch ((op >> 15) & 0x1F) {
+        case 0:
+            func_8002FF3C(obj, &D_80065C90.saves[((u8 *)x)[1]], 0, ((u16 *)x)[1]);
+            break;
+        case 1:
+            func_80030388(&D_80065C90.saves[*x >> 8]);
+            break;
+        case 2:
+            switch ((op >> 12) & 7) {
+            case 0:
+                GoolObjectAddChild(obj, (GoolObject *)&game.handles[*x >> 8]);
+                break;
+            case 1:
+                GoolObjectAddChild(obj, (GoolObject *)*x);
+                break;
+            }
+            break;
+        case 3:
+            func_80033154(*x);
+            break;
+        case 4:
+            ((GoolObject *)*x)->zone = D_80065D60[0];
+            break;
+        case 5:
+            func_80034C0C();
+            break;
+        case 6:
+            func_80034C1C(*x);
+            break;
+        case 7:
+            GoolZoneNeighborObjectsTerminate();
+            break;
+        case 8:
+            a = LINK(obj, op)->xform.trans;
+            d = func_80031CF0(a, (s32 *)x);
+            *obj->sp++ = func_8004F794(a[1] - (s32)x[1], d);
+            break;
+        case 9:
+            next_lid = *x >> 8;
+            break;
+        case 10:
+            NSCdSeek(*x >> 8);
+            break;
+        case 11:
+            switch ((op >> 12) & 7) {
+            case 0:
+                func_8002FCA0(1);
+                break;
+            case 1:
+                func_8002FCA0(0);
+                break;
+            }
+            break;
+        case 12:
+            *x = ticks_elapsed;
+            break;
+        case 13:
+            ticks_elapsed = *x;
+            break;
+        case 14:
+            LINK(obj, op)->external = (Entry *)*x;
+            break;
+        case 15:
+            *obj->sp++ = (u32)((GoolObject *)*x)->external;
+            break;
+        case 16:
+            LINK(obj, op)->unk10 = (Entry *)*x;
+            break;
+        case 17:
+            *obj->sp++ = (u32)((GoolObject *)*x)->unk10;
+            break;
+        case 20:
+            type = 0;
+            pad = (u8 *)&pads.pads[0];
+            if (*(s8 *)&pad[0] == 0) {
+                type = *(s8 *)&pad[1];
+                if ((type == 0x53 || type == 0x73) && x != NULL) {
+                    x[0] = pad[6];
+                    x[1] = pad[7];
+                }
+            }
+            *obj->sp++ = type;
+            break;
+        case 18:
+            arg = 1;
+            list = (s16 *)func_80032710((u8 *)obj->unkF0, 0x287, 0, 0, &count, 2, NULL, 0, 0);
+            if (list == NULL) {
+                break;
+            }
+            for (n = 0; n < count; n++) {
+                id = list[n];
+                flags = &spawns[id];
+                if (*flags & 1) {
+                    o = func_8001ABF8(id << 8);
+                    if (o != NULL) {
+                        GoolSendEvent(obj, o, 0x300, 1, &arg);
+                    }
+                } else if (!(*flags & 2)) {
+                    GoolSendEvent(obj, crash, 0x4800, 0, NULL);
+                    *flags |= 2;
+                }
+            }
+            break;
+        case 21:
+            func_8001B0BC(obj, obj->xform.scale);
+            func_8001B630(obj, buf);
+            break;
+        case 22:
+            func_80072194();
+            break;
+        case 23:
+            func_800302AC(ns.ldat->lid, game.unk2A4, 0, game.unk314);
+            break;
+        }
+        break;
+    case 13:
+        query.categories = (op >> 15) & 0x1F;
+        query.obj = LINK(obj, op);
+        query.dist = 0x7FFFFFFF;
+        query.nearest_obj = NULL;
+        query.event = *x;
+        GoolObjectSearchTree((GoolObject *)&game.handles[4], (GoolTraverseFunc)func_80019ACC, (s32)&query);
+        if ((op >> 15) & 0x17) {
+            GoolObjectSearchTree((GoolObject *)&game.handles[3], (GoolTraverseFunc)func_80019ACC, (s32)&query);
+        }
+        if (query.nearest_obj != NULL) {
+            *obj->sp++ = (u32)query.nearest_obj;
+        } else {
+            *obj->sp++ = 0;
+        }
+        break;
+    case 14:
+        l = LINK(obj, op);
+        if (((u32)l & 0xFF800003) != 0x80000000 || (box = func_8002D0E8(l, 0, -2, sub)) == NULL) {
+            *obj->sp++ = 0;
+            break;
+        }
+        *obj->sp++ = func_8003188C((s32 *)x, box + 2);
+        func_8002D85C();
+        break;
+    case 15:
+        obj->unkD4 = func_80017CA8(obj, (op >> 15) & 0x1F, *x);
+        break;
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/goolop", func_80035D08);
+#endif
 
 void *memset(void *dst, s32 c, s32 n);
 s32 func_8003C2F0(s32 angle); /* sin */

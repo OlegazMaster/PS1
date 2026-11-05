@@ -49,6 +49,17 @@ typedef struct {
 } Voice; /* 0x50 */
 extern Voice D_8006C7D8[24];
 
+/* A sequence of the music (D_8006CFC8: the two of the music). */
+typedef struct {
+    s16 id;
+    u8 unk2[0x2];
+    s32 state; /* 0x4: 0 stopped, 1 playing, 2 paused */
+    u8 unk8[0x8];
+    s16 vol_left; /* 0x10 */
+    s16 vol_right;
+} Seq; /* 0x14 */
+extern Seq D_8006CFC8[2];
+
 /* An empty debug function (the arguments are like printf's). */
 
 /* An empty debug function. */
@@ -395,7 +406,6 @@ void func_800342B8(Voice *v) {
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034310);
 
-extern s16 D_8006CFC8[]; /* the sequences of the music, every 20 bytes */
 void func_80056DAC(s16 a, s16 b, s32 c, s32 d);
 #ifdef NON_MATCHING
 /* Sets the volume of the music.
@@ -408,7 +418,7 @@ void func_80034B00(s16 vol) {
     if (D_80060B18 == 3) {
         v = vol >> 7;
         for (i = 0; i < D_80060AFC[0]; i++) {
-            func_80056DAC(D_80060B1C[1], D_8006CFC8[i * 10], v, v);
+            func_80056DAC(D_80060B1C[1], D_8006CFC8[i].id, v, v);
         }
     }
 }
@@ -427,7 +437,36 @@ void func_80034C0C(void) {
     D_80060B00 = -0x1F0;
 }
 
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034C1C);
+void func_800352FC(Seq *s, s32 cmd, s32 arg);
+/* Switches the music to the part of level progress p (>> 8): 3 plays the
+ * second sequence (with the volume of the boss) and pauses the first, the
+ * others the opposite. */
+
+void func_80034C1C(s32 p) {
+    if (D_80060AFC[0] < 2 || D_80060B18 != 3) {
+        return;
+    }
+    p >>= 8;
+    switch (p) {
+    case 1:
+    case 2:
+    default:
+        func_800352FC(&D_8006CFC8[1], 1, 0);
+        func_800352FC(&D_8006CFC8[0], 3, 0);
+        D_80060B08[0] = 0;
+        break;
+    case 3:
+        if (game.unkEC != 0 || game.unkE8 != 0) {
+            D_80060B08[0] = 0x3FFF;
+        } else {
+            D_80060B08[0] = 0;
+        }
+        func_800352FC(&D_8006CFC8[0], 2, 0);
+        func_800352FC(&D_8006CFC8[1], 0, 1);
+        break;
+    }
+    func_80056DAC(D_80060B1C[1], D_8006CFC8[1].id, (s16)D_80060B08[0], (s16)D_80060B08[0]);
+}
 
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034D14);
 
@@ -451,15 +490,6 @@ void func_800351EC(void) {
     }
 }
 
-/* A sequence of the music. */
-typedef struct {
-    s16 id;
-    u8 unk2[0x2];
-    s32 unk4;
-    u8 unk8[0x8];
-    s16 vol_left; /* 0x10 */
-    s16 vol_right;
-} Seq;
 #ifdef NON_MATCHING
 /* Starts the sequence s as id with the volume vol (left << 16 | right).
  * Equivalent; the original stores unk4 after loading the arguments. */
@@ -471,7 +501,7 @@ void func_80035224(Seq *s, s32 vol, s32 id) {
         s->vol_right = vol;
     }
     s->id = id;
-    s->unk4 = -1;
+    s->state = -1;
     func_80056DAC(D_80060B1C[1], id, s->vol_left, s->vol_right);
 }
 #else
@@ -491,7 +521,57 @@ void func_8003529C(s16 a, s32 all) {
     }
 }
 
+void func_80054FD4(s16 a, s16 b, s32 c, s16 d); /* SsSeqPlay */
+void func_80056950(s16 a, s16 b); /* SsSeqPause */
+void func_80054F70(s16 a, s16 b); /* SsSeqStop */
+void func_800550D0(s16 a, s16 b); /* SsSeqReplay */
+#ifdef NON_MATCHING
+/* Command cmd for the sequence s: 0 play (arg: times), 1 pause, 2 stop,
+ * 3 resume, 4 volume (arg: left << 16 | right).
+ * Equivalent; the original reads the count before setting the volume. */
+void func_800352FC(Seq *s, s32 cmd, s32 arg) {
+    s32 i;
+    s32 a;
+    s32 b;
+
+    if (s == NULL) {
+        return;
+    }
+    switch (cmd) {
+    case 0:
+        func_80054FD4(D_80060B1C[1], s->id, s->state = 1, arg);
+        break;
+    case 1:
+        a = D_80060B1C[1];
+        b = s->id;
+        s->state = 2;
+        func_80056950(a, b);
+        break;
+    case 2:
+        a = D_80060B1C[1];
+        b = s->id;
+        s->state = 0;
+        func_80054F70(a, b);
+        break;
+    case 3:
+        a = D_80060B1C[1];
+        b = s->id;
+        s->state = 1;
+        func_800550D0(a, b);
+        break;
+    case 4:
+        i = 0;
+        s->vol_left = arg >> 16;
+        s->vol_right = arg;
+        for (; i < D_80060AFC[0]; i++) {
+            func_80056DAC(D_80060B1C[1], s->id, s->vol_left, s->vol_right);
+        }
+        break;
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/audio", func_800352FC);
+#endif
 
 #ifdef NON_MATCHING
 /* The value that GOOL operand op of obj refers to: a field of a linked

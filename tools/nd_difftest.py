@@ -234,6 +234,18 @@ def gen_model(r):
             r.choice([0, r.randrange(0, 0x3000)]), r.getrandbits(1)], p
 
 
+def gen_point(r):
+    """A point query into a random surface tree (func_8003C990)."""
+    args, patches = gen_tree(r)
+    item = args[0]
+    data = patches[0][1]
+    origin = struct.unpack_from("<3i", data, 0)
+    size = struct.unpack_from("<3i", data, 12)
+    pos = BUF + 0x7F00
+    p = [(origin[i] << 8) + r.randrange(-0x100, (size[i] << 8) + 0x100) for i in range(3)]
+    return [item, pos, r.choice([0, 1, 8, 9, 0x10])], patches[:1] + [(pos, struct.pack("<3i", *p))]
+
+
 def gen_edges(r):
     """A list of collision boxes for func_8003B874, written into the buffer
     through the returned (address, bytes) patches."""
@@ -281,6 +293,7 @@ RETURNS = {"func_8003C04C", "func_8003AF78", "func_800450D4", "func_80044CA0", "
 
 # functions on memory whose result is (also) the state of the GTE
 GTE_STATE = {"func_8003C3D0"}
+RETURNS.add("func_8003C990")
 
 # name: argument generator (functions on memory); the buffer and the tick
 # counter are compared after the call
@@ -299,6 +312,7 @@ MEMFUNCS = {
     "func_800450D4": gen_height,
     "func_80044CA0": gen_ground,
     "func_8003C3D0": gen_model,
+    "func_8003C990": gen_point,
 }
 
 # name: number of integer arguments

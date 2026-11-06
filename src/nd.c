@@ -1326,3 +1326,66 @@ s32 func_8003C3D0(s32 *xform, s32 *cam, s32 flag, s32 scale, u32 *rot, s32 h, s3
     GTE_WC(4, 0);
     return 1;
 }
+
+/* The leaf of the surface tree of a zone (item, as in func_8003AF78) that
+ * holds pos. With flags & 8, leaves of types 3 and 4 count as empty. On a
+ * leaf: with flags & 1, pos[1] = the top of the leaf, otherwise pos[2] =
+ * its near side - 1; returns the leaf. On none: pos[1] (flags & 1) or
+ * pos[2] = the side of the last node - 1; returns 0. (The original takes
+ * more arguments in some calls; they are not used.) */
+u32 func_8003C990(void *item, s32 *pos, u32 flags) {
+    u32 *it = (u32 *)item;
+    u16 *h = (u16 *)item;
+    s32 x = (it[0] << 8) - pos[0];
+    s32 y = (it[1] << 8) - pos[1];
+    s32 z = (it[2] << 8) - pos[2];
+    u32 sx = it[3] << 8, sy = it[4] << 8, sz = it[5] << 8;
+    u32 node = h[0xE];
+    s32 depth = 0;
+    s32 ax, ay, az, hx, hy, hz;
+    u32 t;
+
+    for (;;) {
+        if (node == 0) {
+            break;
+        }
+        if (node & 1) {
+            t = node & 0xE;
+            if ((flags & 8) && (t == 6 || t == 8)) {
+                break;
+            }
+            if (flags & 1) {
+                pos[1] += y + (s32)sy;
+            } else {
+                pos[2] += z - 1;
+            }
+            return node;
+        }
+        ax = depth < h[0xF];
+        ay = depth < h[0x10];
+        az = depth < h[0x11];
+        sx >>= ax;
+        sy >>= ay;
+        sz >>= az;
+        hx = x + (s32)sx < 0;
+        hy = y + (s32)sy < 0;
+        hz = z + (s32)sz < 0;
+        if (hx) {
+            x += sx;
+        }
+        if (hy) {
+            y += sy;
+        }
+        if (hz) {
+            z += sz;
+        }
+        node = *(u16 *)((u8 *)item + node + 2 * (((hx << ay) << az) + (hy << az) + hz));
+        depth++;
+    }
+    if (flags & 1) {
+        pos[1] += y - 1;
+    } else {
+        pos[2] += z - 1;
+    }
+    return 0;
+}

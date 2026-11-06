@@ -157,11 +157,10 @@ void rc_trap(u32 addr, u32 what);
 #define RC_BREAK(addr, code) rc_trap(addr, code)
 #define RC_SYSCALL(addr) rc_trap(addr, 0)
 #define RC_BAD(addr, word) rc_trap(addr, word)
-/* a procedure of the segment by the address of its C wrapper (0: none) */
-u32 rc_native_lookup(u32 addr);
-/* calls a C function by its address (4 arguments in registers) */
-typedef u32 (*RcExtFunc)(u32, u32, u32, u32);
-#define RC_EXT_CALL(pc, a0, a1, a2, a3, sp) ((RcExtFunc)(pc))(a0, a1, a2, a3)
+/* calls a C function by its address: an x86 address, or the PlayStation
+ * address of a C function of the game (src/pc/startup.c) */
+u32 rc_ext_call(u32 pc, u32 a0, u32 a1, u32 a2, u32 a3);
+#define RC_EXT_CALL(pc, a0, a1, a2, a3, sp) rc_ext_call(pc, a0, a1, a2, a3)
 #endif
 
 /* runs the generated code from addr with the arguments of a C call; the

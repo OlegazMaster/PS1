@@ -29,6 +29,27 @@ extern const u32 pc_scan_count;
 
 s32 game_main(void); /* main() of src/main.c */
 
+/* for the start code of PSY-Q (__SN_ENTRY_POINT) */
+extern u8 D_80060A38[]; /* the start of .sbss/.bss */
+extern u8 D_8006EA78[]; /* the end of .bss */
+extern u32 D_8005E1A8, D_8005E1AC; /* the heap: start, size */
+extern s32 _ramsize, _stacksize;
+void InitHeap(void *start, u32 size); /* the game's (recompiled heap.s) */
+
+/* as __SN_ENTRY_POINT: clears .bss, puts the heap from the end of .bss to
+ * the stack at the top of the RAM */
+static void psx_start(void)
+{
+    u32 top = (u32)_ramsize - 8;
+    u32 start = (u32)D_8006EA78 & 0x1FFFFFFF;
+    u32 size = top - (u32)_stacksize - start;
+
+    memset(D_80060A38, 0, D_8006EA78 - D_80060A38);
+    D_8005E1AC = size;
+    D_8005E1A8 = start | RAM_ADDR;
+    InitHeap((void *)((start | RAM_ADDR) + 4), size);
+}
+
 static u32 func_lookup(u32 psx)
 {
     u32 lo = 0, hi = pc_func_count;
@@ -154,6 +175,19 @@ static void patch_func_pointers(void)
     }
 }
 
+/* the recompiled code calls a C function: by its x86 address, or by the
+ * PlayStation address of a C function of the game */
+u32 rc_ext_call(u32 pc, u32 a0, u32 a1, u32 a2, u32 a3)
+{
+    u32 x = pc >= RAM_ADDR && pc < RAM_ADDR + RAM_SIZE ? func_lookup(pc) : pc;
+
+    if (!x) {
+        fprintf(stderr, "port: the recompiled code calls %08X, which is no C function\n", pc);
+        abort();
+    }
+    return ((u32(*)(u32, u32, u32, u32))x)(a0, a1, a2, a3);
+}
+
 /* the recompiled nd_asm: break, syscall, an unknown instruction */
 void rc_trap(u32 addr, u32 what)
 {
@@ -189,5 +223,6 @@ int main(int argc, char **argv)
         }
     }
     patch_func_pointers();
+    psx_start();
     return game_main();
 }

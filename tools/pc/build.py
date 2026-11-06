@@ -38,6 +38,14 @@ CFLAGS = ["-march=i686", "-mno-sse", "-std=gnu99", "-O1", "-g", "-fno-pic", "-fn
 GAME = ["audio", "camera", "cdfs", "coll", "game", "gfx", "gool", "goolop", "goolvm", "interp", "level", "main",
         "math", "nd", "ns", "obj", "prop", "sys"]
 RAM_LO, RAM_HI = 0x80000000, 0x80200000
+# segments of hand-written assembly run as recompiled C: prefix, file, options
+RECOMPILED = [
+    ("nd", "nd_asm.s", ["--defined", os.path.join(ROOT, "src", "nd.c"), "--data", "ticks_elapsed"]),
+    ("heap", "heap.s", ["--rename", "malloc=psx_malloc", "free=psx_free", "realloc=psx_realloc"]),
+]
+# the heap of the game (in the PlayStation RAM, so that the 24-bit addresses of
+# the primitive lists work) under other names than those of the C library
+HEAP_NAMES = ["-Dmalloc=psx_malloc", "-Dfree=psx_free", "-Drealloc=psx_realloc"]
 # where the data of the executable begins (file offset 0x4C440 in
 # config/us/splat.yaml): symbols there are data even when the assembly of
 # the data segment typed them as text
@@ -69,21 +77,29 @@ def compile_all():
     for f in sorted(os.listdir(os.path.join(ROOT, "src", "pc"))):
         if f.endswith(".c"):
             jobs.append((os.path.join(ROOT, "src", "pc", f), os.path.join(OUT, "pc_" + f[:-2] + ".o")))
-    # the recompiled nd_asm (tools/recomp.py; generated, not committed)
+    # the hand-written assembly the port runs as recompiled C (tools/recomp.py;
+    # generated, not committed): the renderer and the heap of the game
     os.makedirs(RC, exist_ok=True)
-    run(["python3", os.path.join(ROOT, "tools", "recomp.py"), os.path.join(ROOT, "asm", "us", "nd_asm.s"),
-         os.path.join(RC, "nd_recomp.c"), "--visible"] + [os.path.join(ROOT, "src", g + ".c") for g in GAME] +
-        [os.path.join(ROOT, "src", "pc", f) for f in os.listdir(os.path.join(ROOT, "src", "pc")) if f.endswith(".c")] +
-        ["--defined", os.path.join(ROOT, "src", "nd.c"), "--data", "ticks_elapsed",
-         "--port", os.path.join(RC, "nd_port.c")])
-    jobs.append((os.path.join(RC, "nd_recomp.c"), os.path.join(OUT, "nd_recomp.o")))
-    jobs.append((os.path.join(RC, "nd_port.c"), os.path.join(OUT, "nd_port.o")))
+    visible = [os.path.join(ROOT, "src", g + ".c") for g in GAME] + \
+        [os.path.join(ROOT, "src", "pc", f) for f in os.listdir(os.path.join(ROOT, "src", "pc")) if f.endswith(".c")]
+    for prefix, seg, extra in RECOMPILED:
+        out, port = os.path.join(RC, prefix + "_recomp.c"), os.path.join(RC, prefix + "_port.c")
+        run(["python3", os.path.join(ROOT, "tools", "recomp.py"), os.path.join(ROOT, "asm", "us", seg),
+             out + ".new", "--prefix", prefix, "--visible"] + visible + extra + ["--port", port + ".new"])
+        for f in (out, port):  # only a changed file is compiled again
+            if os.path.exists(f) and open(f).read() == open(f + ".new").read():
+                os.remove(f + ".new")
+            else:
+                os.replace(f + ".new", f)
+            jobs.append((f, os.path.join(OUT, os.path.basename(f)[:-2] + ".o")))
 
     def one(job):
         src, obj = job
         if os.path.exists(obj) and os.path.getmtime(obj) > max(os.path.getmtime(src), newest_header()):
             return
         extra = ["-Dmain=game_main"] if src.endswith("/src/main.c") else []
+        if "/src/pc/" not in src and "/rc/" not in src:
+            extra += HEAP_NAMES
         run(CC + CFLAGS + extra + ["-c", src, "-o", obj])
 
     with ThreadPoolExecutor(os.cpu_count()) as ex:

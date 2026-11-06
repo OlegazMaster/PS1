@@ -90,7 +90,7 @@ OBJECTS := $(if $(wildcard $(LD_SCRIPT)),$(shell grep -oE '$(BUILD)/[^ ()]+\.o' 
 
 # ---- Build -------------------------------------------------------------------
 
-.PHONY: all build check setup init extract clean distclean progress expected ctx decompile diff test pc
+.PHONY: all build check setup init extract clean distclean progress expected ctx decompile diff test pc pc-test
 
 all: check
 
@@ -170,6 +170,14 @@ distclean:
 # addresses of the variables from the PlayStation build, so that comes first.
 pc: build
 	python3 tools/pc/build.py
+
+# Self-tests of the software GTE and GPU of the port (no game files needed).
+pc-test:
+	mkdir -p build/pc
+	gcc -m32 -O1 -Iinclude -o build/pc/gte_selftest tools/pc/gte_selftest.c src/pc/gte.c
+	gcc -m32 -O1 -Iinclude -o build/pc/gpu_selftest tools/pc/gpu_selftest.c src/pc/gpu.c
+	build/pc/gte_selftest
+	build/pc/gpu_selftest
 
 # ---- Decompilation helpers ---------------------------------------------------
 

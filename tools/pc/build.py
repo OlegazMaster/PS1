@@ -53,6 +53,21 @@ DATA_LO = 0x8005BC40
 EXE_END = 0x80061000  # the end of what the executable loads
 
 
+def sdl_flags():
+    """(cflags, libs) of a 32-bit SDL2, or None: without it the port runs
+    without a window (frames can be written to files)."""
+    env = dict(os.environ, PKG_CONFIG_PATH="/usr/lib/i386-linux-gnu/pkgconfig")
+    r = subprocess.run(["pkg-config", "--cflags", "--libs", "sdl2"], capture_output=True, text=True, env=env)
+    if r.returncode:
+        return None
+    c = subprocess.run(["pkg-config", "--cflags", "sdl2"], capture_output=True, text=True, env=env).stdout.split()
+    l = subprocess.run(["pkg-config", "--libs", "sdl2"], capture_output=True, text=True, env=env).stdout.split()
+    return c, l
+
+
+SDL = sdl_flags()
+
+
 def run(cmd, **kw):
     r = subprocess.run(cmd, capture_output=True, text=True, **kw)
     if r.returncode:
@@ -98,6 +113,8 @@ def compile_all():
         if os.path.exists(obj) and os.path.getmtime(obj) > max(os.path.getmtime(src), newest_header()):
             return
         extra = ["-Dmain=game_main"] if src.endswith("/src/main.c") else []
+        if src.endswith("/src/pc/video.c") and SDL:
+            extra += ["-DPC_SDL"] + SDL[0]
         if "/src/pc/" not in src and "/rc/" not in src:
             extra += HEAP_NAMES
         run(CC + CFLAGS + extra + ["-c", src, "-o", obj])
@@ -199,7 +216,7 @@ def main():
         print("%d symbols are missing (build/pc/missing.txt): %s" % (len(missing), " ".join(missing[:30])))
     exe = os.path.join(OUT, "crash3")
     r = subprocess.run(CC + ["-no-pie", "-o", exe] + objs + [os.path.join(OUT, "func_table.o"),
-                       "-Wl,-T," + script] + ["-Wl," + d for d in defsyms] + ["-lm"],
+                       "-Wl,-T," + script] + ["-Wl," + d for d in defsyms] + ["-lm"] + (SDL[1] if SDL else []),
                        capture_output=True, text=True)
     if r.returncode:
         errs = r.stderr.splitlines()

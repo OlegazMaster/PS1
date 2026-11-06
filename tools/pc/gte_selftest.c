@@ -24,7 +24,7 @@ static void identity(void) {
 }
 
 int main(void) {
-    long h, z, worst = 0;
+    long long h, z, worst = 0;
     int16_t sx, sy;
 
     /* RTPS through an identity matrix: x * H / z */
@@ -67,14 +67,14 @@ int main(void) {
     /* the divider against the exact quotient */
     for (z = 1; z < 0x10000; z += 7) {
         for (h = 0; h < 0x10000 && h < 2 * z; h += 977) {
-            long exact, got, err;
+            long long exact, got, err; /* long is 32 bits on i386 */
             identity();
             gte_write_ctrl(26, h);
             gte_write_ctrl(7, z);
             gte_write_data(0, 1);
             gte_write_data(1, 0);
             gte_command(GTE_RTPS);
-            exact = ((h * 0x20000) / z + 1) / 2;
+            exact = (((long long)h * 0x20000) / z + 1) / 2;
             if (exact > 0x1FFFF) {
                 exact = 0x1FFFF;
             }
@@ -83,13 +83,13 @@ int main(void) {
             gte_write_ctrl(28, 0);
             gte_command(GTE_RTPS);
             got = (int32_t)gte_read_data(24);
-            err = labs(got - exact);
+            err = got > exact ? got - exact : exact - got;
             if (err > worst) {
                 worst = err;
             }
         }
     }
-    printf("divider: largest difference from the exact quotient %ld\n", worst);
+    printf("divider: largest difference from the exact quotient %lld\n", worst);
     /* the hardware divider is an approximation (a table and two
      * Newton-Raphson steps): it is off by up to 3 near the largest
      * quotients, in about 1 case in 30000 */

@@ -672,7 +672,8 @@ extern s32 D_800691FC[]; /* game.unk364 */
  * zone (one color, or two split at the horizon), the screen transition,
  * the sound (unless loading), then swaps and shows the draw buffers, waiting
  * for the vertical sync, and keeps the timers.
- * Equivalent; the original addresses the other fields of game from the fade (game.unk208), so it keeps another base register. */
+ * Equivalent; the original also addresses game from &game.unk364 and
+ * computes y - 108 before the projection. */
 void func_80016634(s32 loading) {
     s32 type;
     u32 color;
@@ -692,27 +693,28 @@ void func_80016634(s32 loading) {
     if (paused == 0 && (game.display_flags & 0x1000)) {
         game.unk19C++;
     }
-    if (D_800690A0[0] != 0 && paused != 1) {
-        if (D_800690A0[0] > 0) {
+    fade = &game.unk208;
+    if (fade[0] != 0 && paused != 1) {
+        if (fade[0] > 0) {
             if (paused == 0) {
-                D_800690A0[0] -= D_800690A0[1];
-                if (D_800690A0[0] < 0) {
-                    D_800690A0[0] = 0;
+                fade[0] -= fade[1];
+                if (fade[0] < 0) {
+                    fade[0] = 0;
                 }
             }
-            func_800176A0(D_800690A0[0]);
-        } else if (D_800690A0[0] >= -2) {
+            func_800176A0(fade[0]);
+        } else if (fade[0] >= -2) {
             func_800176A0(0x100);
             if (paused == 0) {
-                D_800690A0[0] = -1;
+                fade[0] = -1;
             }
         } else {
             if (paused == 0) {
-                D_800690A0[0] += D_800690A0[1];
+                fade[0] += fade[1];
             }
-            func_800176A0(D_800690A0[0] + 0x100);
-            if (D_800690A0[0] == 0 && !(game.display_flags & 0x400000)) {
-                D_800690A0[0] = -2;
+            func_800176A0(fade[0] + 0x100);
+            if (fade[0] == 0 && !(game.display_flags & 0x400000)) {
+                fade[0] = -2;
             }
         }
     }
@@ -728,15 +730,12 @@ void func_80016634(s32 loading) {
             if (type == 2) {
                 color2 = p[2];
                 h = (s16 *)func_80032710((u8 *)D_80065C90.unkD8, 0x1F9, D_80065C90.unkE0, 0, NULL, 3, buf, 0, 0);
-                y = 0;
-                if (h != NULL) {
-                    y = *h;
-                }
+                y = h != NULL ? *h : 0;
             }
         }
         if (type == 2) {
             cam = &D_80065C90.unk60;
-            y = ((*(s32 *)((u8 *)cam + 0x64) * (func_8003C2F0(cam->rot[0]) * 170)) >> 20) - (y - 108);
+            y = ((func_8003C2F0(cam->rot[0]) * 170 * *(s32 *)((u8 *)cam + 0x64)) >> 20) - (y - 108);
             if (game.unk184 != 0) {
                 y -= (game.unk184 * 120) >> 3;
             }
@@ -748,6 +747,8 @@ void func_80016634(s32 loading) {
             }
         }
         switch (type) {
+        case 0:
+            break;
         case 1:
             GpuDrawRect(0, 0, 512, 216, color & 0xFF, (color >> 8) & 0xFF, (color >> 16) & 0xFF);
             break;

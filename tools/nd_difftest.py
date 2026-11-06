@@ -90,6 +90,47 @@ def gen_ceiling(r):
     return [args[0], args[1], args[2], args[3], ceil, r.choice([-999999999, r.getrandbits(31)]), r.randrange(2)], patches
 
 
+def gen_tree(r):
+    """A random surface tree for func_8003AF78 (depth at most 6, as the
+    original keeps its stack in 7 registers)."""
+    item = BUF + 0x4000
+    dims = [r.choice([0, 1, 2, 3, 4, 4]) for _ in range(3)]
+    data = bytearray(0x24)
+    size = [r.randrange(1, 0x400) for _ in range(3)]
+    origin = [r.randrange(-0x400, 0x400) for _ in range(3)]
+
+    def node(depth):
+        axes = sum(depth < d for d in dims)
+        if axes == 0 or depth >= 6 or r.randrange(6) == 0:
+            return r.choice([0, (r.randrange(1, 0x3FFF) << 1) | 1])
+        nkids = 1 << axes
+        kids = [node(depth + 1) for _ in range(nkids)]
+        off = len(data)
+        if off + 2 * nkids > 0x1F00:
+            return 1
+        for k in kids:
+            data.extend(struct.pack("<H", k))
+        if len(data) & 1:
+            data.append(0)
+        return off
+
+    root = node(0)
+    struct.pack_into("<6i", data, 0, *(origin + size))
+    struct.pack_into("<4H", data, 0x1C, root, *dims)
+    def edge(i):
+        # often exactly on a node boundary (and so on the tests' edge cases)
+        if r.randrange(2):
+            step = (size[i] << 8) >> r.randrange(0, 5)
+            return (origin[i] << 8) + step * r.randrange(-1, 17) + r.choice([0, 0, -1, 1])
+        return (origin[i] << 8) + r.randrange(-0x20000, 0x40000)
+    lo = [edge(i) for i in range(3)]
+    hi = [max(lo[i], edge(i)) for i in range(3)]
+    box = BUF + 0x7F40
+    out = BUF + 0x6000
+    patches = [(item, bytes(data)), (box, struct.pack("<6i", *(lo + hi)))]
+    return [item, box, out, r.choice([0, 0, 3, r.randrange(0, 0x200)])], patches
+
+
 def gen_edges(r):
     """A list of collision boxes for func_8003B874, written into the buffer
     through the returned (address, bytes) patches."""
@@ -116,7 +157,7 @@ def gen_edges(r):
 
 
 # functions on memory whose return value is compared too
-RETURNS = {"func_8003C04C"}
+RETURNS = {"func_8003C04C", "func_8003AF78"}
 
 # name: argument generator (functions on memory); the buffer and the tick
 # counter are compared after the call
@@ -128,6 +169,7 @@ MEMFUNCS = {
     "func_8003B874": gen_edges,
     "func_8003BD18": gen_surfaces,
     "func_8003C04C": gen_ceiling,
+    "func_8003AF78": gen_tree,
 }
 
 # name: number of integer arguments

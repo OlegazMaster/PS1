@@ -455,3 +455,210 @@ s32 func_8003C04C(void *obj, u32 *rec, s32 *origin, s32 *b, s32 *ceil2, s32 best
     }
     return sum / n;
 }
+
+/* The state of the walk of func_8003AF78. Sizes and positions change in
+ * place as in the original (halved going down, doubled coming back up, so a
+ * size that is not a multiple of the halvings loses its low bits). */
+typedef struct {
+    u8 *item;
+    u32 *out;
+    s32 n;
+    s32 x, y, z;    /* min corner of the node, relative to the box min */
+    u32 sx, sy, sz; /* size of the node */
+    s32 bx, by, bz; /* size of the box */
+    s32 dx, dy, dz; /* depths split along each axis */
+} TreeWalk;
+
+static void TreeVisit(TreeWalk *w, u32 node, s32 depth);
+
+/* Visits child i of children c if the bits want of the overlap flags are
+ * all set, with the position moved to that child. */
+static void TreeChild(TreeWalk *w, u16 *c, s32 i, s32 depth, u32 flags, u32 want, s32 mx, s32 my, s32 mz) {
+    if ((flags & want) != want) {
+        return;
+    }
+    if (mx) {
+        w->x += w->sx;
+    }
+    if (my) {
+        w->y += w->sy;
+    }
+    if (mz) {
+        w->z += w->sz;
+    }
+    TreeVisit(w, c[i], depth + 1);
+    if (mx) {
+        w->x -= w->sx;
+    }
+    if (my) {
+        w->y -= w->sy;
+    }
+    if (mz) {
+        w->z -= w->sz;
+    }
+}
+
+static void TreeVisit(TreeWalk *w, u32 node, s32 depth) {
+    u16 *c;
+    u32 flags = 0;
+    s32 ax, ay, az;
+
+    if (node == 0) {
+        return;
+    }
+    if (node & 1) {
+        if (w->n < 0x200) {
+            w->out[0] = ((node << 2) & 0xFFF8) | depth | (((u32)w->x >> 4) << 16);
+            w->out[1] = (((u32)w->z >> 4) << 16) | (((u32)w->y >> 4) & 0xFFFF);
+            w->out += 2;
+            w->n++;
+        }
+        return;
+    }
+    c = (u16 *)(w->item + node);
+    ax = depth < w->dx;
+    ay = depth < w->dy;
+    az = depth < w->dz;
+    if (ax) {
+        w->sx >>= 1;
+    }
+    if (ay) {
+        w->sy >>= 1;
+    }
+    if (az) {
+        w->sz >>= 1;
+    }
+    if (ax + ay + az == 1) {
+        /* one axis: the low half if its end is past the box min, then the
+         * high half if it starts before the box max */
+        if (ax) {
+            if (w->x + (s32)w->sx >= 0) {
+                TreeVisit(w, c[0], depth + 1);
+            }
+            w->x += w->sx;
+            if (!(w->bx < w->x)) {
+                TreeVisit(w, c[1], depth + 1);
+            }
+            w->x -= w->sx;
+        } else if (ay) {
+            if (w->y + (s32)w->sy >= 0) {
+                TreeVisit(w, c[0], depth + 1);
+            }
+            w->y += w->sy;
+            if (!(w->by < w->y)) {
+                TreeVisit(w, c[1], depth + 1);
+            }
+            w->y -= w->sy;
+        } else {
+            if (w->z + (s32)w->sz >= 0) {
+                TreeVisit(w, c[0], depth + 1);
+            }
+            w->z += w->sz;
+            if (!(w->bz < w->z)) {
+                TreeVisit(w, c[1], depth + 1);
+            }
+            w->z -= w->sz;
+        }
+    } else if (ax + ay + az > 1) {
+        /* overlap flags: 0x10000/0x20000 low/high x, 0x40000/0x80000 y,
+         * 0x100000/0x200000 z */
+        if (ax) {
+            if (w->x + (s32)w->sx >= 0) {
+                flags |= 0x10000;
+            }
+            if (!(w->bx < w->x + (s32)w->sx)) {
+                flags |= 0x20000;
+            }
+        }
+        if (ay) {
+            if (w->y + (s32)w->sy >= 0) {
+                flags |= 0x40000;
+            }
+            if (!(w->by < w->y + (s32)w->sy)) {
+                flags |= 0x80000;
+            }
+        }
+        if (az) {
+            if (w->z + (s32)w->sz >= 0) {
+                flags |= 0x100000;
+            }
+            if (!(w->bz < w->z + (s32)w->sz)) {
+                flags |= 0x200000;
+            }
+        }
+        if (!az) { /* x and y: children (x, y) = 00, 01, 10, 11 */
+            TreeChild(w, c, 0, depth, flags, 0x50000, 0, 0, 0);
+            TreeChild(w, c, 1, depth, flags, 0x90000, 0, 1, 0);
+            TreeChild(w, c, 2, depth, flags, 0x60000, 1, 0, 0);
+            TreeChild(w, c, 3, depth, flags, 0xA0000, 1, 1, 0);
+        } else if (!ay) { /* x and z */
+            TreeChild(w, c, 0, depth, flags, 0x110000, 0, 0, 0);
+            TreeChild(w, c, 1, depth, flags, 0x210000, 0, 0, 1);
+            TreeChild(w, c, 2, depth, flags, 0x120000, 1, 0, 0);
+            TreeChild(w, c, 3, depth, flags, 0x220000, 1, 0, 1);
+        } else if (!ax) { /* y and z */
+            TreeChild(w, c, 0, depth, flags, 0x140000, 0, 0, 0);
+            TreeChild(w, c, 1, depth, flags, 0x240000, 0, 0, 1);
+            TreeChild(w, c, 2, depth, flags, 0x180000, 0, 1, 0);
+            TreeChild(w, c, 3, depth, flags, 0x280000, 0, 1, 1);
+        } else { /* all three: children (x, y, z) = 000 .. 111 */
+            TreeChild(w, c, 0, depth, flags, 0x150000, 0, 0, 0);
+            TreeChild(w, c, 1, depth, flags, 0x250000, 0, 0, 1);
+            TreeChild(w, c, 2, depth, flags, 0x190000, 0, 1, 0);
+            TreeChild(w, c, 3, depth, flags, 0x290000, 0, 1, 1);
+            TreeChild(w, c, 4, depth, flags, 0x160000, 1, 0, 0);
+            TreeChild(w, c, 5, depth, flags, 0x260000, 1, 0, 1);
+            TreeChild(w, c, 6, depth, flags, 0x1A0000, 1, 1, 0);
+            TreeChild(w, c, 7, depth, flags, 0x2A0000, 1, 1, 1);
+        }
+    }
+    /* (a node split along no axis hangs the original; here it is skipped) */
+    if (ax) {
+        w->sx <<= 1;
+    }
+    if (ay) {
+        w->sy <<= 1;
+    }
+    if (az) {
+        w->sz <<= 1;
+    }
+}
+
+/* Collects the leaves of the surface tree of a zone (item: origin x, y, z,
+ * size x, y, z, root node at 0x1C, depth splits at 0x1E) that overlap box
+ * (min x, y, z, max x, y, z) into out: two header records (sizes and
+ * depths), then one 8-byte record per leaf (node, depth, position relative
+ * to the box min >> 4), at most 0x200 in all counting n. Returns the new
+ * count (n + 2 + leaves). The original keeps its stack in 7 registers, so
+ * trees deeper than 7 crash it; here they work. */
+s32 func_8003AF78(void *item, s32 *box, u16 *out, s32 n) {
+    u32 *it = (u32 *)item;
+    u16 *h = (u16 *)item;
+    TreeWalk w;
+
+    out[0] = 0;
+    out[1] = it[3];
+    out[2] = it[4];
+    out[3] = it[5];
+    out[4] = 0;
+    out[5] = h[0xF];
+    out[6] = h[0x10];
+    out[7] = h[0x11];
+    w.item = (u8 *)item;
+    w.out = (u32 *)(out + 8);
+    w.n = n + 2;
+    w.x = (it[0] << 8) - box[0];
+    w.y = (it[1] << 8) - box[1];
+    w.z = (it[2] << 8) - box[2];
+    w.sx = it[3] << 8;
+    w.sy = it[4] << 8;
+    w.sz = it[5] << 8;
+    w.bx = box[3] - box[0];
+    w.by = box[4] - box[1];
+    w.bz = box[5] - box[2];
+    w.dx = h[0xF];
+    w.dy = h[0x10];
+    w.dz = h[0x11];
+    TreeVisit(&w, h[0xE], 0);
+    return w.n;
+}

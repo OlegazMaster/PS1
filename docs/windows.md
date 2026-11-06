@@ -26,8 +26,8 @@ wsl --install -d Ubuntu
 sudo apt update
 sudo apt install binutils-mipsel-linux-gnu python3-venv git curl make cpp gcc-mingw-w64-i686
 
-git clone https://github.com/olegazmaster/ps1.git
-cd ps1
+git clone https://github.com/OlegazMaster/PS1.git
+cd PS1
 git checkout claude/crash-bandicoot-3-pc-port-fhrc36
 make setup
 

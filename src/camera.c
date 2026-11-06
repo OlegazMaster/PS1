@@ -3077,7 +3077,169 @@ Entry *func_80028D8C(Entry *zone, s32 *pos) {
     return (Entry *)-0x17;
 }
 
+#define ABS(x) ((x) < 0 ? -(x) : (x))
+#ifdef NON_MATCHING
+/* Moves pos by step through the tree of the zone surfaces hdr (node a, in
+ * the box box: x, y, z, w, h, d; b is the depth): through an empty leaf to
+ * just past its far side, and on a solid leaf back to its near side on the
+ * axis it was entered by, reversing step on that axis. A node is split in
+ * half on the axes whose depth limit (hdr 0x1E..0x22) is above b. Returns
+ * the solid leaf that was hit (or 0 for an empty one).
+ * NON_MATCHING: one addu has its operands swapped. */
+void *func_80028ED8(void *hdr, u16 a, s32 *box, s32 *pos, s32 *step, s32 b) {
+    s32 t[3];
+    s32 cb[6];
+    u16 *node;
+    s32 m;
+    s32 v;
+    s32 axis;
+    s32 i;
+    s32 j;
+    s32 k;
+    s32 idx;
+    void *r;
+
+    if ((a & 1) || a == 0) {
+        node = (u16 *)a;
+    } else {
+        node = (u16 *)((u8 *)hdr + a);
+    }
+    if ((a & 1) || a == 0) {
+        m = 0x7FFFFFFF;
+        if (node == NULL) {
+            if (step[0] > 0) {
+                t[0] = box[0] + box[3];
+            } else {
+                t[0] = box[0];
+            }
+            if (step[1] > 0) {
+                t[1] = box[1] + box[4];
+            } else {
+                t[1] = box[1];
+            }
+            if (step[2] > 0) {
+                t[2] = box[2] + box[5];
+            } else {
+                t[2] = box[2];
+            }
+            if (step[0] != 0) {
+                v = ((t[0] - pos[0]) << 8) / step[0];
+                if (v < m) {
+                    m = v;
+                }
+            }
+            if (step[1] != 0) {
+                v = ((t[1] - pos[1]) << 8) / step[1];
+                if (v < m) {
+                    m = v;
+                }
+            }
+            if (step[2] != 0) {
+                v = ((t[2] - pos[2]) << 8) / step[2];
+                if (v < m) {
+                    m = v;
+                }
+            }
+            m += 0x100;
+            pos[0] += (m * step[0]) >> 8;
+            pos[1] += (m * step[1]) >> 8;
+            pos[2] += (m * step[2]) >> 8;
+        } else {
+            if (step[0] < 0) {
+                t[0] = box[0] + box[3];
+            } else {
+                t[0] = box[0];
+            }
+            if (step[1] < 0) {
+                t[1] = box[1] + box[4];
+            } else {
+                t[1] = box[1];
+            }
+            if (step[2] < 0) {
+                t[2] = box[2] + box[5];
+            } else {
+                t[2] = box[2];
+            }
+            m = 0x80000000;
+            if (step[0] != 0) {
+                v = ((t[0] - (pos[0] - step[0])) << 8) / step[0];
+                if (m < v) {
+                    m = v;
+                    axis = 0;
+                }
+            }
+            if (step[2] != 0) {
+                v = ((t[2] - (pos[2] - step[2])) << 8) / step[2];
+                if (m < v || ABS(step[2]) > ABS(step[0])) {
+                    m = v;
+                    axis = 2;
+                }
+            }
+            if (step[1] != 0) {
+                v = ((t[1] - (pos[1] - step[1])) << 8) / step[1];
+                if (m < v || (axis == 0 && ABS(step[1]) > ABS(step[0])) ||
+                    (axis == 2 && ABS(step[1]) > ABS(step[2]))) {
+                    m = v;
+                    axis = 1;
+                }
+            }
+            switch (axis) {
+            case 0:
+                step[0] = -step[0];
+                pos[0] = t[0];
+                break;
+            case 1:
+                step[1] = -step[1];
+                pos[1] = t[1];
+                break;
+            case 2:
+                step[2] = -step[2];
+                pos[2] = t[2];
+                break;
+            }
+        }
+        return node;
+    }
+    t[0] = b < ((s16 *)hdr)[15];
+    if (t[0]) {
+        cb[3] = box[3] / 2;
+    } else {
+        cb[3] = box[3];
+    }
+    t[1] = b < ((s16 *)hdr)[16];
+    if (t[1]) {
+        cb[4] = box[4] / 2;
+    } else {
+        cb[4] = box[4];
+    }
+    t[2] = b < ((s16 *)hdr)[17];
+    if (t[2]) {
+        cb[5] = box[5] / 2;
+    } else {
+        cb[5] = box[5];
+    }
+    idx = 0;
+    for (i = idx; i < (t[0] ? 2 : 1); i++) {
+        for (j = 0; j < (t[1] ? 2 : 1); j++) {
+            for (k = 0; k < (t[2] ? 2 : 1); k++, idx++) {
+                cb[0] = i ? box[0] + cb[3] : box[0];
+                cb[1] = j ? box[1] + cb[4] : box[1];
+                cb[2] = k ? box[2] + cb[5] : box[2];
+                if (cb[0] < pos[0] && cb[1] < pos[1] && cb[2] < pos[2] &&
+                    pos[0] <= cb[0] + cb[3] && pos[1] <= cb[1] + cb[4] &&
+                    pos[2] <= cb[2] + cb[5]) {
+                    r = func_80028ED8(hdr, node[idx], cb, pos, step, b + 1);
+                    if (r != NULL) {
+                        return r;
+                    }
+                }
+            }
+        }
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80028ED8);
+#endif
 
 s32 func_8003191C(s32 *box, s32 *box2); /* whether the boxes overlap */
 void *func_80028ED8(void *hdr, u16 a, s32 *box, s32 *pos, s32 *step, s32 b);

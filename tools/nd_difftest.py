@@ -223,6 +223,17 @@ def gen_ground(r):
     return [r.choice([0, BUF + 0x7F80, BUF + 0x7F80]), obj, rs, delta], p
 
 
+def gen_model(r):
+    xform = [r.randrange(-0x4000000, 0x4000000) for _ in range(3)] + [r.getrandbits(16) for _ in range(3)] + \
+            [r.choice([0x1000, r.randrange(0, 0x4000)]) for _ in range(3)]
+    cam = [xform[i] + r.choice([r.randrange(-0x400000, 0x400000), r.randrange(-0x4000000, 0x4000000)]) for i in range(3)]
+    rot = [r.getrandbits(32) for _ in range(5)]
+    xf, cm, rt = BUF + 0x7E00, BUF + 0x7E40, BUF + 0x7E80
+    p = [(xf, struct.pack("<9i", *xform)), (cm, struct.pack("<3i", *cam)), (rt, struct.pack("<5I", *rot))]
+    return [xf, cm, r.choice([0, 0, 1]), r.randrange(0, 8), rt, r.randrange(-0x100, 0x800),
+            r.choice([0, r.randrange(0, 0x3000)]), r.getrandbits(1)], p
+
+
 def gen_edges(r):
     """A list of collision boxes for func_8003B874, written into the buffer
     through the returned (address, bytes) patches."""
@@ -253,6 +264,7 @@ GTE_RANGES = {
     "func_8003F520": (0x8003F520, 0x8003F5D8),
     "matrix helpers": (0x80041EF0, 0x80042058),
     "height fields": (0x80044CA0, 0x800452A0),
+    "func_8003C3D0": (0x8003C3D0, 0x8003C990),
 }
 
 # helpers that take a GTE matrix in t0..t4 in the original (a pointer to it
@@ -265,7 +277,10 @@ REGFUNCS = {
 }
 
 # functions on memory whose return value is compared too
-RETURNS = {"func_8003C04C", "func_8003AF78", "func_800450D4", "func_80044CA0"}
+RETURNS = {"func_8003C04C", "func_8003AF78", "func_800450D4", "func_80044CA0", "func_8003C3D0"}
+
+# functions on memory whose result is (also) the state of the GTE
+GTE_STATE = {"func_8003C3D0"}
 
 # name: argument generator (functions on memory); the buffer and the tick
 # counter are compared after the call
@@ -283,6 +298,7 @@ MEMFUNCS = {
     "func_8003F520": gen_turn,
     "func_800450D4": gen_height,
     "func_80044CA0": gen_ground,
+    "func_8003C3D0": gen_model,
 }
 
 # name: number of integer arguments
@@ -356,7 +372,9 @@ def main():
                 for a, b in patches:
                     mu.mem_write(a - 0x80000000, b)
                 v = call(addr, args)
-                res.append((v if isinstance(v, str) or name in RETURNS else None, bytes(mu.mem_read(BUF - 0x80000000, BUF_SIZE)),
+                res.append((v if isinstance(v, str) or name in RETURNS else None,
+                            bytes(mu.mem_read(BUF - 0x80000000, BUF_SIZE)) +
+                            (bytes(gte.state.data) + bytes(gte.state.ctrl) if name in GTE_STATE else b""),
                             bytes(mu.mem_read(ticks - 0x80000000, 4)), bytes(mu.mem_read(0x1F800000, 0x400))))
             # the original saves its registers in the scratchpad (0x00-0x3F,
             # 0x70-0xA3 around calls, ra at 0x384) and its temporaries at

@@ -1212,3 +1212,117 @@ s32 func_80044CA0(s32 *out, void *obj, void *rs, s32 *delta) {
     OBJ_S(obj, 0x68) = z;
     return Height(out, x, z, rs);
 }
+
+/* Sets up the GTE for a model: RT = rot (the camera), then TR = the model
+ * position (with flag: its x and -y >> 8 and depth h; otherwise its
+ * position relative to cam turned by RT, which must be deeper than h and
+ * nearer than 0x2EE0 and, when b is set, than b, or this returns 0), and
+ * RT = the camera times the model's rotation (angles at xform 0xC..0x14)
+ * and scale (0x18..0x20, >> scale), times -5/8. Returns 1. flag2 is not
+ * used. */
+s32 func_8003C3D0(s32 *xform, s32 *cam, s32 flag, s32 scale, u32 *rot, s32 h, s32 b, s32 flag2) {
+    s32 sa, ca, sb, cb, sc, cc;
+    s32 x, y, z;
+    s32 sasb, sacb, scca;
+    s32 p1, p2, p3, q1, q2, q3, r1, r2, r3;
+    s32 t0, t1, t2;
+    u32 usc;
+
+    (void)flag2;
+    GTE_WC(0, rot[0]);
+    GTE_WC(1, rot[1]);
+    GTE_WC(2, rot[2]);
+    GTE_WC(3, rot[3]);
+    GTE_WC(4, rot[4]);
+    if (flag != 0) {
+        GTE_WC(5, xform[0] >> 8);
+        GTE_WC(6, -xform[1] >> 8);
+        GTE_WC(7, h);
+    } else {
+        GTE_WD(9, (xform[0] - cam[0]) >> 8);
+        GTE_WD(10, (xform[1] - cam[1]) >> 8);
+        GTE_WD(11, (xform[2] - cam[2]) >> 8);
+        GTE_CMD(0x049E012); /* RT * IR */
+        GTE_RD(9, x);
+        GTE_RD(10, y);
+        GTE_RD(11, z);
+        GTE_WC(5, x);
+        GTE_WC(6, y);
+        GTE_WC(7, z);
+        if (!(h < z) || 0x2EE0 < z || (b != 0 && b < z)) {
+            return 0;
+        }
+    }
+    sc = func_8003C2F0(xform[5] & 0xFFF);
+    sa = func_8003C2F0(xform[3] & 0xFFF);
+    sb = func_8003C2F0(xform[4] & 0xFFF);
+    cc = func_8003C364(xform[5] & 0xFFF);
+    ca = func_8003C364(xform[3] & 0xFFF);
+    cb = func_8003C364(xform[4] & 0xFFF);
+    usc = sc & 0xFFFF;
+
+    /* the products of the angles, through MVMVA with diagonal RTs */
+    sasb = (sa * sb) >> 12;
+    GTE_WC(1, 0);
+    GTE_WC(3, 0);
+    GTE_WD(1, cc & 0xFFFF);
+    GTE_WD(0, ((cb & 0xFFFF) << 16) | (sb & 0xFFFF));
+    GTE_WC(0, 0);
+    GTE_WC(2, sa & 0xFFFF);
+    GTE_WC(4, ca & 0xFFFF);
+    GTE_CMD(0x0486012);
+    GTE_WC(0, cc & 0xFFFF);
+    GTE_WC(2, cc & 0xFFFF);
+    GTE_WC(4, sasb & 0xFFFF);
+    scca = (sc * ca) >> 12;
+    GTE_RD(10, sacb);
+    GTE_RD(11, t0); /* ca * cc */
+    GTE_CMD(0x0486012);
+    GTE_WC(0, usc);
+    GTE_WC(2, usc);
+    GTE_WC(4, sacb & 0xFFFF);
+    t1 = (sc * sasb) >> 12;
+    GTE_RD(9, p1);
+    GTE_RD(10, p2);
+    GTE_RD(11, p3);
+    t2 = ((s32)usc * sacb) >> 12;
+    GTE_CMD(0x0486012);
+    GTE_RD(9, q1);
+    GTE_RD(10, q2);
+    GTE_RD(11, q3);
+    p2 -= t1;
+    scca = -scca;
+    p1 += t2;
+    p3 = q2 + p3;
+    q1 -= q3;
+
+    /* times the scale */
+    GTE_WC(0, xform[6] >> (scale & 31));
+    GTE_WC(1, 0);
+    GTE_WC(2, xform[7] >> (scale & 31));
+    GTE_WC(3, 0);
+    GTE_WC(4, xform[8] >> (scale & 31));
+    GTE_WD(9, p3);
+    GTE_WD(10, t0);
+    GTE_WD(11, q1);
+    GTE_CMD(0x049E012);
+    GTE_RD(9, r1);
+    GTE_RD(10, r2);
+    GTE_RD(11, r3);
+    GTE_WD(9, p2);
+    GTE_WD(10, scca);
+    GTE_WD(11, p1);
+    GTE_CMD(0x049E012);
+    GTE_RD(9, p2);
+    GTE_RD(10, scca);
+    GTE_RD(11, p1);
+    r1 = -(((r1 << 2) + r1) >> 3);
+    r2 = -(((r2 << 2) + r2) >> 3);
+    r3 = -(((r3 << 2) + r3) >> 3);
+    GTE_WC(0, (p2 & 0xFFFF) | (scca << 16));
+    GTE_WC(1, (p1 & 0xFFFF) | (r1 << 16));
+    GTE_WC(2, (r2 & 0xFFFF) | (r3 << 16));
+    GTE_WC(3, 0);
+    GTE_WC(4, 0);
+    return 1;
+}

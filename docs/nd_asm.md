@@ -45,7 +45,7 @@ Splat склеил почти весь сегмент в одну «функци
 | `8003C04C` | 169 | 0 | coll | `s32 func_8003C04C(GoolObject *obj, CollQuery *q, s32 *box, s32 *box2, s32 *ceil2, s32 b…` | ✅ |
 | `8003C2F0` | 29 | 0 | camera,coll,gfx,goolop,interp,math,obj,sys | `y = ((func_8003C2F0(cam->rot[0]) * 170 * *(s32 *)((u8 *)cam + 0x64)) >> 20) - (y - 108);` | ✅ |
 | `8003C364` | 27 | 0 | audio,camera,coll,gfx,goolop,interp,math,obj,sys | `s32 func_8003C364(s32 angle); /* cos */` | ✅ |
-| `8003C3D0` | 368 | 66 | obj | `s32 func_8003C3D0(Transform *xform, Transform *cam, s32 flag, s32 scale, MATRIX *rot, s…` |  |
+| `8003C3D0` | 368 | 66 | obj | `s32 func_8003C3D0(Transform *xform, Transform *cam, s32 flag, s32 scale, MATRIX *rot, s…` | ✅ |
 | `8003C990` | 312 | 41 | camera | `void *func_8003C990(); /* (void *item, s32 *pos, s32 a, ...) */` |  |
 | `8003CE70` | 121 | 17 | — | — |  |
 | `8003D054` | 9 | 0 | — | — |  |
@@ -146,4 +146,6 @@ Splat склеил почти весь сегмент в одну «функци
    оригинал с регистрами и сравнивает результат и всё состояние GTE.
    Высоты рельефа: `800450D4` (высота и наклон в точке, два треугольника
    клетки, GPL), `80044CA0` (движение через стенки клеток, затем высота) и
-   их помощник `80044F74` — на C, проверены.
+   их помощник `80044F74` — на C, проверены. Матрица модели `8003C3D0`
+   (камера × поворот × масштаб, проверка видимости) — на C; тест сравнивает
+   и всё состояние GTE (`GTE_STATE` в `tools/nd_difftest.py`).

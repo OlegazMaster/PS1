@@ -1034,12 +1034,10 @@ INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034310);
 #endif
 
 void func_80056DAC(s16 a, s16 b, s32 c, s32 d);
-#ifdef NON_MATCHING
-/* Sets the volume of the music.
- * Equivalent; the original computes vol >> 7 in another register first. */
+/* Sets the volume of the music. */
 void func_80034B00(s16 vol) {
     s32 i;
-    s32 v;
+    s16 v;
 
     D_80060AF0[1] = vol;
     if (D_80060B18 == 3) {
@@ -1049,9 +1047,6 @@ void func_80034B00(s16 vol) {
         }
     }
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/audio", func_80034B00);
-#endif
 
 extern s32 D_80068F84;
 void func_80056B54(s32 a);

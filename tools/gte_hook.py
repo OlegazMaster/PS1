@@ -12,7 +12,7 @@ import os
 import struct
 import subprocess
 
-from unicorn import UC_HOOK_CODE
+from unicorn import UC_HOOK_CODE, UcError, UC_ERR_READ_UNALIGNED, UC_ERR_WRITE_UNALIGNED
 from unicorn.mips_const import UC_MIPS_REG_0
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -54,6 +54,7 @@ class GteHook:
         self.lib = load_lib()
         self.state = GteState.in_dll(self.lib, "gte")
         self.insns = {}
+        self.on_fault = None  # f(access, address): a lwc2/swc2 on unmapped memory
         for start, end in ranges:
             code = bytes(mu.mem_read(start & 0x1FFFFFFF, end - start))
             for off in range(0, len(code) - 3, 4):
@@ -84,10 +85,19 @@ class GteHook:
             base = (insn >> 21) & 31
             ea = (self._reg(base) + struct.unpack("<h", struct.pack("<H", insn & 0xFFFF))[0]) & 0xFFFFFFFF
             phys = ea & 0x1FFFFFFF if ea >= 0x80000000 else ea
-            if op == 0x32:
-                self.lib.gte_write_data(rt, struct.unpack("<I", uc.mem_read(phys, 4))[0])
-            else:
-                uc.mem_write(phys, struct.pack("<I", self.lib.gte_read_data(rt)))
+            if ea & 3:  # an address error, as lw/sw would raise
+                raise UcError(UC_ERR_READ_UNALIGNED if op == 0x32 else UC_ERR_WRITE_UNALIGNED)
+            try:
+                if op == 0x32:
+                    self.lib.gte_write_data(rt, struct.unpack("<I", uc.mem_read(phys, 4))[0])
+                else:
+                    uc.mem_write(phys, struct.pack("<I", self.lib.gte_read_data(rt)))
+            except UcError:
+                if self.on_fault and ea < 0xC0000000:
+                    # as UC_HOOK_MEM_INVALID would report it: nothing for
+                    # kseg2, the physical address for kseg0/kseg1
+                    self.on_fault(19 if op == 0x32 else 20, ea & 0x1FFFFFFF if ea >= 0x80000000 else ea)
+                raise
             return
         if insn & 0x02000000:
             self.lib.gte_command(insn & 0x1FFFFFF)

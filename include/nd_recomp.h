@@ -19,9 +19,19 @@ typedef struct RcRegs {
 } RcRegs;
 
 /* the return address that ends a call of the generated code */
+#ifndef RC_RETURN
 #define RC_RETURN 0xFFFFFFF0u
+#endif
 /* the value of $gp in the game */
 #define RC_GP 0x80060878u
+
+/* called before each instruction (a trace for debugging the recompiler) */
+#ifdef RC_TRACE
+void rc_step(u32 pc);
+#define RC_STEP(pc) rc_step(pc)
+#else
+#define RC_STEP(pc)
+#endif
 
 /* %hi/%lo of a symbol outside the segment */
 #define RC_HI(sym) ((((u32)(sym)) + 0x8000u) & 0xFFFF0000u)
@@ -204,6 +214,12 @@ u32 rc_go(u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7)
     stack[0x1F7] = a7;
     rc_state.r[28] = RC_GP;
     rc_state.r[31] = RC_RETURN;
+    return RC_TEST(rc_target, &rc_state);
+}
+
+/* runs the code at rc_target with all the registers taken from rc_state */
+u32 rc_go_state(void)
+{
     return RC_TEST(rc_target, &rc_state);
 }
 #endif

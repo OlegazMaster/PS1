@@ -1001,3 +1001,214 @@ void func_80041FD8(u32 *m) {
     GTE_WC(3, m[3]);
     GTE_WC(4, m[4]);
 }
+
+/* ---- Height fields: terrain heights on a grid of 0x40000-unit cells
+ * (func_80044CA0, func_800450D4 and their helper 0x80044F74). The state
+ * (rs, a RenderState) holds: 0xA0 the blend weight (IR0), 0xA4 and 0xA8 two
+ * 32x32 tables whose top bytes are the low and high heights, 0xAC the
+ * 256x256 cell types (scale in bits 0-4), 0xB0 the cell walls. ---- */
+
+#define RS_W(rs, off) (*(u32 *)((u8 *)(rs) + (off)))
+#define OBJ_S(obj, off) (*(s32 *)((u8 *)(obj) + (off)))
+
+/* the byte of a 256x256 grid for cell (x, z << 8); the last row reads the
+ * first one */
+static u8 *GridCell(u8 *grid, u32 x, u32 z) {
+    u32 i = (x & 0xFF) | (z & 0xFF00);
+
+    if ((z & 0xFF00) == 0xFF00) {
+        i &= 0xFF;
+    }
+    return grid + i;
+}
+
+/* the low height of corner (x, z << 8) into MAC n and high - low into IR n */
+#define CORNER_HEIGHTS(x, z, mac, irn)                                         \
+    do {                                                                       \
+        u32 k_ = ((((z) & 0x1F00) >> 3) | ((x) & 0x1F)) << 2;                  \
+        s32 lo_ = *(s32 *)((u8 *)RS_W(rs, 0xA4) + k_) >> 24;                   \
+        s32 hi_ = *(s32 *)((u8 *)RS_W(rs, 0xA8) + k_) >> 24;                   \
+        GTE_WD(mac, lo_ << 3);                                                 \
+        GTE_WD(irn, hi_ - lo_);                                                \
+    } while (0)
+
+/* 0x80044F74: the heights of three corners of cells (blend by IR0 of low
+ * and high, times the cell type's scale) */
+static void CornerHeights(void *rs, u32 x0, u32 z0, u32 x1, u32 z1, u32 x2, u32 z2, s32 *h) {
+    u8 *types = (u8 *)RS_W(rs, 0xAC);
+    u32 s0, s1, s2;
+    s32 a, b, c;
+
+    CORNER_HEIGHTS(x0, z0, 25, 9);
+    s0 = *GridCell(types, x0, z0);
+    CORNER_HEIGHTS(x1, z1, 26, 10);
+    s1 = *GridCell(types, x1, z1);
+    CORNER_HEIGHTS(x2, z2, 27, 11);
+    GTE_CMD(0x1A0003E); /* GPL, no shift: MAC += IR * IR0 */
+    s2 = *GridCell(types, x2, z2);
+    GTE_RD(9, a);
+    GTE_RD(10, b);
+    GTE_RD(11, c);
+    h[0] = a * (s32)((s0 & 0x1F) << 4);
+    h[1] = b * (s32)((s1 & 0x1F) << 4);
+    h[2] = c * (s32)((s2 & 0x1F) << 4);
+}
+
+/* The height at (x, z) (of one of the two triangles of its cell) and, when
+ * out is set, the normalized slope (-dx, 1, -dz) in 0x1000 units. */
+static s32 Height(s32 *out, s32 x, s32 z, void *rs) {
+    u32 fx, fz, cx, cz;
+    s32 h[3];
+    s32 dx, dz, res, n;
+
+    GTE_WD(8, RS_W(rs, 0xA0)); /* IR0 */
+    x >>= 8;
+    z >>= 8;
+    fx = x & 0x3FF;
+    fz = z & 0x3FF;
+    cx = (u32)x >> 10;
+    cz = ((u32)z >> 10) << 8;
+    if ((s32)(fx + fz) - 0x400 < 0) {
+        CornerHeights(rs, cx, cz, cx + 1, cz, cx, cz + 0x100, h);
+        dx = h[1] - h[0];
+        dz = h[2] - h[0];
+        res = h[0] + ((dx * (s32)fx) >> 10) + ((dz * (s32)fz) >> 10);
+    } else {
+        CornerHeights(rs, cx + 1, cz + 0x100, cx, cz + 0x100, cx + 1, cz, h);
+        dx = h[1] - h[0];
+        dz = h[2] - h[0];
+        res = h[0] + ((dx * (s32)(0x400 - fx)) >> 10) + ((dz * (s32)(0x400 - fz)) >> 10);
+        dx = h[0] - h[1];
+        dz = h[0] - h[2];
+    }
+    if (out != NULL) {
+        dx = -dx >> 5;
+        dz = -dz >> 5;
+        n = func_8003D9DC(dx * dx + 0x1000000 + dz * dz);
+        out[0] = (dx << 12) / n;
+        out[1] = 0x1000000 / n;
+        out[2] = (dz << 12) / n;
+    }
+    return res;
+}
+
+s32 func_800450D4(s32 *out, s32 *pos, void *rs) {
+    return Height(out, pos[0], pos[2], rs);
+}
+
+/* whether a move from a to b (each relative to an edge) crosses it, b
+ * ending on the side given by the sign wanted (the original's xor test) */
+#define CROSSES(a, b) ((((a) ^ (b)) < 0))
+
+/* Moves obj by delta over the height field: the walls of the cells (bits
+ * of the 0xB0 grid: 0x80 low z, 0x20 low x, 0x08 high z, 0x02 high x, and
+ * the diagonals 0x40, 0x10, 0x04, 0x01) push it back and change its speed
+ * (0x84, 0x8C), then it stands at the height of the ground; out gets the
+ * slope (see Height). */
+s32 func_80044CA0(s32 *out, void *obj, void *rs, s32 *delta) {
+    u8 *walls = (u8 *)RS_W(rs, 0xB0);
+    s32 x0 = OBJ_S(obj, 0x60), y0 = OBJ_S(obj, 0x64), z0 = OBJ_S(obj, 0x68);
+    s32 x = x0 + delta[0];
+    s32 y = y0 + delta[1];
+    s32 z = z0 + delta[2];
+    const s32 c = 0x40000;
+    s32 cx, cz, a, b, t;
+    u32 w;
+
+    (void)y0;
+    for (;;) {
+        w = *GridCell(walls, (u32)(x >> 18), (u32)((z >> 18) << 8));
+        cx = x & 0xFFFC0000;
+        cz = z & 0xFFFC0000;
+        if (w == 0) {
+            break;
+        }
+        if (w & 0x80) {
+            a = z0 - cz;
+            b = z - cz;
+            if (CROSSES(a, b) && b >= 0) {
+                z = cz - 0x100;
+                OBJ_S(obj, 0x8C) = 0;
+                continue;
+            }
+        }
+        if (w & 0x40) {
+            a = (x0 - cx) + (z0 - cz) - c;
+            b = (z - cz) + (x - cx) - c;
+            if (CROSSES(a, b) && b >= 0) {
+                t = (b >> 1) + 0x100;
+                x -= t;
+                z -= t;
+                goto slide;
+            }
+        }
+        if (w & 0x20) {
+            a = x0 - cx;
+            b = x - cx;
+            if (CROSSES(a, b) && b >= 0) {
+                x = cx - 0x100;
+                OBJ_S(obj, 0x84) = 0;
+                continue;
+            }
+        }
+        cz += c;
+        if (w & 0x10) {
+            a = (x0 - cx) + (cz - z0) - c;
+            b = (cz - z) + (x - cx) - c;
+            if (CROSSES(a, b) && b >= 0) {
+                t = (b >> 1) + 0x100;
+                x -= t;
+                z += t;
+                goto slide;
+            }
+        }
+        if (w & 0x08) {
+            a = z0 - cz;
+            b = z - cz;
+            if (CROSSES(a, b) && b < 0) {
+                z = cz + 0x100;
+                OBJ_S(obj, 0x8C) = 0;
+                continue;
+            }
+        }
+        cx += c;
+        if (w & 0x04) {
+            a = (cx - x0) + (cz - z0) - c;
+            b = (cz - z) + (cx - x) - c;
+            if (CROSSES(a, b) && b >= 0) {
+                t = (b >> 1) + 0x100;
+                x += t;
+                z += t;
+                goto slide;
+            }
+        }
+        if (w & 0x02) {
+            a = x0 - cx;
+            b = x - cx;
+            if (CROSSES(a, b) && b < 0) {
+                x = cx + 0x100;
+                OBJ_S(obj, 0x84) = 0;
+                continue;
+            }
+        }
+        cz -= c;
+        if (w & 0x01) {
+            a = (cx - x0) + (z0 - cz) - c;
+            b = (z - cz) + (cx - x) - c;
+            if (CROSSES(a, b) && b >= 0) {
+                t = (b >> 1) + 0x100;
+                x += t;
+                z -= t;
+                goto slide;
+            }
+        }
+        break;
+    slide:
+        OBJ_S(obj, 0x84) = 30 * (x - x0);
+        OBJ_S(obj, 0x8C) = 30 * (z - z0);
+    }
+    OBJ_S(obj, 0x60) = x;
+    OBJ_S(obj, 0x64) = y;
+    OBJ_S(obj, 0x68) = z;
+    return Height(out, x, z, rs);
+}

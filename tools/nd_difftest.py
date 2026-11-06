@@ -191,6 +191,37 @@ def gen_turn(r):
     return [dst, src, mat, p, n, r.randrange(0, 12)], patches
 
 
+def height_field(r):
+    """A RenderState-like block (at BUF + 0x7800) for the height fields: the
+    weight, two 32x32 height tables, the cell types and the walls."""
+    rs = BUF + 0x7800
+    lo, hi, types, walls = 0x80110000, 0x80111000, 0x80120000, 0x80130000
+    p = [(lo, bytes(r.getrandbits(8) for _ in range(0x1000))),
+         (hi, bytes(r.getrandbits(8) for _ in range(0x1000))),
+         (types, bytes(r.getrandbits(8) for _ in range(0x10000))),
+         (walls, bytes(r.choice([0, 0, 0, r.getrandbits(8)]) for _ in range(0x10000))),
+         (rs + 0xA0, struct.pack("<5I", r.randrange(0, 0x1000), lo, hi, types, walls))]
+    return rs, p
+
+
+def gen_height(r):
+    rs, p = height_field(r)
+    pos = BUF + 0x7F00
+    p.append((pos, struct.pack("<3i", r.randrange(-0x400000, 0x4000000), 0, r.randrange(-0x400000, 0x4000000))))
+    return [r.choice([0, BUF + 0x7F80]), pos, rs], p
+
+
+def gen_ground(r):
+    rs, p = height_field(r)
+    obj, delta = BUF + 0x7000, BUF + 0x7F00
+    cell = lambda: r.randrange(0, 256) << 18
+    near = lambda c: c + r.choice([r.randrange(0, 0x40000), r.randrange(-0x800, 0x800), 0x40000 + r.randrange(-0x800, 0x800)])
+    x, z = near(cell()), near(cell())
+    p.append((obj + 0x60, struct.pack("<3i", x, r.randrange(-0x100000, 0x100000), z)))
+    p.append((delta, struct.pack("<3i", *[r.randrange(-0x60000, 0x60000) for _ in range(3)])))
+    return [r.choice([0, BUF + 0x7F80]), obj, rs, delta], p
+
+
 def gen_edges(r):
     """A list of collision boxes for func_8003B874, written into the buffer
     through the returned (address, bytes) patches."""
@@ -220,6 +251,7 @@ def gen_edges(r):
 GTE_RANGES = {
     "func_8003F520": (0x8003F520, 0x8003F5D8),
     "matrix helpers": (0x80041EF0, 0x80042058),
+    "height fields": (0x80044CA0, 0x800452A0),
 }
 
 # helpers that take a GTE matrix in t0..t4 in the original (a pointer to it
@@ -232,7 +264,7 @@ REGFUNCS = {
 }
 
 # functions on memory whose return value is compared too
-RETURNS = {"func_8003C04C", "func_8003AF78"}
+RETURNS = {"func_8003C04C", "func_8003AF78", "func_800450D4", "func_80044CA0"}
 
 # name: argument generator (functions on memory); the buffer and the tick
 # counter are compared after the call
@@ -248,6 +280,8 @@ MEMFUNCS = {
     "func_80039E3C": gen_delta,
     "func_8003A234": gen_delta,
     "func_8003F520": gen_turn,
+    "func_800450D4": gen_height,
+    "func_80044CA0": gen_ground,
 }
 
 # name: number of integer arguments
@@ -324,9 +358,9 @@ def main():
                 res.append((v if isinstance(v, str) or name in RETURNS else None, bytes(mu.mem_read(BUF - 0x80000000, BUF_SIZE)),
                             bytes(mu.mem_read(ticks - 0x80000000, 4)), bytes(mu.mem_read(0x1F800000, 0x400))))
             # the original saves its registers in the scratchpad (0x00-0x3F,
-            # 0x70-0xA3 around calls) and its temporaries at 0xE0-0xF3: not
-            # part of the result
-            res = [(e, b, t, sc[0x40:0x70] + sc[0xA4:0xE0] + sc[0xF4:]) for e, b, t, sc in res]
+            # 0x70-0xA3 around calls, ra at 0x384) and its temporaries at
+            # 0xE0-0xF3: not part of the result
+            res = [(e, b, t, sc[0x40:0x70] + sc[0xA4:0xE0] + sc[0xF4:0x384] + sc[0x388:]) for e, b, t, sc in res]
             if isinstance(res[0][0], str) and isinstance(res[1][0], str):
                 skipped += 1  # both crashed or looped on a malformed case
                 continue

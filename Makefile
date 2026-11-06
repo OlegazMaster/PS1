@@ -90,7 +90,7 @@ OBJECTS := $(if $(wildcard $(LD_SCRIPT)),$(shell grep -oE '$(BUILD)/[^ ()]+\.o' 
 
 # ---- Build -------------------------------------------------------------------
 
-.PHONY: all build check setup init extract clean distclean progress expected ctx decompile diff test pc pc-test
+.PHONY: all build check setup init extract clean distclean progress expected ctx decompile diff test pc pc-windows pc-test
 
 all: check
 
@@ -170,6 +170,11 @@ distclean:
 # addresses of the variables from the PlayStation build, so that comes first.
 pc: build
 	python3 tools/pc/build.py
+
+# The port for Windows (cross-compiled with MinGW-w64, e.g. in WSL; needs
+# gcc-mingw-w64-i686): build/pc-win/crash3.exe and SDL2.dll, downloaded once.
+pc-windows: build
+	python3 tools/pc/build.py --windows
 
 # Self-tests of the software GTE and GPU of the port (no game files needed).
 pc-test:

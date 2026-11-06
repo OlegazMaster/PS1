@@ -8,6 +8,7 @@
 #include <stdlib.h>
 
 #ifdef PC_SDL
+#define SDL_MAIN_HANDLED
 #include <SDL.h>
 
 static SDL_Window *window;

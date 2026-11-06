@@ -1,5 +1,6 @@
 /* Interrupts, events and timers of the PC port (libetc, libapi): a signal
- * every millisecond stands for the interrupts of the console. It runs the
+ * every millisecond stands for the interrupts of the console (on Windows a
+ * timer thread, which suspends the main thread while it runs the handlers). It runs the
  * handlers the game installed at their rates: the root counter 2 event (the
  * game's tick, about 1030 per second) and the vertical blank callback (60
  * per second). EnterCriticalSection/ExitCriticalSection block the signal, as
@@ -7,10 +8,13 @@
  * blanks and shows the frame. */
 #include "types.h"
 
-#include <signal.h>
 #include <string.h>
-#include <sys/time.h>
-#include <time.h>
+
+s32 pc_sys_map(u32 addr, u32 size);
+double pc_sys_now(void);
+void pc_sys_sleep(void);
+void pc_sys_block(s32 on);
+void pc_sys_start_interrupts(void (*func)(void));
 
 void pc_video_present(void);
 void pc_video_poll(void);
@@ -34,14 +38,11 @@ static double rcnt_period[3]; /* seconds per interrupt, 0: stopped */
 static s32 rcnt_started[3];
 static double next_vblank, next_rcnt[3];
 static s32 started;
-static s32 crit_depth;
+static volatile s32 crit_depth;
 
 static double now(void)
 {
-    struct timespec t;
-
-    clock_gettime(CLOCK_MONOTONIC, &t);
-    return (double)t.tv_sec + t.tv_nsec * 1e-9;
+    return pc_sys_now();
 }
 
 static void fire(u32 desc)
@@ -55,7 +56,7 @@ static void fire(u32 desc)
     }
 }
 
-static void tick(int sig)
+static void tick(void)
 {
     double t = now();
     s32 i, n;
@@ -87,31 +88,17 @@ static void tick(int sig)
 
 static void block(s32 on)
 {
-    sigset_t s;
-
-    sigemptyset(&s);
-    sigaddset(&s, SIGALRM);
-    sigprocmask(on ? SIG_BLOCK : SIG_UNBLOCK, &s, NULL);
+    pc_sys_block(on);
 }
 
 static void start(void)
 {
-    struct sigaction sa;
-    struct itimerval it;
-
     if (started) {
         return;
     }
     started = 1;
     next_vblank = now() + 1.0 / VBLANK_HZ;
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = tick;
-    sa.sa_flags = SA_RESTART;
-    sigaction(SIGALRM, &sa, NULL);
-    it.it_interval.tv_sec = 0;
-    it.it_interval.tv_usec = 1000;
-    it.it_value = it.it_interval;
-    setitimer(ITIMER_REAL, &it, NULL);
+    pc_sys_start_interrupts(tick);
 }
 
 /* ---- libapi ---- */
@@ -257,9 +244,7 @@ s32 VSync(s32 mode)
             block(0);
         }
         while ((s32)(target - vblanks) > 0) {
-            struct timespec t = { 0, 500000 };
-
-            nanosleep(&t, NULL);
+            pc_sys_sleep();
         }
         if (crit_depth) {
             block(1);

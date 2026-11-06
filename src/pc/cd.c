@@ -11,6 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef _WIN32
+#include <strings.h>
+#endif
 
 #define CdlNop 0x01
 #define CdlSetloc 0x02
@@ -90,10 +93,15 @@ s32 pc_cd_open(const char *path)
             if (!strncasecmp(line + strspn(line, " \t"), "FILE", 4) && (q1 = strchr(line, '"')) &&
                 (q2 = strchr(q1 + 1, '"'))) {
                 const char *slash = strrchr(path, '/');
-                size_t dir = slash ? (size_t)(slash - path + 1) : 0;
+                const char *bslash = strrchr(path, '\\'); /* Windows */
+                size_t dir;
 
+                if (bslash && (!slash || bslash > slash)) {
+                    slash = bslash;
+                }
+                dir = slash ? (size_t)(slash - path + 1) : 0;
                 *q2 = 0;
-                if (q1[1] == '/') {
+                if (q1[1] == '/' || q1[1] == '\\' || (q1[1] && q1[2] == ':')) { /* an absolute path */
                     snprintf(bin, sizeof(bin), "%s", q1 + 1);
                 } else {
                     snprintf(bin, sizeof(bin), "%.*s%s", (int)dir, path, q1 + 1);

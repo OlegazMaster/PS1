@@ -61,7 +61,10 @@ Crash Bandicoot 3 (`SCUS_942.44`, американская версия) с по
 - Библиотеки PSY-Q (`psyq`) не декомпилируются: для порта они заменяются
   слоем `src/pc/` (таблица в `docs/roadmap.md`, этап 4).
 - ПК-порт: `make pc` → `build/pc/crash3 образ.cue` (образ вашего диска:
-  `.cue`, `.bin` или `.iso`; 32-битный x86, нужен `gcc-multilib`). Память PlayStation — по своим адресам в процессе,
+  `.cue`, `.bin` или `.iso`; 32-битный x86, нужен `gcc-multilib`);
+  `make pc-windows` → `build/pc-win/crash3.exe` для Windows (MinGW-w64,
+  `docs/windows.md`; без аргументов ищет образ рядом с собой). Проверка
+  Windows-версии здесь — Wine (`wine32:i386`). Память PlayStation — по своим адресам в процессе,
   переменные C — по адресам из сборки PlayStation (подробно —
   `docs/roadmap.md`, этап 4). Запускается и доходит до чтения с диска;
   Готовы `libcd` (образ диска), графика (программный GPU, `libgpu`, окно

@@ -11,6 +11,7 @@
 #include "types.h"
 
 #ifdef PC_SDL
+#define SDL_MAIN_HANDLED
 #include <SDL.h>
 #endif
 

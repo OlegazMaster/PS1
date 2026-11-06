@@ -274,7 +274,8 @@ void *NSFileRead(CdFile *file, void *buf, s32 mode, s32 arg3) {
 Rect16 tpage_rect = { 0, 0, 256, 128 };
 char D_800608C0[] = "de ls\n";
 
-/* Turns the entry and item offsets of a loaded page into pointers. */
+#ifdef NON_MATCHING
+/* Equivalent; the original stores the entry pointer from the register it is computed in. */
 s32 NSPageTranslateOffsets(Page *page) {
     s32 count = page->entry_count;
     Entry **entries = page->entries;
@@ -290,8 +291,7 @@ s32 NSPageTranslateOffsets(Page *page) {
         return -0x12;
     }
     for (i = count - 1; i >= 0; i--) {
-        entry = (Entry *)((u32)page + (u32)entries[i]);
-        entries[i] = entry;
+        entry = entries[i] = (Entry *)((u32)page + (u32)entries[i]);
         items = entry->items;
         for (ii = entry->item_count; ii >= 0; ii--) {
             items[ii] = (u8 *)((u32)entry + (u32)items[ii]);
@@ -300,6 +300,9 @@ s32 NSPageTranslateOffsets(Page *page) {
     entries[count] = (Entry *)((u32)page + (u32)entries[count]);
     return -0xFF;
 }
+#else
+INCLUDE_ASM("asm/us/nonmatchings/ns", NSPageTranslateOffsets);
+#endif
 
 u32 NSChecksum(u32 *buf, s32 size) {
     u32 checksum = 0x12345678;
@@ -1175,8 +1178,9 @@ void *NSEntryPage(void *en_ref) {
 
 s32 func_80014024(s32 pgid, s32 flag, s32 count, u32 eid);
 
-#ifdef NON_MATCHING
-/* Equivalent; only the register of the final load differs. */
+/* Opens the entry that en_ref refers to (an entry ID, resolved and replaced
+ * by its page table entry, or the entry itself with flag 2), loading its page
+ * with count references; returns the entry, or 0 while it is not loaded. */
 u32 NSOpen(u32 *en_ref, s32 flag, s32 count) {
     NsdPte *pte;
     PageStruct *ps;
@@ -1203,14 +1207,11 @@ u32 NSOpen(u32 *en_ref, s32 flag, s32 count) {
         return ((NsdPte *)en_ref)->value;
     }
     func_80014024(((NsdPte *)en_ref)->value, flag, count, ((NsdPte *)en_ref)->eid);
-    if (((NsdPte *)en_ref)->value & 1) {
-        return 0;
+    if (!(((NsdPte *)en_ref)->value & 1)) {
+        return ((NsdPte *)en_ref)->value;
     }
-    return ((NsdPte *)en_ref)->value;
+    return 0;
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/ns", NSOpen);
-#endif
 
 void *func_8001439C(NsdPte *pte, s32 count) {
     u32 value = pte->value;

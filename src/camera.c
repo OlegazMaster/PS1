@@ -2134,7 +2134,182 @@ s32 func_80026880(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out) {
     return r;
 }
 
+/* The projection of pos (>> 8) on point pt of the path relative to the
+ * point o: with n & 5 horizontal along the angle (cos c, sin s), else the
+ * height (<< 8). */
+#define PATH_VALUE(n, px, pz, c, s)                                            \
+    ((n) == 1 ? (((pz) * (s)) >> 4) + (((px) * (c)) >> 4)                       \
+              : -(((pz) * (c)) >> 4) + (((px) * (s)) >> 4))
+#ifdef NON_MATCHING
+/* From the progress of loc (zone, path, progress, direction 2 forward or
+ * else backward) searches along the path for the progress where the
+ * projection of pos falls to a (see PATH_VALUE); puts it into out and
+ * returns 0, or the progress nearest to it (giving up after 3 points that
+ * get no nearer: -1, or the distance at the end of the path).
+ * NON_MATCHING: only the register allocation differs. */
+s32 func_8002697C(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out) {
+    s32 p[3];
+    s32 A[3];
+    s32 B[3];
+    s32 last;
+    s32 item;
+    s32 *origin;
+    s16 *pt;
+    s16 *q;
+    s32 prog;
+    s32 i;
+    s32 j;
+    s32 d;
+    s32 d0;
+    s32 d1;
+    s32 best;
+    s32 best_prog;
+    s32 count;
+    s32 e;
+    s32 f;
+    s32 cx;
+    s32 cz;
+    s32 dx;
+    s32 dz;
+
+    item = loc[1];
+    prog = loc[2];
+    p[0] = pos[0] >> 8;
+    p[1] = pos[1] >> 8;
+    p[2] = pos[2] >> 8;
+    origin = *(s32 **)(*(u8 **)(item + 4) + 0x14);
+    i = prog >> 8;
+    last = func_80032EDC(item, 0x27F, 0, 2) - 1;
+    pt = (s16 *)func_80032710(item, 0x4B, 0, i, NULL, 2, 0, 0, 0);
+    if (i >= last) {
+        j = i;
+        q = pt;
+    } else {
+        j = i + 1;
+        q = pt + 3;
+    }
+    f = prog & 0xFF;
+    if (n & 5) {
+        A[0] = pt[0] + origin[0];
+        A[2] = pt[2] + origin[2];
+        B[0] = q[0] + origin[0];
+        B[2] = q[2] + origin[2];
+        cx = A[0] + (((B[0] - A[0]) * f) >> 8);
+        cz = A[2] + (((B[2] - A[2]) * f) >> 8);
+        dx = p[0] - cx;
+        dz = p[2] - cz;
+        d = PATH_VALUE(n, dx, dz, c, s);
+    } else {
+        A[1] = pt[1] + origin[1];
+        B[1] = q[1] + origin[1];
+        d = (A[1] + (((B[1] - A[1]) * f) >> 8) - p[1]) << 8;
+    }
+    best_prog = prog;
+    if (a >= d) {
+        *out = prog;
+        return a - d;
+    }
+    best = d - a;
+    if (loc[3] == 2) {
+        if (n & 5) {
+            dx = p[0] - B[0];
+            dz = p[2] - B[2];
+            d1 = PATH_VALUE(n, dx, dz, c, s);
+        } else {
+            d1 = (-p[1] + B[1]) << 8;
+        }
+        if (a >= d1) {
+            *out = prog + ((((j << 8) - prog) * (((d - a) << 8) / (d - d1))) >> 8);
+            return 0;
+        }
+        count = 0;
+        e = d1 - a;
+        if (e < best) {
+        nearer:
+            best = e;
+            best_prog = j << 8;
+            count = 0;
+        }
+        for (;;) {
+            if (j == last) {
+                *out = best_prog;
+                return best;
+            }
+            i = j;
+            d0 = d1;
+            j = i + 1;
+            pt = (s16 *)func_80032710(item, 0x4B, 0, (j << 8) >> 8, NULL, 2, 0, 0, 0);
+            if (n & 5) {
+                dx = p[0] - (pt[0] + origin[0]);
+                dz = p[2] - (pt[2] + origin[2]);
+                d1 = PATH_VALUE(n, dx, dz, c, s);
+            } else {
+                d1 = ((pt[1] + origin[1]) - p[1]) << 8;
+            }
+            if (a >= d1) {
+                *out = (i << 8) + (((d0 - a) << 8) / (d0 - d1));
+                return 0;
+            }
+            e = d1 - a;
+            if (e < best) {
+                goto nearer;
+            }
+            if (++count >= 3) {
+                *out = best_prog;
+                return -1;
+            }
+        }
+    } else {
+        if (n & 5) {
+            dx = p[0] - A[0];
+            dz = p[2] - A[2];
+            d0 = PATH_VALUE(n, dx, dz, c, s);
+        } else {
+            d0 = (-p[1] + A[1]) << 8;
+        }
+        if (a >= d0) {
+            *out = prog - (((prog - (i << 8)) * (((d - a) << 8) / (d - d0))) >> 8);
+            return 0;
+        }
+        if (d0 - a < best) {
+            best = d0 - a;
+            best_prog = i << 8;
+        }
+        count = 0;
+        for (;;) {
+            if (i == 0) {
+                *out = best_prog;
+                return best;
+            }
+            j = i;
+            d1 = d0;
+            i--;
+            pt = (s16 *)func_80032710(item, 0x4B, 0, (i << 8) >> 8, NULL, 2, 0, 0, 0);
+            if (n & 5) {
+                dx = p[0] - (pt[0] + origin[0]);
+                dz = p[2] - (pt[2] + origin[2]);
+                d0 = PATH_VALUE(n, dx, dz, c, s);
+            } else {
+                d0 = ((pt[1] + origin[1]) - p[1]) << 8;
+            }
+            if (a >= d0) {
+                *out = (j << 8) - (((d1 - a) << 8) / (d1 - d0));
+                return 0;
+            }
+            if (d0 - a < best) {
+                best = d0 - a;
+                best_prog = i << 8;
+                count = 0;
+            } else if (++count >= 3) {
+                *out = best_prog;
+                return -1;
+            }
+        }
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002697C);
+#endif
 
 /* Like func_80026880 with func_80027298: searches both directions of the
  * path; sets loc[3] to the better one. */
@@ -2162,7 +2337,173 @@ s32 func_8002719C(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out) {
     return r;
 }
 
+#ifdef NON_MATCHING
+/* The mirror of func_8002697C: searches along the path for the progress
+ * where the projection of pos rises to a.
+ * NON_MATCHING: only the register allocation differs. */
+s32 func_80027298(s32 *loc, s32 *pos, s32 a, s32 c, s32 s, s32 n, s32 *out) {
+    s32 p[3];
+    s32 A[3];
+    s32 B[3];
+    s32 last;
+    s32 item;
+    s32 *origin;
+    s16 *pt;
+    s16 *q;
+    s32 prog;
+    s32 i;
+    s32 j;
+    s32 d;
+    s32 d0;
+    s32 d1;
+    s32 best;
+    s32 best_prog;
+    s32 count;
+    s32 e;
+    s32 f;
+    s32 cx;
+    s32 cz;
+    s32 dx;
+    s32 dz;
+
+    item = loc[1];
+    prog = loc[2];
+    p[0] = pos[0] >> 8;
+    p[1] = pos[1] >> 8;
+    p[2] = pos[2] >> 8;
+    origin = *(s32 **)(*(u8 **)(item + 4) + 0x14);
+    i = prog >> 8;
+    last = func_80032EDC(item, 0x27F, 0, 2) - 1;
+    pt = (s16 *)func_80032710(item, 0x4B, 0, i, NULL, 2, 0, 0, 0);
+    if (i >= last) {
+        j = i;
+        q = pt;
+    } else {
+        j = i + 1;
+        q = pt + 3;
+    }
+    f = prog & 0xFF;
+    if (n & 5) {
+        A[0] = pt[0] + origin[0];
+        A[2] = pt[2] + origin[2];
+        B[0] = q[0] + origin[0];
+        B[2] = q[2] + origin[2];
+        cx = A[0] + (((B[0] - A[0]) * f) >> 8);
+        cz = A[2] + (((B[2] - A[2]) * f) >> 8);
+        dx = p[0] - cx;
+        dz = p[2] - cz;
+        d = PATH_VALUE(n, dx, dz, c, s);
+    } else {
+        A[1] = pt[1] + origin[1];
+        B[1] = q[1] + origin[1];
+        d = (A[1] + (((B[1] - A[1]) * f) >> 8) - p[1]) << 8;
+    }
+    if (d >= a) {
+        *out = prog;
+        return d - a;
+    }
+    best = a - d;
+    best_prog = prog;
+    if (loc[3] == 2) {
+        if (n & 5) {
+            dx = p[0] - B[0];
+            dz = p[2] - B[2];
+            d1 = PATH_VALUE(n, dx, dz, c, s);
+        } else {
+            d1 = (-p[1] + B[1]) << 8;
+        }
+        if (d1 >= a) {
+            *out = prog + ((((j << 8) - prog) * (((a - d) << 8) / (d1 - d))) >> 8);
+            return 0;
+        }
+        count = 0;
+        e = a - d1;
+        if (e < best) {
+        nearer:
+            best = e;
+            best_prog = j << 8;
+            count = 0;
+        }
+        for (;;) {
+            if (j == last) {
+                *out = best_prog;
+                return best;
+            }
+            i = j;
+            d0 = d1;
+            j = i + 1;
+            pt = (s16 *)func_80032710(item, 0x4B, 0, (j << 8) >> 8, NULL, 2, 0, 0, 0);
+            if (n & 5) {
+                dx = p[0] - (pt[0] + origin[0]);
+                dz = p[2] - (pt[2] + origin[2]);
+                d1 = PATH_VALUE(n, dx, dz, c, s);
+            } else {
+                d1 = ((pt[1] + origin[1]) - p[1]) << 8;
+            }
+            if (d1 >= a) {
+                *out = (i << 8) + (((a - d0) << 8) / (d1 - d0));
+                return 0;
+            }
+            e = a - d1;
+            if (e <= best) {
+                goto nearer;
+            }
+            if (++count >= 3) {
+                *out = best_prog;
+                return -1;
+            }
+        }
+    } else {
+        if (n & 5) {
+            dx = p[0] - A[0];
+            dz = p[2] - A[2];
+            d0 = PATH_VALUE(n, dx, dz, c, s);
+        } else {
+            d0 = (-p[1] + A[1]) << 8;
+        }
+        if (d0 >= a) {
+            *out = prog - (((prog - (i << 8)) * (((a - d) << 8) / (d0 - d))) >> 8);
+            return 0;
+        }
+        if (a - d0 < best) {
+            best = a - d0;
+            best_prog = i << 8;
+        }
+        count = 0;
+        for (;;) {
+            if (i == 0) {
+                *out = best_prog;
+                return best;
+            }
+            j = i;
+            d1 = d0;
+            i--;
+            pt = (s16 *)func_80032710(item, 0x4B, 0, (i << 8) >> 8, NULL, 2, 0, 0, 0);
+            if (n & 5) {
+                dx = p[0] - (pt[0] + origin[0]);
+                dz = p[2] - (pt[2] + origin[2]);
+                d0 = PATH_VALUE(n, dx, dz, c, s);
+            } else {
+                d0 = ((pt[1] + origin[1]) - p[1]) << 8;
+            }
+            if (d0 >= a) {
+                *out = (j << 8) - (((a - d1) << 8) / (d0 - d1));
+                return 0;
+            }
+            if (a - d0 < best) {
+                best = a - d0;
+                best_prog = i << 8;
+                count = 0;
+            } else if (++count >= 3) {
+                *out = best_prog;
+                return -1;
+            }
+        }
+    }
+}
+#else
 INCLUDE_ASM("asm/us/nonmatchings/camera", func_80027298);
+#endif
 
 #ifdef NON_MATCHING
 /* Posts the path messages of the triggers of the camera path point: the

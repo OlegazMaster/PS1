@@ -89,3 +89,39 @@ s32 func_8003AEEC(s32 x, s32 y, s32 z) {
     hi = hi + zh + (lo2 < lo);
     return (lo2 >> 20) | (hi << 12);
 }
+
+/* Copies count halfwords from src to dst (the original picks word or
+ * halfword moves by the alignment of both; for areas that do not overlap
+ * the result is the same). A negative count copies nothing (the original
+ * jumps through a table with it). */
+void func_8003A928(u16 *src, u16 *dst, s32 count) {
+    while (count > 0) {
+        *dst++ = *src++;
+        count--;
+    }
+}
+
+/* Clears an ordering table: each of the (count >> 6) * 64 entries links to
+ * the next one (24-bit addresses), the last one ends the list (0xFFFFFF).
+ * count is always 0x800 in the game; below 64 the original runs past the
+ * end of the table. */
+void func_8003AC44(u32 *ot, u32 count) {
+    u32 link = (u32)ot & 0xFFFFFF;
+    u32 n = (count >> 6) * 64;
+
+    if (n == 0) {
+        return;
+    }
+    while (n-- != 0) {
+        link += 4;
+        *ot++ = link;
+    }
+    ot[-1] = 0xFFFFFF;
+}
+
+extern s32 ticks_elapsed;
+
+/* The root counter interrupt: counts the ticks. */
+void func_8003AE70(void) {
+    ticks_elapsed++;
+}

@@ -36,6 +36,30 @@ def rint(r):
     return r.getrandbits(32) - (1 << 31)
 
 
+BUF = 0x80100000  # random memory for the functions that take pointers
+BUF_SIZE = 0x8000
+TICKS = 0x80060000  # replaced by the address of ticks_elapsed below
+
+
+def gen_copy(r):
+    n = r.choice([0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, r.randrange(1, 600)])
+    src = BUF + 2 * r.randrange(0, 0x1000)
+    dst = BUF + 0x2000 + 2 * r.randrange(0, 0x1000)
+    return [src, dst, n]
+
+
+def gen_ot(r):
+    return [BUF + 4 * r.randrange(0, 0x100), r.choice([0x40, 0x80, 0x800 // 4, 0x7FF, 0x1000 // 4])]
+
+
+# name: argument generator (functions on memory); the buffer and the tick
+# counter are compared after the call
+MEMFUNCS = {
+    "func_8003A928": gen_copy,
+    "func_8003AC44": gen_ot,
+    "func_8003AE70": lambda r: [],
+}
+
 # name: number of integer arguments
 FUNCS = {
     "func_8003C2F0": 1,
@@ -76,6 +100,28 @@ def main():
 
     r = random.Random(SEED)
     bad = 0
+    ticks = int(subprocess.run(["sh", "-c", "mipsel-linux-gnu-nm %s | grep ' ticks_elapsed$'" % EXE.replace("SCUS_942.44", "main.elf")],
+                               capture_output=True, text=True).stdout.split()[0], 16)
+    for name, gen in MEMFUNCS.items():
+        orig = int(name[5:], 16)
+        fails = 0
+        for _ in range(COUNT // 10):
+            args = gen(r)
+            init = bytes(r.getrandbits(8) for _ in range(BUF_SIZE))
+            t0 = r.getrandbits(32)
+            res = []
+            for addr in (orig, syms[name]):
+                mu.mem_write(BUF - 0x80000000, init)
+                mu.mem_write(ticks - 0x80000000, struct.pack("<I", t0))
+                v = call(addr, args)
+                res.append((v if isinstance(v, str) else None, bytes(mu.mem_read(BUF - 0x80000000, BUF_SIZE)),
+                            bytes(mu.mem_read(ticks - 0x80000000, 4))))
+            if res[0] != res[1]:
+                fails += 1
+                if fails <= 5:
+                    print("%s%s: differ" % (name, tuple(hex(x) for x in args)))
+        print("%s: %d/%d differ" % (name, fails, COUNT // 10))
+        bad += fails
     for name, n in FUNCS.items():
         orig = int(name[5:], 16)
         fails = 0

@@ -3351,27 +3351,24 @@ void func_80029B10(GoolObject *obj, s32 idx, s32 val) {
 }
 
 extern u8 D_8005C814[];
-#ifdef NON_MATCHING
-/* The light intensity b of the surface type c (0x30..0x3F).
- * Equivalent; the original has a second return after the lookup. */
+/* The light intensity b of the surface type c (0x30..0x3F). */
 void func_80029B5C(s32 c, s32 *out) {
     if ((u32)(c - 0x30) >= 0x10) {
         *out = 0;
         return;
     }
     *out = 0;
-    if (c >= 0x40) {
+    if (c < 0x40) {
+        if (c >= 0x30) {
+            *out = 0x1000 - D_8005C814[c - 0x30] * 20;
+            return;
+        }
         *out = 0;
         return;
-    }
-    if (c >= 0x30) {
-        *out = 0x1000 - D_8005C814[c - 0x30] * 20;
-        return;
+    } else {
+        *out = 0;
     }
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_80029B5C);
-#endif
 
 s32 func_8001FD08(s32 cur, s32 target, s32 step);
 /* Sets the light b of obj for the surface type c (blend: move toward it). */

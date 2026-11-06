@@ -66,6 +66,7 @@ FUNCS = {
     "func_8003C364": 1,
     "func_8003AE90": 2,
     "func_8003AEEC": 3,
+    "func_8003D9DC": 1,
 }
 
 

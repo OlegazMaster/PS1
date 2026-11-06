@@ -125,3 +125,28 @@ extern s32 ticks_elapsed;
 void func_8003AE70(void) {
     ticks_elapsed++;
 }
+
+/* Integer square root (bit by bit, two bits of x per step). */
+s32 func_8003D9DC(s32 x) {
+    u32 v = x;
+    u32 root = 0;
+    s32 rem = 0;
+    s32 t;
+    s32 i;
+
+    if (v == 0) {
+        return 0;
+    }
+    for (i = 0; i < 16; i++) {
+        rem |= v >> 30;
+        t = rem - (s32)((root << 2) + 1);
+        root <<= 1;
+        if (t >= 0) {
+            root++;
+            rem = t;
+        }
+        v <<= 2;
+        rem <<= 2;
+    }
+    return root;
+}

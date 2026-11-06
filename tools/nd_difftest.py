@@ -52,12 +52,17 @@ def gen_ot(r):
     return [BUF + 4 * r.randrange(0, 0x100), r.choice([0x40, 0x80, 0x800 // 4, 0x7FF, 0x1000 // 4])]
 
 
+def gen_grid(r):
+    return [r.randrange(-32, 32), r.randrange(-32, 32)]
+
+
 # name: argument generator (functions on memory); the buffer and the tick
 # counter are compared after the call
 MEMFUNCS = {
     "func_8003A928": gen_copy,
     "func_8003AC44": gen_ot,
     "func_8003AE70": lambda r: [],
+    "func_8003BBF0": gen_grid,
 }
 
 # name: number of integer arguments
@@ -84,6 +89,7 @@ def main():
             syms[p[2]] = int(p[0], 16)
     mu = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 + UC_MODE_LITTLE_ENDIAN)
     mu.mem_map(0, RAM)
+    mu.mem_map(0x1F800000, 0x1000)  # scratchpad
     mu.mem_write(t_addr - 0x80000000, text)
     mu.mem_write(0x180000, vm)
 
@@ -110,13 +116,15 @@ def main():
             args = gen(r)
             init = bytes(r.getrandbits(8) for _ in range(BUF_SIZE))
             t0 = r.getrandbits(32)
+            scr = bytes(r.getrandbits(8) for _ in range(0x400))
             res = []
             for addr in (orig, syms[name]):
                 mu.mem_write(BUF - 0x80000000, init)
                 mu.mem_write(ticks - 0x80000000, struct.pack("<I", t0))
+                mu.mem_write(0x1F800000, scr)
                 v = call(addr, args)
                 res.append((v if isinstance(v, str) else None, bytes(mu.mem_read(BUF - 0x80000000, BUF_SIZE)),
-                            bytes(mu.mem_read(ticks - 0x80000000, 4))))
+                            bytes(mu.mem_read(ticks - 0x80000000, 4)), bytes(mu.mem_read(0x1F800000, 0x400))))
             if res[0] != res[1]:
                 fails += 1
                 if fails <= 5:

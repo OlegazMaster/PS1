@@ -150,3 +150,50 @@ s32 func_8003D9DC(s32 x) {
     }
     return root;
 }
+
+#ifndef ND_SCRATCHPAD
+#define ND_SCRATCHPAD ((u32 *)0x1F800000)
+#endif
+
+/* Marks the cell (x, z) (-32..31) of the grid of free cells around an
+ * object (coll.c): once per cell (bit map at scratchpad 0x180, two words per
+ * row), ORs the 32-row mask at scratchpad 0x380, shifted by x, into the rows
+ * from z of the map at scratchpad 0x100. (0x8003BBFC is the same code with
+ * the arguments in v1 and a3.) */
+void func_8003BBF0(s32 x, s32 z) {
+    u32 *cell = ND_SCRATCHPAD + 0x180 / 4 + (z + 0x20) * 2;
+    u32 *mask = ND_SCRATCHPAD + 0x380 / 4;
+    u32 *row;
+    u32 bit;
+    s32 i;
+    s32 end;
+
+    if (x < 0) {
+        bit = 1 << ((x + 0x20) & 31);
+    } else {
+        cell++;
+        bit = 1 << (x & 31);
+    }
+    if (*cell & bit) {
+        return;
+    }
+    *cell |= bit;
+    if (z < 0) {
+        i = -z;
+        end = 0x20;
+        z = 0;
+    } else {
+        i = 0;
+        end = 0x20 - z;
+    }
+    row = ND_SCRATCHPAD + 0x100 / 4 + z;
+    if (x >= 0) {
+        for (; i < end; i++) {
+            *row++ |= mask[i] >> (x & 31);
+        }
+    } else {
+        for (; i < end; i++) {
+            *row++ |= mask[i] << (-x & 31);
+        }
+    }
+}

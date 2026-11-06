@@ -11,7 +11,8 @@ PY=.venv/bin/python3
 OUT=build/us/rc
 mkdir -p $OUT
 $PY -c "import unicorn" 2>/dev/null || .venv/bin/pip install -q unicorn
-python3 tools/recomp.py asm/us/nd_asm.s $OUT/nd_recomp.c nd 2>$OUT/load_delays.txt
+python3 tools/recomp.py asm/us/nd_asm.s $OUT/nd_recomp.c --visible src/*.c --defined src/nd.c --data ticks_elapsed \
+    --port $OUT/nd_port.c
 clang --target=mipsel-unknown-none-elf -march=mips1 -mabi=32 -msoft-float -G0 -fno-pic -mno-abicalls \
     -O0 -ffreestanding -fno-strict-aliasing -fno-builtin -DRC_MIPS -DRC_TEST=nd_exec -DRC_RETURN=0x80000100u ${RC_TRACE:+-DRC_TRACE} -Iinclude \
     -Wno-unused-label -c $OUT/nd_recomp.c -o $OUT/nd_recomp.o

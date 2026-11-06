@@ -16,6 +16,7 @@
 typedef struct RcRegs {
     u32 r[32];
     u32 hi, lo;
+    u32 ld_reg, ld_old; /* a load in the delay slot of jr/jalr, not yet seen */
 } RcRegs;
 
 /* the return address that ends a call of the generated code */
@@ -37,12 +38,9 @@ void rc_step(u32 pc);
 #define RC_HI(sym) ((((u32)(sym)) + 0x8000u) & 0xFFFF0000u)
 #define RC_LO(sym) ((u32)(s32)(s16)((u32)(sym) & 0xFFFFu))
 
-#ifdef RC_MIPS
+/* memory at PlayStation addresses: the port maps the scratchpad at
+ * 0x1F800000 as the C code of the game uses it there too */
 #define RC_PTR(a) ((u8 *)(a))
-#else
-extern u8 rc_scratchpad[0x400];
-#define RC_PTR(a) (((u32)(a) - 0x1F800000u) < 0x400u ? rc_scratchpad + ((u32)(a) - 0x1F800000u) : (u8 *)(a))
-#endif
 
 #define RC_LB(a) (*(s8 *)RC_PTR(a))
 #define RC_LBU(a) (*(u8 *)RC_PTR(a))
@@ -159,9 +157,11 @@ void rc_trap(u32 addr, u32 what);
 #define RC_BREAK(addr, code) rc_trap(addr, code)
 #define RC_SYSCALL(addr) rc_trap(addr, 0)
 #define RC_BAD(addr, word) rc_trap(addr, word)
-/* calls a function of the game by its PlayStation address (the port's table) */
-u32 rc_ext_call(u32 pc, u32 a0, u32 a1, u32 a2, u32 a3, u32 sp);
-#define RC_EXT_CALL(pc, a0, a1, a2, a3, sp) rc_ext_call(pc, a0, a1, a2, a3, sp)
+/* a procedure of the segment by the address of its C wrapper (0: none) */
+u32 rc_native_lookup(u32 addr);
+/* calls a C function by its address (4 arguments in registers) */
+typedef u32 (*RcExtFunc)(u32, u32, u32, u32);
+#define RC_EXT_CALL(pc, a0, a1, a2, a3, sp) ((RcExtFunc)(pc))(a0, a1, a2, a3)
 #endif
 
 /* runs the generated code from addr with the arguments of a C call; the
@@ -177,6 +177,7 @@ static inline u32 rc_call(u32 (*exec)(u32, RcRegs *), u32 addr, u32 a0, u32 a1, 
         regs.r[i] = 0;
     }
     regs.hi = regs.lo = 0;
+    regs.ld_reg = regs.ld_old = 0;
     regs.r[4] = a0;
     regs.r[5] = a1;
     regs.r[6] = a2;

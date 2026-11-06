@@ -224,6 +224,18 @@ def main():
     gte.hook_call(RC_GTE_OP)
     gte.on_fault = lambda access, addr: fault.append((access, addr))
 
+    # data accesses of the recompiled code to the segment itself: in the port
+    # there is nothing at the PlayStation addresses of the segment
+    seg_access = {}
+
+    def on_seg(uc, access, addr, size, value, user):
+        pc = mu.reg_read(UC_MIPS_REG_PC)
+        if pc >= 0x80200000:
+            seg_access[addr] = seg_access.get(addr, 0) + 1
+
+    from unicorn import UC_HOOK_MEM_READ, UC_HOOK_MEM_WRITE
+    mu.hook_add(UC_HOOK_MEM_READ | UC_HOOK_MEM_WRITE, on_seg, begin=lo, end=hi - 1)
+
     # coverage: the instructions of the segment the original ran
     covered = set()
 
@@ -273,7 +285,7 @@ def main():
                 mu.emu_start(start, RET, count=steps)
             else:
                 mu.mem_write(syms["rc_target"] - 0x80000000, struct.pack("<I", start))
-                mu.mem_write(syms["rc_state"] - 0x80000000, struct.pack("<34I", 0, *regs[1:32], regs[32], regs[33]))
+                mu.mem_write(syms["rc_state"] - 0x80000000, struct.pack("<36I", 0, *regs[1:32], regs[32], regs[33], 0, 0))
                 mu.reg_write(UC_MIPS_REG_SP, C_SP)
                 mu.reg_write(UC_MIPS_REG_GP, 0x80060878)
                 mu.reg_write(UC_MIPS_REG_RA, RET)
@@ -393,6 +405,9 @@ def main():
           (len(covered & set(by_addr)), len(insns), 100.0 * len(covered & set(by_addr)) / len(insns)))
     print("of them %d cases at %d jumps to a target that reads the register loaded in the delay slot: %d match"
           % (3 * len(delay_cases), len(delay_cases), stats["delay"]))
+    if seg_access:
+        print("the recompiled code accessed the segment as data at %d addresses: %s" %
+              (len(seg_access), " ".join("%08X" % a for a in sorted(seg_access)[:20])))
     if os.environ.get("UNCOVERED"):
         with open(os.environ["UNCOVERED"], "w") as f:
             run_start = None

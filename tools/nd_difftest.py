@@ -364,10 +364,10 @@ def main():
                 mu.reg_write(UC_MIPS_REG_0 + n, v)
             return call(syms[name], args)
         mu.mem_write(syms["rc_target"] - 0x80000000, struct.pack("<I", int(name[5:], 16)))
-        st = [0] * 34
+        st = [0] * 36  # RcRegs: r[32], hi, lo, ld_reg, ld_old
         for n, v in (regs or {}).items():
             st[n] = v
-        mu.mem_write(syms["rc_state"] - 0x80000000, struct.pack("<34I", *st))
+        mu.mem_write(syms["rc_state"] - 0x80000000, struct.pack("<36I", *st))
         # the recompiled code (built without optimization) takes many more
         # instructions
         return call(syms["rc_go"], args, int(os.environ.get("STEPS", 40000000)))

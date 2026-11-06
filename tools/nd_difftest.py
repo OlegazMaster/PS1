@@ -219,6 +219,16 @@ def gen_edges(r):
 # the original code of the functions that use the GTE
 GTE_RANGES = {
     "func_8003F520": (0x8003F520, 0x8003F5D8),
+    "matrix helpers": (0x80041EF0, 0x80042058),
+}
+
+# helpers that take a GTE matrix in t0..t4 in the original (a pointer to it
+# in C): "m" (the matrix only) or "rt_m" (a0 = the matrix for RT first)
+REGFUNCS = {
+    "func_80041FBC": "m",
+    "func_80041F18": "m",
+    "func_80041EF0": "rt_m",
+    "func_80041FD8": "m",
 }
 
 # functions on memory whose return value is compared too
@@ -326,6 +336,37 @@ def main():
                     what = [n for n, i in (("error", 0), ("memory", 1), ("ticks", 2), ("scratchpad", 3)) if res[0][i] != res[1][i]]
                     print("%s%s: differ (%s) asm: %s / C: %s" % (name, tuple(hex(x) for x in args), ", ".join(what), res[0][0], res[1][0]))
         print("%s: %d/%d differ" % (name, fails, COUNT // 10) + (" (%d skipped: both crashed or looped)" % skipped if skipped else ""))
+        bad += fails
+    for name, kind in REGFUNCS.items():
+        orig = int(name[5:], 16)
+        fails = 0
+        for _ in range(COUNT // 10):
+            m = [r.getrandbits(32) for _ in range(5)]
+            rt = [r.getrandbits(32) for _ in range(5)]
+            data = [r.getrandbits(32) for _ in range(32)]
+            ctrl = [r.getrandbits(32) for _ in range(32)]
+            mem, rtp = BUF + 0x7D00, BUF + 0x7D40
+            res = []
+            for side in ("asm", "C"):
+                mu.mem_write(mem - 0x80000000, struct.pack("<5I", *m))
+                mu.mem_write(rtp - 0x80000000, struct.pack("<5I", *rt))
+                gte.reset(data, ctrl)
+                if side == "asm":
+                    for i, v in enumerate(m):
+                        mu.reg_write(UC_MIPS_REG_8 + i, v)
+                    err = call(orig, [rtp])
+                    out = [mu.reg_read(UC_MIPS_REG_8 + i) for i in range(5)]
+                else:
+                    err = call(syms[name], [rtp, mem] if kind == "rt_m" else [mem])
+                    out = list(struct.unpack("<5I", mu.mem_read(mem - 0x80000000, 20)))
+                res.append((err if isinstance(err, str) else None, out, list(gte.state.data), list(gte.state.ctrl)))
+            if res[0] != res[1]:
+                fails += 1
+                if fails <= 3:
+                    print("%s m=%s: differ: asm %s / C %s" % (name, [hex(x) for x in m], [hex(x) for x in res[0][1]], [hex(x) for x in res[1][1]]))
+                    if res[0][2:] != res[1][2:]:
+                        print("    GTE state differs")
+        print("%s: %d/%d differ" % (name, fails, COUNT // 10))
         bad += fails
     for name, n in FUNCS.items():
         orig = int(name[5:], 16)

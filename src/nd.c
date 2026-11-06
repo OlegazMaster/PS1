@@ -921,3 +921,83 @@ void func_8003F520(s32 *out, s32 *in, u32 *m, s32 *pos, s32 n, s32 shift) {
         out += 3;
     }
 }
+
+/* ---- GTE matrix helpers. In the original they take the matrix (five GTE
+ * words) in t0..t4 and leave the result there; here m points to it. ---- */
+
+/* RT = m (func_80041FBC) */
+void func_80041FBC(u32 *m) {
+    GTE_WC(0, m[0]);
+    GTE_WC(1, m[1]);
+    GTE_WC(2, m[2]);
+    GTE_WC(3, m[3]);
+    GTE_WC(4, m[4]);
+}
+
+/* m = RT * m, and RT = m: the columns of m go through MVMVA as V0..V2. */
+void func_80041F18(u32 *m) {
+    u32 t0 = m[0], t1 = m[1], t2 = m[2], t3 = m[3], t4 = m[4];
+    s32 a, b, c;
+
+    GTE_WD(0, (t0 & 0xFFFF) | (t1 & 0xFFFF0000));
+    GTE_WD(1, t3);
+    GTE_CMD(0x0486012); /* RT * V0 */
+    GTE_WD(2, (t0 >> 16) | (t2 << 16));
+    GTE_WD(3, t3 >> 16);
+    GTE_RD(9, a);
+    GTE_RD(10, b);
+    GTE_RD(11, c);
+    t0 = a & 0xFFFF;
+    t1 = (u32)b << 16;
+    t3 = c & 0xFFFF;
+    GTE_CMD(0x048E012); /* RT * V1 */
+    GTE_WD(4, (m[1] & 0xFFFF) | (m[2] & 0xFFFF0000));
+    GTE_WD(5, t4);
+    GTE_RD(9, a);
+    GTE_RD(10, b);
+    GTE_RD(11, c);
+    t0 |= (u32)a << 16;
+    t2 = b & 0xFFFF;
+    t3 |= (u32)c << 16;
+    GTE_CMD(0x0496012); /* RT * V2 */
+    GTE_RD(9, a);
+    GTE_RD(10, b);
+    GTE_RD(11, c);
+    t1 |= a & 0xFFFF;
+    t2 |= (u32)b << 16;
+    t4 = c;
+    m[0] = t0;
+    m[1] = t1;
+    m[2] = t2;
+    m[3] = t3;
+    m[4] = t4;
+    func_80041FBC(m);
+}
+
+/* RT = rt, then as func_80041F18 (the original falls through into it). */
+void func_80041EF0(u32 *rt, u32 *m) {
+    GTE_WC(0, rt[0]);
+    GTE_WC(1, rt[1]);
+    GTE_WC(2, rt[2]);
+    GTE_WC(3, rt[3]);
+    GTE_WC(4, rt[4]);
+    func_80041F18(m);
+}
+
+/* Mirrors m and loads it into RT (rows 2 and 3; row 1 is left as it is in
+ * RT and in m): row 2 times -0xA0 / 0x100, row 3 negated. */
+void func_80041FD8(u32 *m) {
+    s32 m21 = (s32)m[1] >> 16;
+    s32 m22 = (s32)(m[2] << 16) >> 16;
+    s32 m23 = (s32)m[2] >> 16;
+    s32 m32 = (s32)m[3] >> 16;
+
+    m[1] = (m[1] & 0xFFFF) | ((u32)-((0xA0 * m21) >> 8) << 16);
+    m[2] = ((u32)-((0xA0 * m22) >> 8) & 0xFFFF) | ((u32)-((0xA0 * m23) >> 8) << 16);
+    m[3] = (((u32)-(m[3] << 16)) >> 16) | ((u32)-m32 << 16);
+    m[4] = -m[4];
+    GTE_WC(1, m[1]);
+    GTE_WC(2, m[2]);
+    GTE_WC(3, m[3]);
+    GTE_WC(4, m[4]);
+}

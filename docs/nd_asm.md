@@ -42,7 +42,7 @@ Splat склеил почти весь сегмент в одну «функци
 | `8003BBF0` | 3 | 0 | coll | `void func_8003BBF0(s32 x, s32 z);` | ✅ |
 | `8003BBFC` | 71 | 0 | — | — |  |
 | `8003BD18` | 205 | 0 | coll | `s32 func_8003BD18(GoolObject *obj, CollQuery *q, s32 *box, s32 *box2, s32 top, s32 a, s…` | ✅ |
-| `8003C04C` | 169 | 0 | coll | `s32 func_8003C04C(GoolObject *obj, CollQuery *q, s32 *box, s32 *box2, s32 *ceil2, s32 b…` |  |
+| `8003C04C` | 169 | 0 | coll | `s32 func_8003C04C(GoolObject *obj, CollQuery *q, s32 *box, s32 *box2, s32 *ceil2, s32 b…` | ✅ |
 | `8003C2F0` | 29 | 0 | camera,coll,gfx,goolop,interp,math,obj,sys | `y = ((func_8003C2F0(cam->rot[0]) * 170 * *(s32 *)((u8 *)cam + 0x64)) >> 20) - (y - 108);` | ✅ |
 | `8003C364` | 27 | 0 | audio,camera,coll,gfx,goolop,interp,math,obj,sys | `s32 func_8003C364(s32 angle); /* cos */` | ✅ |
 | `8003C3D0` | 368 | 66 | obj | `s32 func_8003C3D0(Transform *xform, Transform *cam, s32 flag, s32 scale, MATRIX *rot, s…` |  |

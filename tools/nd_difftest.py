@@ -83,6 +83,13 @@ def gen_surfaces(r):
     return args, patches
 
 
+def gen_ceiling(r):
+    args, patches = gen_surfaces(r)
+    ceil = BUF + 0x7F80
+    patches.append((ceil, struct.pack("<i", r.choice([0x7FFFFFFF, r.randrange(-0x40000, 0x40000)]))))
+    return [args[0], args[1], args[2], args[3], ceil, r.choice([-999999999, r.getrandbits(31)]), r.randrange(2)], patches
+
+
 def gen_edges(r):
     """A list of collision boxes for func_8003B874, written into the buffer
     through the returned (address, bytes) patches."""
@@ -108,6 +115,9 @@ def gen_edges(r):
     return args, patches
 
 
+# functions on memory whose return value is compared too
+RETURNS = {"func_8003C04C"}
+
 # name: argument generator (functions on memory); the buffer and the tick
 # counter are compared after the call
 MEMFUNCS = {
@@ -117,6 +127,7 @@ MEMFUNCS = {
     "func_8003BBF0": gen_grid,
     "func_8003B874": gen_edges,
     "func_8003BD18": gen_surfaces,
+    "func_8003C04C": gen_ceiling,
 }
 
 # name: number of integer arguments
@@ -184,7 +195,7 @@ def main():
                 for a, b in patches:
                     mu.mem_write(a - 0x80000000, b)
                 v = call(addr, args)
-                res.append((v if isinstance(v, str) else None, bytes(mu.mem_read(BUF - 0x80000000, BUF_SIZE)),
+                res.append((v if isinstance(v, str) or name in RETURNS else None, bytes(mu.mem_read(BUF - 0x80000000, BUF_SIZE)),
                             bytes(mu.mem_read(ticks - 0x80000000, 4)), bytes(mu.mem_read(0x1F800000, 0x400))))
             # the original saves its registers in the scratchpad (0x00-0x3F,
             # 0x70-0xA3 around calls) and its temporaries at 0xE0-0xF3: not

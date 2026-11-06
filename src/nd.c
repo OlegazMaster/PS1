@@ -384,3 +384,74 @@ s32 func_8003BD18(void *obj, u32 *rec, s32 *origin, s32 *b, s32 top, void *a, s3
     out[2] = n1 != 0 ? sum1 / n1 : best;
     return 0;
 }
+
+/* The ceiling in the box b (min x, y, z, max x, y, z): of the boxes of the
+ * list rec (as in func_8003B874) of types 0, 1, 5 and 6 that overlap b,
+ * the lowest bottom (returned when a is set) or the average bottom
+ * (otherwise); best if there is none. The lowest bottom of type 6 below
+ * *ceil2 goes to *ceil2. obj is not used. */
+s32 func_8003C04C(void *obj, u32 *rec, s32 *origin, s32 *b, s32 *ceil2, s32 best, s32 a) {
+    u32 sx = 0, sy = 0, sz = 0;
+    u32 lx = 0, ly = 0, lz = 0;
+    u32 w0;
+    u32 w1;
+    u32 t;
+    s32 shift;
+    s32 x0, x1, y0, y1, z0, z1;
+    s32 low = 0x7FFFFFFF;
+    s32 c = *ceil2;
+    s32 n = 0;
+    s32 sum = 0;
+
+    for (;;) {
+        w0 = rec[0];
+        w1 = rec[1];
+        if ((w0 & 0xFFFF) == 0xFFFF) {
+            break;
+        }
+        if ((w0 & 0xFFFF) == 0) {
+            sx = (w0 >> 16) << 8;
+            sy = (w1 & 0xFFFF) << 8;
+            sz = (w1 >> 16) << 8;
+            lx = rec[2] >> 16;
+            ly = rec[3] & 0xFFFF;
+            lz = rec[3] >> 16;
+            rec += 4;
+            continue;
+        }
+        rec += 2;
+        t = (((w0 & 0xFFF8) >> 2) | 1) & 0xE;
+        if (!((1 << t) & 0x1405)) { /* types 0, 1, 5, 6 */
+            continue;
+        }
+        shift = w0 & 7;
+        x0 = ((s32)(w0 & 0xFFFF0000) >> 12) + origin[0];
+        y0 = ((s32)(w1 << 16) >> 12) + origin[1];
+        z0 = ((s32)(w1 & 0xFFFF0000) >> 12) + origin[2];
+        if (b[3] < x0 || b[4] < y0 || b[5] < z0) {
+            continue;
+        }
+        x1 = x0 + (sx >> ((lx < (u32)shift ? lx : shift) & 31));
+        y1 = y0 + (sy >> ((ly < (u32)shift ? ly : shift) & 31));
+        z1 = z0 + (sz >> ((lz < (u32)shift ? lz : shift) & 31));
+        if (x1 < b[0] || y1 < b[1] || z1 < b[2]) {
+            continue;
+        }
+        n++;
+        sum += y0;
+        if (y0 < low) {
+            low = y0;
+            if (t == 12 && y0 < c) {
+                c = y0;
+            }
+        }
+    }
+    *ceil2 = c;
+    if (n == 0) {
+        return best;
+    }
+    if (a != 0) {
+        return low;
+    }
+    return sum / n;
+}

@@ -366,14 +366,14 @@ static void GoolDrawLine(GoolVm *vm, u32 op) {
     if (sz1 < 0 || sz2 < 0) {
         return;
     }
-    i = obj->unk118 + 0x770 - ((u32)sz1 >> 6);
-    if (i < 0) {
-        i = 0;
+    /* the depth: checked for < 0 before the * 4 and for the end of the table
+     * after it, so a huge depth wraps as in the original */
+    i = (s32)((u32)obj->unk118 + 0x770 - ((u32)sz1 >> 6));
+    i = i < 0 ? 0 : (s32)((u32)i << 2);
+    if (i - 0x1FFC > 0) {
+        i = 0x1FFC;
     }
-    if (i > 0x7FF) {
-        i = 0x7FF;
-    }
-    slot = (u32 **)&dc->ot[i];
+    slot = (u32 **)((u8 *)dc->ot + i);
     prim[1] = c0 | 0x52000000;
     gte_stsxy(12, prim[2]);
     prim[3] = c1;

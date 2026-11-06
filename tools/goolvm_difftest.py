@@ -3,16 +3,21 @@
 Runs random GOOL programs through the original code (gool_asm in the built
 executable) and through the C version (goolvm.elf, linked at 0x80180000) in
 unicorn, with the C instructions they call replaced by logging stubs, and
-compares the results, the memory and the call logs. Not covered: opcode 0x51
-(it uses the GTE, which unicorn lacks) and 0x49 (native code; the C version
-does not support it). Programs where both versions crash or loop are skipped.
+compares the results, the memory and the call logs. The GTE instructions
+(opcode 0x51 draws a line through it) run on the software GTE of the port
+(tools/gte_hook.py). Not covered: 0x49 (native code; the C version does not
+support it). Programs where both versions crash or loop are skipped.
 
 usage: goolvm_difftest.py EXE GOOLVM_ELF [count] [seed]
 """
+import os
 import random
 import struct
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from gte_hook import GteHook  # noqa: E402
 
 from unicorn import Uc, UC_ARCH_MIPS, UC_MODE_MIPS32, UC_MODE_LITTLE_ENDIAN, UC_HOOK_CODE, UcError
 from unicorn.mips_const import *
@@ -36,6 +41,9 @@ ARRAY = 0x8016C000  # 4K words; pointers point into its middle
 TABLE = 0x80170000  # SCRATCH(0x58) table, 4K words
 CODE = 0x80178000
 OUT = 0x8017F000
+DC = 0x80140000  # a draw buffer for context.cur (opcode 0x51)
+PRIMS = 0x80148000
+CONTEXT_CUR = 0x80061A78 + 0xC
 SUB = 200  # subroutine at CODE + SUB words
 
 ASM_ENTRY = 0x80038E28
@@ -117,7 +125,7 @@ class Gen:
 
     def ins(self, pos, length):
         r = self.r
-        ops = list(range(0x00, 0x31)) + list(range(0x32, 0x49)) + [0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50]
+        ops = list(range(0x00, 0x31)) + list(range(0x32, 0x49)) + [0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x51]
         ops.remove(0x1F)
         ops.remove(0x20)
         ops += [0x1F, 0x20]
@@ -210,6 +218,10 @@ def setup(mu, rng, prog, sub, flags):
         put(CODE + (SUB + i) * 4, wd)
     put(CODE + (SUB + 20) * 4, 0x31000000)
     put(OUT, 0)
+    # a draw buffer for the line of opcode 0x51
+    put(CONTEXT_CUR, DC)
+    put(DC + 8, PRIMS)
+    mu.mem_write(DC + 0x20 - 0x80000000, b"\xff\xff\xff\x00" * 0x800)
 
 
 def run(entry, prog, sub, flags, seed):
@@ -254,6 +266,16 @@ def run(entry, prog, sub, flags, seed):
     for addr in STUBS:
         mu.hook_add(UC_HOOK_CODE, hook, begin=addr, end=addr)
 
+    gte = GteHook(mu, [(0x80038B40, 0x80039E3C), (0x80180000, 0x80180000 + len(VM_BLOB))])
+    g = random.Random(seed * 3 + 2)
+    ctrl = [0] * 32
+    ctrl[24] = g.randrange(0, 320) << 16  # OFX
+    ctrl[25] = g.randrange(0, 240) << 16  # OFY
+    ctrl[26] = g.randrange(100, 1000)  # H
+    ctrl[27] = g.randrange(-0x200, 0) & 0xFFFFFFFF  # DQA
+    ctrl[28] = g.randrange(0, 0x1400000)  # DQB
+    gte.reset(None, ctrl)
+
     def div_hook(uc, addr, size, user):
         # unicorn divides by zero unlike the R3000: do it as the R3000 does
         insn = struct.unpack("<I", uc.mem_read(addr - 0x80000000, 4))[0]
@@ -282,14 +304,15 @@ def run(entry, prog, sub, flags, seed):
     try:
         mu.emu_start(entry, RET_MAGIC, count=200000)
     except UcError as e:
-        err = str(e)
+        err = "%s at %x" % (e, mu.reg_read(UC_MIPS_REG_PC))
     pc = mu.reg_read(UC_MIPS_REG_PC)
     if err is None and pc != RET_MAGIC:
         err = "no return (pc %x)" % pc
     regions = {}
     for name, a, n in (("obj", OBJ, 0x900), ("links", LINKS[0], 0x6000), ("stack", STACK, 0x4000),
                        ("data", GDATA, 0x2000), ("array", ARRAY, 0x4000), ("table", TABLE, 0x4000),
-                       ("out", OUT, 4), ("seeds", 0x80060A2C, 8)):
+                       ("out", OUT, 4), ("seeds", 0x80060A2C, 8), ("ot", DC, 0x2020),
+                       ("prims", PRIMS, 0x100), ("context", CONTEXT_CUR, 4)):
         regions[name] = bytes(mu.mem_read(a - 0x80000000, n))
     regions["scr"] = bytes(mu.mem_read(SCR, 0x5C))
     return err, mu.reg_read(UC_MIPS_REG_V0), regions, log

@@ -48,29 +48,87 @@ static u32 func_lookup(u32 psx)
     return 0;
 }
 
-static void load_exe(const char *path)
+s32 pc_cd_open(const char *path);
+s32 pc_cd_find(const char *name, u32 *lba, u32 *size);
+s32 pc_cd_read_file(u32 lba, u32 size, void *buf);
+
+/* the executable (a PS-X EXE) into the RAM */
+static void load_exe_image(const u8 *head, const u8 *text, u32 len, const char *what)
 {
-    FILE *f = fopen(path, "rb");
-    u8 head[0x800];
     u32 t_addr, t_size;
 
-    if (!f) {
-        fprintf(stderr, "cannot open %s: %s\n(the port needs your SCUS_942.44, see disc/README.md)\n", path,
-                strerror(errno));
-        exit(1);
-    }
-    if (fread(head, 1, sizeof(head), f) != sizeof(head) || memcmp(head, "PS-X EXE", 8)) {
-        fprintf(stderr, "%s is not a PlayStation executable\n", path);
-        exit(1);
-    }
     memcpy(&t_addr, head + 0x18, 4);
     memcpy(&t_size, head + 0x1C, 4);
-    if (t_addr < RAM_ADDR || t_addr + t_size > RAM_ADDR + RAM_SIZE ||
-        fread((void *)t_addr, 1, t_size, f) != t_size) {
-        fprintf(stderr, "%s: bad executable\n", path);
+    if (memcmp(head, "PS-X EXE", 8) || t_addr < RAM_ADDR || t_addr + t_size > RAM_ADDR + RAM_SIZE ||
+        t_size > len) {
+        fprintf(stderr, "%s: not the PlayStation executable of the game\n", what);
+        exit(1);
+    }
+    memcpy((void *)t_addr, text, t_size);
+}
+
+static u8 *read_whole(const char *path, u32 *len)
+{
+    FILE *f = fopen(path, "rb");
+    u8 *buf;
+    long n;
+
+    if (!f) {
+        return NULL;
+    }
+    fseek(f, 0, SEEK_END);
+    n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    buf = malloc(n);
+    if (!buf || fread(buf, 1, n, f) != (size_t)n) {
         exit(1);
     }
     fclose(f);
+    *len = (u32)n;
+    return buf;
+}
+
+static void load_exe(const char *path)
+{
+    u32 len;
+    u8 *data = read_whole(path, &len);
+
+    if (!data || len < 0x800) {
+        fprintf(stderr, "cannot read %s: %s\n", path, strerror(errno));
+        exit(1);
+    }
+    load_exe_image(data, data + 0x800, len - 0x800, path);
+    free(data);
+}
+
+/* the executable from the root of the disc */
+static void load_exe_from_disc(const char *name)
+{
+    u32 lba, size;
+    u8 *data;
+
+    if (!pc_cd_find(name, &lba, &size) || size < 0x800 || !(data = malloc(size)) ||
+        !pc_cd_read_file(lba, size, data)) {
+        fprintf(stderr, "%s is not on the disc\n", name);
+        exit(1);
+    }
+    load_exe_image(data, data + 0x800, size - 0x800, name);
+    free(data);
+}
+
+static s32 is_exe(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    char magic[8] = { 0 };
+
+    if (!f) {
+        return 0;
+    }
+    if (fread(magic, 1, 8, f) != 8) {
+        magic[0] = 0;
+    }
+    fclose(f);
+    return !memcmp(magic, "PS-X EXE", 8);
 }
 
 /* pointers to C functions in the data: PlayStation addresses -> x86 */
@@ -103,11 +161,33 @@ void rc_trap(u32 addr, u32 what)
     abort();
 }
 
+static void usage(void)
+{
+    fprintf(stderr, "usage: crash3 DISC [EXE]\n"
+                    "  DISC: an image of your Crash Bandicoot 3 disc (.cue, .bin or .iso)\n"
+                    "  EXE:  its executable, when not the one on the disc (SCUS_942.44)\n"
+                    "or: crash3 EXE (no disc: the game stops at the first read)\n");
+    exit(1);
+}
+
 int main(int argc, char **argv)
 {
-    const char *exe = argc > 1 ? argv[1] : "disc/SCUS_942.44";
-
-    load_exe(exe);
+    if (argc < 2) {
+        usage();
+    }
+    if (is_exe(argv[1])) {
+        load_exe(argv[1]);
+    } else {
+        if (!pc_cd_open(argv[1])) {
+            fprintf(stderr, "cannot open the disc image %s\n", argv[1]);
+            usage();
+        }
+        if (argc > 2) {
+            load_exe(argv[2]);
+        } else {
+            load_exe_from_disc("SCUS_942.44");
+        }
+    }
     patch_func_pointers();
     return game_main();
 }

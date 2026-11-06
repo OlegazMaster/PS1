@@ -24,12 +24,6 @@ static void stub(const char *name, int *seen)
     }
 
 STUB(AddPrim)
-STUB(CdControl)
-STUB(CdControlB) /* Reads a whole file from the disc into buf (allocated when NULL). */
-STUB(CdInit)
-STUB(CdIntToPos)
-STUB(CdRead)
-STUB(CdSync)
 STUB(CloseEvent)
 STUB(DisableEvent)
 STUB(DrawPrim)
@@ -81,7 +75,6 @@ STUB(VSyncCallback)
 STUB(_bu_init)
 STUB(func_8004592C)
 STUB(func_80045E48)
-STUB(func_80047F44) /* CdReadSync */
 STUB(func_80048E88)
 STUB(func_80048F00) /* PadInfoMode, called with only the port */
 STUB(func_80048FC0) /* PadInfoAct */

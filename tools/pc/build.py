@@ -111,7 +111,8 @@ def main():
     objs = compile_all()
     placed = []  # (address, size, object, section, name)
     unplaced = []
-    for o in objs:
+    game_objs = [os.path.join(OUT, g + ".o") for g in GAME]
+    for o in game_objs:  # only the variables of the game (not of the port layer)
         for sec, size in sections(o):
             m = re.match(r"^\.(data|bss|rodata)\.(\w+)$", sec)
             if not m or size == 0:

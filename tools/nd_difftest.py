@@ -22,6 +22,11 @@ EXE, ELF = sys.argv[1], sys.argv[2]
 COUNT = int(sys.argv[3]) if len(sys.argv) > 3 else 2000
 SEED = int(sys.argv[4]) if len(sys.argv) > 4 else 1
 RAM = 0x200000
+# RC=1: the C side is the code recompiled by tools/recomp.py (linked at
+# 0x80200000, entered through rc_go), not src/nd.c
+RC = bool(os.environ.get("RC"))
+C_BASE = 0x80200000 if RC else 0x80180000
+RC_GTE_OP = 0x801FF000
 RET = 0x80000100
 
 
@@ -338,16 +343,44 @@ def main():
         if len(p) == 3:
             syms[p[2]] = int(p[0], 16)
     mu = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 + UC_MODE_LITTLE_ENDIAN)
-    mu.mem_map(0, RAM)
+    mu.mem_map(0, RAM * 2 if RC else RAM)
     mu.mem_map(0x1F800000, 0x1000)  # scratchpad
     mu.mem_write(t_addr - 0x80000000, text)
-    mu.mem_write(0x180000, vm)
+    mu.mem_write(C_BASE - 0x80000000, vm)
     # GTE instructions of the original segment and of the C version run on
     # the software GTE
     # (only in the functions tested: every hook slows down every instruction)
-    gte = GteHook(mu, list(GTE_RANGES.values()) + [(0x80180000, 0x80180000 + len(vm))])
+    if RC:
+        gte = GteHook(mu, list(GTE_RANGES.values()))
+        gte.hook_call(RC_GTE_OP)
+    else:
+        gte = GteHook(mu, list(GTE_RANGES.values()) + [(C_BASE, C_BASE + len(vm))])
 
-    def call(addr, args):
+    def c_call(name, args, regs=None):
+        """Calls the C version of name; regs: register: value set before
+        (the recompiled code takes them from rc_state)."""
+        if not RC:
+            for n, v in (regs or {}).items():
+                mu.reg_write(UC_MIPS_REG_0 + n, v)
+            return call(syms[name], args)
+        mu.mem_write(syms["rc_target"] - 0x80000000, struct.pack("<I", int(name[5:], 16)))
+        st = [0] * 34
+        for n, v in (regs or {}).items():
+            st[n] = v
+        mu.mem_write(syms["rc_state"] - 0x80000000, struct.pack("<34I", *st))
+        # the recompiled code (built without optimization) takes many more
+        # instructions
+        return call(syms["rc_go"], args, int(os.environ.get("STEPS", 40000000)))
+
+    def rc_regs():
+        return struct.unpack("<34I", mu.mem_read(syms["rc_state"] - 0x80000000, 34 * 4))
+
+    trace = []
+    if os.environ.get("TRACE"):
+        from unicorn import UC_HOOK_CODE
+        mu.hook_add(UC_HOOK_CODE, lambda uc, a, sz, u: (trace.append(a), len(trace) > 64 and trace.pop(0)))
+
+    def call(addr, args, steps=1000000):
         for reg, v in zip((UC_MIPS_REG_A0, UC_MIPS_REG_A1, UC_MIPS_REG_A2, UC_MIPS_REG_A3), args):
             mu.reg_write(reg, v & 0xFFFFFFFF)
         mu.reg_write(UC_MIPS_REG_SP, 0x801F0000)
@@ -356,8 +389,10 @@ def main():
         mu.reg_write(UC_MIPS_REG_GP, 0x80060878)
         mu.reg_write(UC_MIPS_REG_RA, RET)
         try:
-            mu.emu_start(addr, RET, count=1000000)
+            mu.emu_start(addr, RET, count=steps)
         except UcError as e:
+            if trace:
+                print("  last:", " ".join("%x" % a for a in trace[-40:]))
             return "error %s at %x" % (e, mu.reg_read(UC_MIPS_REG_PC))
         return mu.reg_read(UC_MIPS_REG_V0)
 
@@ -365,7 +400,10 @@ def main():
     bad = 0
     ticks = int(subprocess.run(["sh", "-c", "mipsel-linux-gnu-nm %s | grep ' ticks_elapsed$'" % EXE.replace("SCUS_942.44", "main.elf")],
                                capture_output=True, text=True).stdout.split()[0], 16)
+    only = os.environ.get("ONLY")
     for name, gen in MEMFUNCS.items():
+        if only and only != name:
+            continue
         orig = int(name[5:], 16)
         fails = 0
         skipped = 0
@@ -378,14 +416,14 @@ def main():
             t0 = r.getrandbits(32)
             scr = bytes(r.getrandbits(8) for _ in range(0x400))
             res = []
-            for addr in (orig, syms[name]):
+            for side in ("asm", "C"):
                 mu.mem_write(BUF - 0x80000000, init)
                 mu.mem_write(ticks - 0x80000000, struct.pack("<I", t0))
                 mu.mem_write(0x1F800000, scr)
                 gte.reset()
                 for a, b in patches:
                     mu.mem_write(a - 0x80000000, b)
-                v = call(addr, args)
+                v = call(orig, args) if side == "asm" else c_call(name, args)
                 res.append((v if isinstance(v, str) or name in RETURNS else None,
                             bytes(mu.mem_read(BUF - 0x80000000, BUF_SIZE)) +
                             (bytes(gte.state.data) + bytes(gte.state.ctrl) if name in GTE_STATE else b""),
@@ -405,6 +443,8 @@ def main():
         print("%s: %d/%d differ" % (name, fails, COUNT // 10) + (" (%d skipped: both crashed or looped)" % skipped if skipped else ""))
         bad += fails
     for name, kind in REGFUNCS.items():
+        if only and only != name:
+            continue
         orig = int(name[5:], 16)
         fails = 0
         for _ in range(COUNT // 10):
@@ -423,6 +463,9 @@ def main():
                         mu.reg_write(UC_MIPS_REG_8 + i, v)
                     err = call(orig, [rtp])
                     out = [mu.reg_read(UC_MIPS_REG_8 + i) for i in range(5)]
+                elif RC:
+                    err = c_call(name, [rtp], {8 + i: v for i, v in enumerate(m)})
+                    out = list(rc_regs()[8:13])
                 else:
                     err = call(syms[name], [rtp, mem] if kind == "rt_m" else [mem])
                     out = list(struct.unpack("<5I", mu.mem_read(mem - 0x80000000, 20)))
@@ -436,11 +479,13 @@ def main():
         print("%s: %d/%d differ" % (name, fails, COUNT // 10))
         bad += fails
     for name, n in FUNCS.items():
+        if only and only != name:
+            continue
         orig = int(name[5:], 16)
         fails = 0
         for _ in range(COUNT):
             args = [rint(r) for _ in range(n)]
-            a, c = call(orig, args), call(syms[name], args)
+            a, c = call(orig, args), c_call(name, args)
             if a != c:
                 fails += 1
                 if fails <= 5:

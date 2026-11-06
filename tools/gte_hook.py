@@ -102,3 +102,25 @@ class GteHook:
             self.lib.gte_write_data(rd, self._reg(rt))
         else:
             self.lib.gte_write_ctrl(rd, self._reg(rt))
+
+    def hook_call(self, addr):
+        """Performs the calls of a function u32 f(u32 op, u32 v) at addr
+        (rc_gte_op of include/nd_recomp.h) on the software GTE: op 0x000 +
+        reg mtc2, 0x100 + reg mfc2, 0x200 + reg ctc2, 0x300 + reg cfc2, 0x400
+        a command. The function itself only returns (jr $ra; nop)."""
+        self.mu.mem_write(addr & 0x1FFFFFFF, struct.pack("<2I", 0x03E00008, 0))
+        self.mu.hook_add(UC_HOOK_CODE, self._call, begin=addr, end=addr)
+
+    def _call(self, uc, addr, size, user):
+        op, v = self._reg(4), self._reg(5)
+        kind, reg = op >> 8, op & 31
+        if kind == 0:
+            self.lib.gte_write_data(reg, v)
+        elif kind == 1:
+            self._set(2, self.lib.gte_read_data(reg))
+        elif kind == 2:
+            self.lib.gte_write_ctrl(reg, v)
+        elif kind == 3:
+            self._set(2, self.lib.gte_read_ctrl(reg))
+        else:
+            self.lib.gte_command(v & 0x1FFFFFF)

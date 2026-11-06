@@ -274,8 +274,7 @@ void *NSFileRead(CdFile *file, void *buf, s32 mode, s32 arg3) {
 Rect16 tpage_rect = { 0, 0, 256, 128 };
 char D_800608C0[] = "de ls\n";
 
-#ifdef NON_MATCHING
-/* Equivalent; the original stores the entry pointer from the register it is computed in. */
+/* Turns the entry and item offsets of a loaded page into pointers. */
 s32 NSPageTranslateOffsets(Page *page) {
     s32 count = page->entry_count;
     Entry **entries = page->entries;
@@ -291,7 +290,8 @@ s32 NSPageTranslateOffsets(Page *page) {
         return -0x12;
     }
     for (i = count - 1; i >= 0; i--) {
-        entry = entries[i] = (Entry *)((u32)page + (u32)entries[i]);
+        entry = (Entry *)((u32)page + (u32)entries[i]);
+        entries[i] = entry;
         items = entry->items;
         for (ii = entry->item_count; ii >= 0; ii--) {
             items[ii] = (u8 *)((u32)entry + (u32)items[ii]);
@@ -300,9 +300,6 @@ s32 NSPageTranslateOffsets(Page *page) {
     entries[count] = (Entry *)((u32)page + (u32)entries[count]);
     return -0xFF;
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/ns", NSPageTranslateOffsets);
-#endif
 
 u32 NSChecksum(u32 *buf, s32 size) {
     u32 checksum = 0x12345678;

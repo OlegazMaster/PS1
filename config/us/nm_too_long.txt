@@ -9,7 +9,6 @@ GoolZoneObjectTerminate
 func_8001FAC8
 func_800215E8
 func_8001235C
-NSPageTranslateOffsets
 NSPageCreateVirtual
 NSStringToEID
 NSPageCreatePhysical

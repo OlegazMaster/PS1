@@ -338,7 +338,7 @@ void func_80033280(s16 a) {
     D_80060AF0[0] = a;
 }
 
-s32 func_8003AE90(s32 x, s32 z); /* length of (x, z) */
+s32 func_8003AE90(s32 x, s32 z); /* (x * x + z * z) >> 1 */
 s32 func_8004F794(s32 x, s32 z); /* angle of (x, z) */
 s32 func_8003C364(s32 angle); /* cos */
 s32 printf(const char *fmt, ...);

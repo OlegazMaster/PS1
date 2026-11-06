@@ -6,10 +6,14 @@ compares the return values and the memory they write.
 
 usage: nd_difftest.py EXE ND_ELF [count] [seed]
 """
+import os
 import random
 import struct
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from gte_hook import GteHook  # noqa: E402
 
 from unicorn import Uc, UC_ARCH_MIPS, UC_MODE_MIPS32, UC_MODE_LITTLE_ENDIAN, UcError
 from unicorn.mips_const import *
@@ -177,6 +181,16 @@ def gen_delta(r):
     return [d, src, dst], [(d, delta), (src, lst)]
 
 
+def gen_turn(r):
+    m = [r.getrandbits(32) for _ in range(5)]
+    pos = [r.randrange(-0x1000000, 0x1000000) for _ in range(3)]
+    n = r.randrange(0, 12)
+    pts = [r.randrange(-0x800000, 0x800000) for _ in range(3 * n)]
+    src, dst, mat, p = BUF + 0x4000, r.choice([BUF + 0x4000, BUF + 0x5000]), BUF + 0x7E00, BUF + 0x7E40
+    patches = [(src, struct.pack("<%di" % len(pts), *pts)), (mat, struct.pack("<5I", *m)), (p, struct.pack("<3i", *pos))]
+    return [dst, src, mat, p, n, r.randrange(0, 12)], patches
+
+
 def gen_edges(r):
     """A list of collision boxes for func_8003B874, written into the buffer
     through the returned (address, bytes) patches."""
@@ -202,6 +216,11 @@ def gen_edges(r):
     return args, patches
 
 
+# the original code of the functions that use the GTE
+GTE_RANGES = {
+    "func_8003F520": (0x8003F520, 0x8003F5D8),
+}
+
 # functions on memory whose return value is compared too
 RETURNS = {"func_8003C04C", "func_8003AF78"}
 
@@ -218,6 +237,7 @@ MEMFUNCS = {
     "func_8003AF78": gen_tree,
     "func_80039E3C": gen_delta,
     "func_8003A234": gen_delta,
+    "func_8003F520": gen_turn,
 }
 
 # name: number of integer arguments
@@ -247,6 +267,10 @@ def main():
     mu.mem_map(0x1F800000, 0x1000)  # scratchpad
     mu.mem_write(t_addr - 0x80000000, text)
     mu.mem_write(0x180000, vm)
+    # GTE instructions of the original segment and of the C version run on
+    # the software GTE
+    # (only in the functions tested: every hook slows down every instruction)
+    gte = GteHook(mu, list(GTE_RANGES.values()) + [(0x80180000, 0x80180000 + len(vm))])
 
     def call(addr, args):
         for reg, v in zip((UC_MIPS_REG_A0, UC_MIPS_REG_A1, UC_MIPS_REG_A2, UC_MIPS_REG_A3), args):
@@ -283,6 +307,7 @@ def main():
                 mu.mem_write(BUF - 0x80000000, init)
                 mu.mem_write(ticks - 0x80000000, struct.pack("<I", t0))
                 mu.mem_write(0x1F800000, scr)
+                gte.reset()
                 for a, b in patches:
                     mu.mem_write(a - 0x80000000, b)
                 v = call(addr, args)

@@ -1,4 +1,5 @@
 #include "common.h"
+#include "gte_api.h"
 
 /* Naughty Dog's hand-written assembly (the nd_asm segment, 0x80039E3C-
  * 0x80045750) rewritten in C for the PC port, one function at a time. Like
@@ -889,4 +890,34 @@ void func_8003A234(u16 *delta, u16 *in, u16 *out) {
         }
     } while (pos < count || ins.left > 0 || rem.left > 0);
     out[0] = n;
+}
+
+/* Turns n points (3 words each) of in by the rotation matrix m (the five
+ * words of a GTE matrix) into out (may be in): each coordinate is shifted
+ * down by shift for the GTE and back up after, then pos is added. */
+void func_8003F520(s32 *out, s32 *in, u32 *m, s32 *pos, s32 n, s32 shift) {
+    s32 x, y, z;
+
+    GTE_WC(0, m[0]);
+    GTE_WC(1, m[1]);
+    GTE_WC(2, m[2]);
+    GTE_WC(3, m[3]);
+    GTE_WC(4, m[4]);
+    while (n > 0) {
+        n--;
+        x = in[0] >> (shift & 31);
+        y = in[1] >> (shift & 31);
+        z = in[2] >> (shift & 31);
+        GTE_WD(0, (x & 0xFFFF) | (y << 16));
+        GTE_WD(1, z);
+        in += 3;
+        GTE_CMD(GTE_MVMVA_RT_V0);
+        GTE_RD(9, x);
+        GTE_RD(10, y);
+        GTE_RD(11, z);
+        out[0] = (x << (shift & 31)) + pos[0];
+        out[1] = (y << (shift & 31)) + pos[1];
+        out[2] = (z << (shift & 31)) + pos[2];
+        out += 3;
+    }
 }

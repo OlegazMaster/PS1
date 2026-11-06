@@ -38,7 +38,7 @@ typedef struct {
 } CollQuery;
 
 extern GoolObject *crash;
-void func_8003F520(s32 *in, s32 *out, void *model, s32 *pos, s32 n, s32 a); /* turns n points by a model's matrix */
+void func_8003F520(s32 *out, s32 *in, void *model, s32 *pos, s32 n, s32 shift); /* turns n points by a model's matrix */
 extern s32 D_8006C2C8[3]; /* the last move that did not move the object */
 s32 func_8004F794(s32 x, s32 z); /* angle of (x, z) */
 s32 func_80031CF0(s32 *a, s32 *b); /* distance between two points */

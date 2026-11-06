@@ -662,3 +662,231 @@ s32 func_8003AF78(void *item, s32 *box, u16 *out, s32 n) {
     TreeVisit(&w, h[0xE], 0);
     return w.n;
 }
+
+/* ---- Deltas of halfword lists (func_80039E3C applies one, func_8003A234
+ * undoes it) ----
+ *
+ * A list is a u16 count, a u16 pad, then the items. A delta is a header of
+ * four u16 (h0: end of the swap commands, h2: end of the first stream, h3:
+ * end of the second; ends in halfwords from delta + 4) and three streams of
+ * u16 from delta + 8: removals, insertions, swaps.
+ * - A removal/insertion command is 0xFFFF (none) or (count - 1) << 12 |
+ *   index, followed (insertions) by the values. As in the original, the
+ *   last halfword before a stream's end is never read as a command.
+ * - A swap command is 0x8000 | b << 11 | a (swap a and a + b + 1),
+ *   0x4000 | d << 5 | b (a += d, then swap a and a + b + 0x11),
+ *   0x2000 | x | a (item a ^= x, x of 0x1800), or a, b in two halfwords
+ *   (swap a and a + b + 1); 0xFFFF ends them.
+ * These functions are the original's state machines written out with the
+ * same variables. */
+
+typedef struct {
+    u16 *p;   /* next halfword */
+    u16 *end; /* end of the stream */
+    s32 idx;  /* position of the command (t1/t0) */
+    s32 left; /* items left in the command (t3/t2) */
+    u32 val;  /* the next value (t8/s7) */
+} DeltaStream;
+
+static void DeltaRead(DeltaStream *s) {
+    u32 at = *s->p++;
+
+    s->left = 0;
+    if (s->p < s->end && at != 0xFFFF) {
+        s->val = at;
+        s->idx = at & 0xFFF;
+        s->left = ((at & 0xF000) >> 12) + 1;
+    } else {
+        s->idx = 0xFFFF << 8;
+    }
+    if (s->left > 0) {
+        s->val = *s->p++;
+    }
+}
+
+/* Copies n items (at least one) from *src to *dst. */
+static void DeltaCopy(u16 **src, u16 **dst, s32 *out, s32 *in, s32 n) {
+    if (n < 2) {
+        n = 1;
+    }
+    *out += n;
+    *in += n;
+    while (n-- > 0) {
+        *(*dst)++ = *(*src)++;
+    }
+}
+
+static void DeltaSwap(u16 *items, s32 a, s32 b) {
+    u16 t = items[a];
+
+    items[a] = items[b];
+    items[b] = t;
+}
+
+void func_80039E3C(u16 *delta, u16 *in, u16 *out) {
+    DeltaStream rem;
+    DeltaStream ins;
+    u16 *src = in + 2;
+    u16 *dst = out + 2;
+    u16 *items = out + 2;
+    s32 count = in[0]; /* gp */
+    s32 n = 0;         /* v0: items written */
+    s32 pos = 0;       /* v1: items of in done */
+    s32 removed = 0;   /* t5 */
+    s32 a, b, m;
+    u16 *p;
+    u16 *end;
+    u32 c;
+    s32 last = 0; /* s4 (the original leaves the caller's value) */
+
+    rem.p = delta + 4;
+    rem.end = delta + delta[2] + 2;
+    ins.p = rem.end;
+    ins.end = delta + delta[3] + 2;
+    DeltaRead(&rem);
+    DeltaRead(&ins);
+    do {
+        if (pos < count && rem.left > 0 && rem.idx - 1 - pos == 0) {
+            rem.left--;
+            removed++;
+            pos++;
+            src++;
+            if (rem.left > 0) {
+                rem.val = *rem.p++;
+            } else {
+                DeltaRead(&rem);
+            }
+        } else if (ins.left > 0 && ins.idx + removed - pos == 0) {
+            *dst++ = ins.val;
+            n++;
+            ins.left--;
+            if (ins.left > 0) {
+                ins.val = *ins.p++;
+            } else {
+                DeltaRead(&ins);
+            }
+        } else if (pos < count) {
+            a = rem.idx - pos - 1;
+            b = ins.idx + removed - pos;
+            m = a < b ? a : b;
+            b = count - pos - 1;
+            m = m < b ? m : b;
+            DeltaCopy(&src, &dst, &n, &pos, m);
+        }
+    } while (pos < count || ins.left > 0 || rem.left > 0);
+
+    p = delta + delta[3] + 2;
+    end = delta + delta[0] + 2;
+    while (p < end) {
+        c = *p++;
+        if (c == 0xFFFF) {
+            break;
+        }
+        if (c & 0x8000) {
+            b = (c & 0x7800) >> 11;
+            last = c & 0x7FF;
+        } else if (c & 0x4000) {
+            b = (c & 0x1F) + 0x10;
+            last += (c & 0x3FE0) >> 5;
+        } else if (c & 0x2000) {
+            items[c & 0x7FF] ^= c & 0x1800;
+            /* the original leaves the item's address as the base of the next
+             * relative swap (such data would crash it) */
+            last = (s32)&items[c & 0x7FF];
+            continue;
+        } else {
+            last = c & 0xFFF;
+            b = *p++ & 0xFFF;
+        }
+        DeltaSwap(items, last, last + b + 1);
+    }
+    out[0] = n;
+}
+
+void func_8003A234(u16 *delta, u16 *in, u16 *out) {
+    DeltaStream rem;
+    DeltaStream ins;
+    u16 *items = in + 2;
+    u16 *src = in + 2;
+    u16 *dst = out + 2;
+    s32 count = in[0];
+    s32 n = 0;
+    s32 pos = 0;
+    s32 removed = 0; /* t5 */
+    s32 added = 0;   /* t4 */
+    s32 a, b, m;
+    u16 *p;
+    u16 *start;
+    u32 c;
+    u32 prev;
+
+    /* undo the swaps on in, last first */
+    p = delta + delta[0] + 1;
+    start = delta + delta[3] + 2;
+    while (!(p < start)) {
+        c = *p--;
+        if (c == 0xFFFF) {
+            continue;
+        }
+        if (c & 0x8000) {
+            b = (c & 0x7800) >> 11;
+            a = c & 0x7FF;
+        } else if (c & 0x4000) {
+            /* the base index from the command before */
+            prev = *p;
+            a = prev & 0x7FF;
+            if (!(prev & 0xE000)) {
+                a = p[-1] & 0xFFF;
+            }
+            b = (c & 0x1F) + 0x10;
+            a += (c & 0x3FE0) >> 5;
+        } else if (c & 0x2000) {
+            items[c & 0x7FF] ^= c & 0x1800;
+            continue;
+        } else {
+            b = c & 0xFFF;
+            a = *p-- & 0xFFF;
+        }
+        DeltaSwap(items, a, a + b + 1);
+    }
+
+    /* the streams the other way round: insertions are removed, removals
+     * are put back */
+    rem.p = delta + delta[2] + 2;
+    rem.end = delta + delta[3] + 2;
+    ins.p = delta + 4;
+    ins.end = delta + delta[2] + 2;
+    DeltaRead(&rem);
+    DeltaRead(&ins);
+    do {
+        if (pos < count && rem.left > 0 && rem.idx + removed - pos == 0) {
+            rem.left--;
+            removed++;
+            pos++;
+            src++;
+            if (rem.left > 0) {
+                rem.val = *rem.p++;
+            } else {
+                DeltaRead(&rem);
+            }
+        } else if (ins.left > 0 && ins.idx + removed - added - 1 - pos == 0) {
+            *dst++ = ins.val;
+            n++;
+            ins.left--;
+            added++;
+            if (ins.left > 0) {
+                ins.val = *ins.p++;
+            } else {
+                DeltaRead(&ins);
+            }
+        } else if (pos < count) {
+            a = rem.idx + removed - pos;
+            b = ins.idx + removed - added - 1 - pos;
+            m = a < b ? a : b;
+            b = count - pos - 1;
+            m = m < b ? m : b;
+            DeltaCopy(&src, &dst, &n, &pos, m);
+        }
+    } while (pos < count || ins.left > 0 || rem.left > 0);
+    out[0] = n;
+}

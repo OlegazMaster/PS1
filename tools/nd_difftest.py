@@ -131,6 +131,52 @@ def gen_tree(r):
     return [item, box, out, r.choice([0, 0, 3, r.randrange(0, 0x200)])], patches
 
 
+def gen_delta(r):
+    """A random delta of a halfword list for func_80039E3C/func_8003A234."""
+    count = r.randrange(0, 80)
+    items = [r.getrandbits(16) for _ in range(count)]
+
+    def stream(with_values):
+        out = []
+        idx = 0
+        for _ in range(r.randrange(0, 5)):
+            idx += r.randrange(0, 12)
+            n = r.randrange(1, 5)
+            out.append(((n - 1) << 12) | min(idx, 0xFFF))
+            if with_values:
+                out += [r.getrandbits(16) for _ in range(n)]
+            idx += n
+        if r.randrange(3) == 0:
+            out.append(0xFFFF)
+        out.append(r.getrandbits(16))  # never read as a command
+        return out
+
+    first = stream(r.randrange(2) == 0)
+    second = stream(r.randrange(2) == 0)
+    swaps = []
+    for i in range(r.randrange(0, 8)):
+        k = r.randrange(4 if i else 3)  # no relative swap first
+        a = r.randrange(0, 30)
+        if k == 0:
+            swaps.append(0x8000 | (r.randrange(16) << 11) | a)
+        elif k == 1:
+            swaps.append(0x2000 | (r.randrange(4) << 11) | a)
+        elif k == 2:
+            swaps += [a, r.randrange(0, 20)]
+        else:
+            swaps.append(0x4000 | (r.randrange(0, 8) << 5) | r.randrange(0, 8))
+    if r.randrange(2):
+        swaps.append(0xFFFF)
+    body = first + second + swaps
+    h2 = 4 + len(first) - 2
+    h3 = h2 + len(second)
+    h0 = h3 + len(swaps)
+    delta = struct.pack("<4H", h0, 0, h2, h3) + struct.pack("<%dH" % len(body), *body)
+    d, src, dst = BUF + 0x4000, BUF + 0x5000, BUF + 0x6000
+    lst = struct.pack("<2H", count, 0) + struct.pack("<%dH" % count, *items)
+    return [d, src, dst], [(d, delta), (src, lst)]
+
+
 def gen_edges(r):
     """A list of collision boxes for func_8003B874, written into the buffer
     through the returned (address, bytes) patches."""
@@ -170,6 +216,8 @@ MEMFUNCS = {
     "func_8003BD18": gen_surfaces,
     "func_8003C04C": gen_ceiling,
     "func_8003AF78": gen_tree,
+    "func_80039E3C": gen_delta,
+    "func_8003A234": gen_delta,
 }
 
 # name: number of integer arguments
@@ -221,6 +269,7 @@ def main():
     for name, gen in MEMFUNCS.items():
         orig = int(name[5:], 16)
         fails = 0
+        skipped = 0
         for _ in range(COUNT // 10):
             args = gen(r)
             patches = []
@@ -243,12 +292,15 @@ def main():
             # 0x70-0xA3 around calls) and its temporaries at 0xE0-0xF3: not
             # part of the result
             res = [(e, b, t, sc[0x40:0x70] + sc[0xA4:0xE0] + sc[0xF4:]) for e, b, t, sc in res]
+            if isinstance(res[0][0], str) and isinstance(res[1][0], str):
+                skipped += 1  # both crashed or looped on a malformed case
+                continue
             if res[0] != res[1]:
                 fails += 1
                 if fails <= 5:
                     what = [n for n, i in (("error", 0), ("memory", 1), ("ticks", 2), ("scratchpad", 3)) if res[0][i] != res[1][i]]
                     print("%s%s: differ (%s) asm: %s / C: %s" % (name, tuple(hex(x) for x in args), ", ".join(what), res[0][0], res[1][0]))
-        print("%s: %d/%d differ" % (name, fails, COUNT // 10))
+        print("%s: %d/%d differ" % (name, fails, COUNT // 10) + (" (%d skipped: both crashed or looped)" % skipped if skipped else ""))
         bad += fails
     for name, n in FUNCS.items():
         orig = int(name[5:], 16)

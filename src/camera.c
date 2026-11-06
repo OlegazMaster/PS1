@@ -1061,9 +1061,7 @@ void func_80024330(s32 type) {
     }
 }
 
-#ifdef NON_MATCHING
-/* Selects the camera path items for the mode n. Equivalent; the original
- * adds the index terms in another order. */
+/* Selects the camera path items for the mode n. */
 void func_8002437C(s32 n) {
     s32 k;
     Entry *zone;
@@ -1073,7 +1071,7 @@ void func_8002437C(s32 n) {
     if (D_80065C90.unkD4 != 0 && D_80065C90.unkCC != NULL) {
         k = func_80032DF8(D_80065C90.unkD4, 0x173, 0, 0, 0, 2, 0);
         zone = (Entry *)D_80065C90.unkCC;
-        item = (s32)zone->items[k * 3 + (*(s32 *)(zone->items[0] + 0x184) + 1)];
+        item = (s32)zone->items[k * 3 + 1 + *(s32 *)(zone->items[0] + 0x184)];
         D_80065C90.unkD8 = item;
         if (n != 1) {
             D_80065C90.unkDC = (s32)zone->items[k * 3 + n + *(s32 *)(zone->items[0] + 0x184)];
@@ -1082,9 +1080,6 @@ void func_8002437C(s32 n) {
         }
     }
 }
-#else
-INCLUDE_ASM("asm/us/nonmatchings/camera", func_8002437C);
-#endif
 
 /* Moves the camera along its path toward pos (snap: jump there), then
  * adjusts its distance. */

@@ -14,6 +14,7 @@
 
 void pc_video_present(void);
 void pc_video_poll(void);
+void pc_pad_vblank(void);
 
 #define CPU_HZ 33868800.0
 #define VBLANK_HZ 60.0
@@ -62,6 +63,7 @@ static void tick(int sig)
     for (n = 0; next_vblank <= t && n < 8; n++) {
         next_vblank += 1.0 / VBLANK_HZ;
         vblanks++;
+        pc_pad_vblank();
         if (vsync_cb) {
             vsync_cb();
         }

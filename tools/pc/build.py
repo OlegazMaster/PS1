@@ -113,7 +113,7 @@ def compile_all():
         if os.path.exists(obj) and os.path.getmtime(obj) > max(os.path.getmtime(src), newest_header()):
             return
         extra = ["-Dmain=game_main"] if src.endswith("/src/main.c") else []
-        if src.endswith("/src/pc/video.c") and SDL:
+        if (src.endswith("/src/pc/video.c") or src.endswith("/src/pc/pad.c")) and SDL:
             extra += ["-DPC_SDL"] + SDL[0]
         if "/src/pc/" not in src and "/rc/" not in src:
             extra += HEAP_NAMES

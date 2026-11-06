@@ -82,7 +82,9 @@ void pc_video_present(void)
 #endif
 }
 
-/* the events of the window (closing it ends the game) */
+void pc_pad_poll(void);
+
+/* the events of the window (closing it ends the game), the pads */
 void pc_video_poll(void)
 {
 #ifdef PC_SDL
@@ -96,5 +98,6 @@ void pc_video_poll(void)
             exit(0);
         }
     }
+    pc_pad_poll();
 #endif
 }

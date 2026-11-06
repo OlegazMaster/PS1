@@ -90,7 +90,7 @@ OBJECTS := $(if $(wildcard $(LD_SCRIPT)),$(shell grep -oE '$(BUILD)/[^ ()]+\.o' 
 
 # ---- Build -------------------------------------------------------------------
 
-.PHONY: all build check setup init extract clean distclean progress expected ctx decompile diff test
+.PHONY: all build check setup init extract clean distclean progress expected ctx decompile diff test pc
 
 all: check
 
@@ -163,6 +163,13 @@ clean:
 
 distclean:
 	rm -rf build asm assets expected ctx.c
+
+# ---- PC port -------------------------------------------------------------------
+
+# The PC port (32-bit x86, needs gcc-multilib): build/pc/crash3. It takes the
+# addresses of the variables from the PlayStation build, so that comes first.
+pc: build
+	python3 tools/pc/build.py
 
 # ---- Decompilation helpers ---------------------------------------------------
 

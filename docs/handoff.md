@@ -60,6 +60,12 @@ Crash Bandicoot 3 (`SCUS_942.44`, американская версия) с по
   (`GTE_RANGES` в `tools/nd_difftest.py`), иначе тест сильно замедляется.
 - Библиотеки PSY-Q (`psyq`) не декомпилируются: для порта они заменяются
   слоем `src/pc/` (таблица в `docs/roadmap.md`, этап 4).
+- ПК-порт: `make pc` → `build/pc/crash3 [SCUS_942.44]` (32-битный x86, нужен
+  `gcc-multilib`). Память PlayStation — по своим адресам в процессе,
+  переменные C — по адресам из сборки PlayStation (подробно —
+  `docs/roadmap.md`, этап 4). Запускается и доходит до чтения с диска;
+  функции PSY-Q пока заглушки (`src/pc/psyq_stubs.c`). Следующее —
+  `libcd` по образу диска, потом графика (SDL2 + OpenGL), геймпад, звук.
 
 ## Где что лежит
 
@@ -67,6 +73,7 @@ Crash Bandicoot 3 (`SCUS_942.44`, американская версия) с по
 |------|---------|
 | `src/*.c` | код игры; функции без совпадения — в `#ifdef NON_MATCHING` |
 | `src/goolvm.c`, `src/nd.c` | C-версии ручного ассемблера для порта (не линкуются в сборку PlayStation) |
+| `src/pc/` | слой ПК-порта: запуск и память (`startup.c`), программный GTE, заглушки PSY-Q; сборка — `tools/pc/build.py` |
 | `include/` | заголовки: структуры игры (`game.h`, `gool.h`, `ns.h`, `gfx.h`, …), `gte_inline.h` (GTE-макросы) |
 | `config/us/` | `splat.yaml` (нарезка), `symbol_addrs`, `nm_too_long.txt`, контрольная сумма |
 | `tools/` | сборочные скрипты; `tools/decomp/` — инструменты доводки до совпадения (см. его `README.md`); тесты C-версий в эмуляторе (`goolvm_test.sh`, `nd_test.sh`, `rc_test.sh`); перекомпилятор `recomp.py` и его тест случайными состояниями `rc_fuzz.py` |

@@ -4,6 +4,8 @@
 #include "game.h"
 #include "ns.h"
 
+Entry *func_80028D8C(Entry *zone, s32 *pos);
+
 /* Collision of objects with the surfaces of the zones and with other
  * objects. */
 

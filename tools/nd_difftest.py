@@ -39,6 +39,7 @@ def rint(r):
 BUF = 0x80100000  # random memory for the functions that take pointers
 BUF_SIZE = 0x8000
 TICKS = 0x80060000  # replaced by the address of ticks_elapsed below
+CB_8002B1CC = 0x8002B1CC  # the C callback the game passes to func_8003BD18
 
 
 def gen_copy(r):
@@ -54,6 +55,32 @@ def gen_ot(r):
 
 def gen_grid(r):
     return [r.randrange(-32, 32), r.randrange(-32, 32)]
+
+
+def box_list(r):
+    words = []
+    for _ in range(r.randrange(1, 4)):
+        words += [r.randrange(1, 0x300) << 16, r.randrange(1, 0x300) | (r.randrange(1, 0x300) << 16),
+                  r.randrange(0, 8) << 16, r.randrange(0, 8) | (r.randrange(0, 8) << 16)]
+        for _ in range(r.randrange(0, 8)):
+            lo = (r.randrange(1, 0x2000) << 3) | r.randrange(8)
+            if lo & 0xFFFF == 0xFFFF:
+                lo = 8
+            words += [(lo & 0xFFFF) | ((r.randrange(-0x1000, 0x1000) & 0xFFFF) << 16),
+                      (r.randrange(-0x1000, 0x1000) & 0xFFFF) | ((r.randrange(-0x1000, 0x1000) & 0xFFFF) << 16)]
+    words.append(0xFFFF)
+    return b"".join(struct.pack("<I", w & 0xFFFFFFFF) for w in words)
+
+
+def gen_surfaces(r):
+    rec, org, box, obj = BUF + 0x4000, BUF + 0x7F00, BUF + 0x7F40, BUF + 0x7000
+    origin = [r.randrange(-0x40000, 0x40000) for _ in range(3)]
+    lo = [origin[i] + r.randrange(-0x20000, 0x20000) for i in range(3)]
+    hi = [lo[i] + r.randrange(0, 0x30000) for i in range(3)]
+    patches = [(rec, box_list(r)), (org, struct.pack("<3i", *origin)), (box, struct.pack("<6i", *(lo + hi)))]
+    args = [obj, rec, org, box, r.randrange(-0x40000, 0x40000), BUF + 0x7400,
+            r.choice([-999999999, r.getrandbits(31)]), CB_8002B1CC]
+    return args, patches
 
 
 def gen_edges(r):
@@ -89,6 +116,7 @@ MEMFUNCS = {
     "func_8003AE70": lambda r: [],
     "func_8003BBF0": gen_grid,
     "func_8003B874": gen_edges,
+    "func_8003BD18": gen_surfaces,
 }
 
 # name: number of integer arguments
@@ -130,7 +158,7 @@ def main():
         try:
             mu.emu_start(addr, RET, count=1000000)
         except UcError as e:
-            return "error " + str(e)
+            return "error %s at %x" % (e, mu.reg_read(UC_MIPS_REG_PC))
         return mu.reg_read(UC_MIPS_REG_V0)
 
     r = random.Random(SEED)
@@ -158,14 +186,15 @@ def main():
                 v = call(addr, args)
                 res.append((v if isinstance(v, str) else None, bytes(mu.mem_read(BUF - 0x80000000, BUF_SIZE)),
                             bytes(mu.mem_read(ticks - 0x80000000, 4)), bytes(mu.mem_read(0x1F800000, 0x400))))
-            # the original saves its registers in the scratchpad (0x00-0x3F)
-            # and a2/a3 at 0xE0: not part of the result
-            res = [(e, b, t, sc[0x40:0xE0] + sc[0xE8:]) for e, b, t, sc in res]
+            # the original saves its registers in the scratchpad (0x00-0x3F,
+            # 0x70-0xA3 around calls) and its temporaries at 0xE0-0xF3: not
+            # part of the result
+            res = [(e, b, t, sc[0x40:0x70] + sc[0xA4:0xE0] + sc[0xF4:]) for e, b, t, sc in res]
             if res[0] != res[1]:
                 fails += 1
                 if fails <= 5:
                     what = [n for n, i in (("error", 0), ("memory", 1), ("ticks", 2), ("scratchpad", 3)) if res[0][i] != res[1][i]]
-                    print("%s%s: differ (%s) %s" % (name, tuple(hex(x) for x in args), ", ".join(what), res[0][0] or res[1][0] or ""))
+                    print("%s%s: differ (%s) asm: %s / C: %s" % (name, tuple(hex(x) for x in args), ", ".join(what), res[0][0], res[1][0]))
         print("%s: %d/%d differ" % (name, fails, COUNT // 10))
         bad += fails
     for name, n in FUNCS.items():

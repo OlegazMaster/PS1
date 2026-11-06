@@ -197,3 +197,118 @@ void func_8003BBF0(s32 x, s32 z) {
         }
     }
 }
+
+/* Marks in the grid of free cells (func_8003BBF0) the edges of the boxes
+ * of the list rec that are in the height range: rec holds 16-byte headers
+ * (the sizes of the boxes that follow: x, y, z << 8 and their shift limits)
+ * and 8-byte boxes (type in bits 1-3, kind in bits 4-9 of the low halfword,
+ * position (s16 << 4) relative to origin), ended by 0xFFFF. Boxes of types
+ * 3 and 4 are skipped, and of the kinds 1..0x1A unless mode is set. The
+ * grid is in cells of 1 << 11 around (x, z), 64 cells across. */
+void func_8003B874(u32 *rec, s32 *origin, s32 mode, s32 y0, s32 y1, s32 top, s32 x, s32 z) {
+    u32 sx = 0, sy = 0, sz = 0;
+    u32 lx = 0, ly = 0, lz = 0;
+    u32 w0;
+    u32 w1;
+    u32 flags;
+    u32 t;
+    u32 kind;
+    s32 shift;
+    s32 x0, x1, y0b, y1b, z0, z1;
+    s32 i;
+    s32 j;
+    s32 hit;
+
+    for (;;) {
+        w0 = rec[0];
+        w1 = rec[1];
+        if ((w0 & 0xFFFF) == 0xFFFF) {
+            return;
+        }
+        if ((w0 & 0xFFFF) == 0) {
+            sx = (w0 >> 16) << 8;
+            sy = (w1 & 0xFFFF) << 8;
+            sz = (w1 >> 16) << 8;
+            lx = rec[2] >> 16;
+            ly = rec[3] & 0xFFFF;
+            lz = rec[3] >> 16;
+            rec += 4;
+            continue;
+        }
+        shift = w0 & 7;
+        flags = ((w0 & 0xFFF8) >> 2) | 1;
+        x0 = ((s32)(w0 & 0xFFFF0000) >> 12) + origin[0];
+        y0b = ((s32)(w1 << 16) >> 12) + origin[1];
+        z0 = ((s32)(w1 & 0xFFFF0000) >> 12) + origin[2];
+        x1 = x0 + (sx >> ((lx < (u32)shift ? lx : shift) & 31));
+        y1b = y0b + (sy >> ((ly < (u32)shift ? ly : shift) & 31));
+        z1 = z0 + (sz >> ((lz < (u32)shift ? lz : shift) & 31));
+        t = (flags & 0xE) >> 1;
+        kind = (flags & 0x3F0) >> 4;
+        rec += 2;
+        if (t == 3 || t == 4) {
+            continue;
+        }
+        if (t == 1 || t == 5) {
+            hit = y0 < y1b && y0b < top;
+        } else if (t == 6) {
+            hit = y0b < y0 && y1 < y1b;
+        } else {
+            if (kind != 0 && kind < 0x1B && mode == 0) {
+                continue;
+            }
+            hit = y1 < y1b && y0b < top;
+        }
+        if (!hit) {
+            continue;
+        }
+        x0 = ((x0 - x) << 2) >> 13;
+        x1 = ((x1 - x) << 2) >> 13;
+        z0 = ((z0 - z) << 2) >> 13;
+        z1 = ((z1 - z) << 2) >> 13;
+        /* the four edges, as the original walks them */
+        if (-0x20 < z0 && z0 < 0x20) {
+            for (i = x0;; i += 8) {
+                if (-0x20 < i) {
+                    if (i >= 0x20 || i >= x1) {
+                        break;
+                    }
+                    func_8003BBF0(i, z0);
+                }
+            }
+        }
+        j = z0;
+        if (-0x20 < x1 && x1 < 0x20) {
+            for (;; j += 8) {
+                if (-0x20 < j) {
+                    if (j >= 0x20 || j >= z1) {
+                        break;
+                    }
+                    func_8003BBF0(x1, j);
+                }
+            }
+        }
+        i = x1;
+        j = z1;
+        if (-0x20 < j && j < 0x20) {
+            for (;; i -= 8) {
+                if (i < 0x20) {
+                    if (!(-0x20 < i) || !(x0 < i)) {
+                        break;
+                    }
+                    func_8003BBF0(i, j);
+                }
+            }
+        }
+        if (x0 < 0x20 && -0x20 < x0) {
+            for (;; j -= 8) {
+                if (j < 0x20) {
+                    if (!(-0x20 < j) || !(z0 < j)) {
+                        break;
+                    }
+                    func_8003BBF0(x0, j);
+                }
+            }
+        }
+    }
+}

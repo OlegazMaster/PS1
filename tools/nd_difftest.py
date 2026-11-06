@@ -56,6 +56,31 @@ def gen_grid(r):
     return [r.randrange(-32, 32), r.randrange(-32, 32)]
 
 
+def gen_edges(r):
+    """A list of collision boxes for func_8003B874, written into the buffer
+    through the returned (address, bytes) patches."""
+    words = []
+    for _ in range(r.randrange(1, 4)):
+        words += [r.randrange(1, 0x300) << 16, r.randrange(1, 0x300) | (r.randrange(1, 0x300) << 16),
+                  r.randrange(0, 8) << 16, r.randrange(0, 8) | (r.randrange(0, 8) << 16)]
+        for _ in range(r.randrange(0, 8)):
+            lo = (r.randrange(1, 0x2000) << 3) | r.randrange(8)
+            if lo & 0xFFFF == 0xFFFF:
+                lo = 8
+            words += [(lo & 0xFFFF) | ((r.randrange(-0x1000, 0x1000) & 0xFFFF) << 16),
+                      (r.randrange(-0x1000, 0x1000) & 0xFFFF) | ((r.randrange(-0x1000, 0x1000) & 0xFFFF) << 16)]
+    words.append(0xFFFF)
+    rec = BUF + 0x4000
+    org = BUF + 0x7F00
+    origin = [r.randrange(-0x40000, 0x40000) for _ in range(3)]
+    patches = [(rec, b"".join(struct.pack("<I", w & 0xFFFFFFFF) for w in words)),
+               (org, b"".join(struct.pack("<i", v) for v in origin))]
+    y = [r.randrange(-0x20000, 0x20000) for _ in range(3)]
+    args = [rec, org, r.randrange(2), y[0], y[1], y[2],
+            origin[0] + r.randrange(-0x10000, 0x10000), origin[2] + r.randrange(-0x10000, 0x10000)]
+    return args, patches
+
+
 # name: argument generator (functions on memory); the buffer and the tick
 # counter are compared after the call
 MEMFUNCS = {
@@ -63,6 +88,7 @@ MEMFUNCS = {
     "func_8003AC44": gen_ot,
     "func_8003AE70": lambda r: [],
     "func_8003BBF0": gen_grid,
+    "func_8003B874": gen_edges,
 }
 
 # name: number of integer arguments
@@ -97,6 +123,8 @@ def main():
         for reg, v in zip((UC_MIPS_REG_A0, UC_MIPS_REG_A1, UC_MIPS_REG_A2, UC_MIPS_REG_A3), args):
             mu.reg_write(reg, v & 0xFFFFFFFF)
         mu.reg_write(UC_MIPS_REG_SP, 0x801F0000)
+        for i, v in enumerate(args[4:]):  # arguments 5.. on the stack
+            mu.mem_write(0x1F0000 + 0x10 + 4 * i, struct.pack("<I", v & 0xFFFFFFFF))
         mu.reg_write(UC_MIPS_REG_GP, 0x80060878)
         mu.reg_write(UC_MIPS_REG_RA, RET)
         try:
@@ -114,6 +142,9 @@ def main():
         fails = 0
         for _ in range(COUNT // 10):
             args = gen(r)
+            patches = []
+            if isinstance(args, tuple):
+                args, patches = args
             init = bytes(r.getrandbits(8) for _ in range(BUF_SIZE))
             t0 = r.getrandbits(32)
             scr = bytes(r.getrandbits(8) for _ in range(0x400))
@@ -122,13 +153,19 @@ def main():
                 mu.mem_write(BUF - 0x80000000, init)
                 mu.mem_write(ticks - 0x80000000, struct.pack("<I", t0))
                 mu.mem_write(0x1F800000, scr)
+                for a, b in patches:
+                    mu.mem_write(a - 0x80000000, b)
                 v = call(addr, args)
                 res.append((v if isinstance(v, str) else None, bytes(mu.mem_read(BUF - 0x80000000, BUF_SIZE)),
                             bytes(mu.mem_read(ticks - 0x80000000, 4)), bytes(mu.mem_read(0x1F800000, 0x400))))
+            # the original saves its registers in the scratchpad (0x00-0x3F)
+            # and a2/a3 at 0xE0: not part of the result
+            res = [(e, b, t, sc[0x40:0xE0] + sc[0xE8:]) for e, b, t, sc in res]
             if res[0] != res[1]:
                 fails += 1
                 if fails <= 5:
-                    print("%s%s: differ" % (name, tuple(hex(x) for x in args)))
+                    what = [n for n, i in (("error", 0), ("memory", 1), ("ticks", 2), ("scratchpad", 3)) if res[0][i] != res[1][i]]
+                    print("%s%s: differ (%s) %s" % (name, tuple(hex(x) for x in args), ", ".join(what), res[0][0] or res[1][0] or ""))
         print("%s: %d/%d differ" % (name, fails, COUNT // 10))
         bad += fails
     for name, n in FUNCS.items():

@@ -38,7 +38,7 @@ Splat склеил почти весь сегмент в одну «функци
 | `8003AE70` | 8 | 0 | sys | `void func_8003AE70(void);` | ✅ |
 | `8003AE90` | 58 | 0 | audio | `s32 func_8003AE90(s32 x, s32 z); /* length of (x, z) */` | ✅ |
 | `8003AF78` | 575 | 0 | camera | `s32 func_8003AF78(void *item, s32 *box, u16 *out, s32 n);` |  |
-| `8003B874` | 223 | 0 | coll | `void func_8003B874(CollQuery *q, s32 *box, s32 mode, s32 y0, s32 y1, s32 top, s32 x, s3…` |  |
+| `8003B874` | 223 | 0 | coll | `void func_8003B874(CollQuery *q, s32 *box, s32 mode, s32 y0, s32 y1, s32 top, s32 x, s3…` | ✅ |
 | `8003BBF0` | 3 | 0 | coll | `void func_8003BBF0(s32 x, s32 z);` | ✅ |
 | `8003BBFC` | 71 | 0 | — | — |  |
 | `8003BD18` | 205 | 0 | coll | `s32 func_8003BD18(GoolObject *obj, CollQuery *q, s32 *box, s32 *box2, s32 top, s32 a, s…` |  |

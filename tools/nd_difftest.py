@@ -199,7 +199,7 @@ def height_field(r):
     p = [(lo, bytes(r.getrandbits(8) for _ in range(0x1000))),
          (hi, bytes(r.getrandbits(8) for _ in range(0x1000))),
          (types, bytes(r.getrandbits(8) for _ in range(0x10000))),
-         (walls, bytes(r.choice([0, 0, 0, r.getrandbits(8)]) for _ in range(0x10000))),
+         (walls, bytes(r.choice([0, r.getrandbits(8), r.getrandbits(8)]) for _ in range(0x10000))),
          (rs + 0xA0, struct.pack("<5I", r.randrange(0, 0x1000), lo, hi, types, walls))]
     return rs, p
 
@@ -208,7 +208,7 @@ def gen_height(r):
     rs, p = height_field(r)
     pos = BUF + 0x7F00
     p.append((pos, struct.pack("<3i", r.randrange(-0x400000, 0x4000000), 0, r.randrange(-0x400000, 0x4000000))))
-    return [r.choice([0, BUF + 0x7F80]), pos, rs], p
+    return [r.choice([0, BUF + 0x7F80, BUF + 0x7F80]), pos, rs], p
 
 
 def gen_ground(r):
@@ -218,8 +218,9 @@ def gen_ground(r):
     near = lambda c: c + r.choice([r.randrange(0, 0x40000), r.randrange(-0x800, 0x800), 0x40000 + r.randrange(-0x800, 0x800)])
     x, z = near(cell()), near(cell())
     p.append((obj + 0x60, struct.pack("<3i", x, r.randrange(-0x100000, 0x100000), z)))
-    p.append((delta, struct.pack("<3i", *[r.randrange(-0x60000, 0x60000) for _ in range(3)])))
-    return [r.choice([0, BUF + 0x7F80]), obj, rs, delta], p
+    p.append((delta, struct.pack("<3i", *[r.choice([r.randrange(-0x60000, 0x60000), r.randrange(-0x2000, 0x2000)])
+                                          for _ in range(3)])))
+    return [r.choice([0, BUF + 0x7F80, BUF + 0x7F80]), obj, rs, delta], p
 
 
 def gen_edges(r):

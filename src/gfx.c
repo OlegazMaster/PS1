@@ -574,6 +574,165 @@ u32 func_80019090(TexInfo *info, u32 *refs) {
 INCLUDE_ASM("asm/us/nonmatchings/gfx", func_80019090);
 #endif
 
-INCLUDE_ASM("asm/us/nonmatchings/gfx", func_80019180);
+/* GTE access as in PSY-Q's inline macros: data registers (mtc2/mfc2),
+ * the flag register, screen coordinates stored straight to memory, and the
+ * perspective transforms. */
+#define gte_mtc2(r, n) __asm__ volatile("mtc2 %0, $" #n : : "r"(r))
+#define gte_mfc2(r, n) __asm__ volatile("mfc2 %0, $" #n : "=r"(r))
+#define gte_stflg(r) __asm__ volatile("cfc2 %0, $31\n\tnop" : "=r"(r))
+#define gte_stsxy(n, m) __asm__ volatile("swc2 $" #n ", %0" : "=m"(m))
+#define gte_rtps() __asm__ volatile("nop\n\tnop\n\trtps")
+#define gte_rtpt() __asm__ volatile("nop\n\tnop\n\trtpt")
+typedef struct {
+    u32 unk0;
+    u32 unk4;
+    u32 *prims; /* 0x8: next free primitive */
+} PrimBuf;
+extern PrimBuf *D_80061A84[];
+/* Projects the corners of the rectangle (v[0], v[4]) - (v[3], v[1]) (in the
+ * camera space, z 0) and adds it as a textured quad (POLY_FT4 with the
+ * color, clut and texture page words of p) to the ordering table ot at
+ * its depth (offset by z). The third argument is not used, only reused as
+ * the scratch register for the GTE values. */
+void func_80019180(u32 *p, s32 z, s32 t, s32 *v, u32 *ot) {
+    u32 *prim;
+    u8 *q;
+    u32 uv;
+    u32 *slot;
+    s32 sz1;
 
-INCLUDE_ASM("asm/us/nonmatchings/gfx", func_800192F8);
+    t = (u16)v[0] | (v[4] << 16);
+    gte_mtc2(t, 0);
+    gte_mtc2(0, 1);
+    t = (u16)v[3] | (v[4] << 16);
+    gte_mtc2(t, 2);
+    gte_mtc2(0, 3);
+    t = (u16)v[0] | (v[1] << 16);
+    gte_mtc2(t, 4);
+    gte_mtc2(0, 5);
+    gte_rtpt();
+    gte_stflg(t);
+    if (t < 0) {
+        return;
+    }
+    q = (u8 *)D_80061A84[0]->prims;
+    D_80061A84[0]->prims = (u32 *)(q + 0x28);
+    prim = (u32 *)q;
+    prim[1] = p[0];
+    gte_mfc2(sz1, 17);
+    gte_mfc2(t, 18);
+    gte_stsxy(14, prim[6]);
+    sz1 += t;
+    gte_mfc2(t, 19);
+    gte_stsxy(13, prim[4]);
+    sz1 = z + (0x800 - D_80065C90.unkC4 / 2) - ((u32)(sz1 + t) >> 5);
+    if (sz1 < 0x7FF) {
+        slot = ot;
+        if (sz1 >= 0) {
+            slot += sz1;
+        }
+    } else {
+        slot = ot + 0x7FF;
+    }
+    prim[0] = *slot | 0x09000000;
+    *slot = (u32)prim & 0xFFFFFF;
+    t = (u16)v[3] | (v[1] << 16);
+    gte_stsxy(12, prim[2]);
+    gte_mtc2(t, 0);
+    gte_mtc2(0, 1);
+    gte_rtps();
+    prim[3] = p[1];
+    prim[5] = p[2];
+    uv = p[3];
+    ((u16 *)prim)[14] = uv;
+    uv >>= 16;
+    ((u16 *)prim)[18] = uv;
+    gte_stsxy(14, prim[8]);
+}
+
+/* Like func_80019180 for a glyph g of a font of obj (color bytes 0-2, code
+ * byte 3, then the clut, texture page and uv words): adds it as a Gouraud
+ * shaded textured quad (POLY_GT4). With shade the corner colors are the
+ * glyph color scaled by the colors a, b, c and cur of obj, and
+ * with link the quad goes after the primitive already at its depth. */
+
+void func_800192F8(GoolObject *obj, u8 *g, s32 z, s32 t, s32 *v, u32 *ot, s32 shade, s32 link) {
+    u32 *prim;
+    u8 *q;
+    u32 uv;
+    u32 *slot;
+    s32 sz1;
+
+    t = (u16)v[0] | (v[4] << 16);
+    gte_mtc2(t, 0);
+    gte_mtc2(0, 1);
+    t = (u16)v[3] | (v[4] << 16);
+    gte_mtc2(t, 2);
+    gte_mtc2(0, 3);
+    t = (u16)v[0] | (v[1] << 16);
+    gte_mtc2(t, 4);
+    gte_mtc2(0, 5);
+    gte_rtpt();
+    gte_stflg(t);
+    if (t < 0) {
+        return;
+    }
+    q = (u8 *)D_80061A84[0]->prims;
+    D_80061A84[0]->prims = (u32 *)(q + 0x34);
+    prim = (u32 *)q;
+    if (shade) {
+        ((u8 *)prim)[4] = (g[0] * obj->colors.color_a.r) >> 7;
+        ((u8 *)prim)[5] = (g[1] * obj->colors.color_a.g) >> 7;
+        ((u8 *)prim)[6] = (g[2] * obj->colors.color_a.b) >> 7;
+        ((u8 *)prim)[16] = (g[0] * obj->colors.color_b.r) >> 7;
+        ((u8 *)prim)[17] = (g[1] * obj->colors.color_b.g) >> 7;
+        ((u8 *)prim)[18] = (g[2] * obj->colors.color_b.b) >> 7;
+        ((u8 *)prim)[28] = (g[0] * obj->colors.color_c.r) >> 7;
+        ((u8 *)prim)[29] = (g[1] * obj->colors.color_c.g) >> 7;
+        ((u8 *)prim)[30] = (g[2] * obj->colors.color_c.b) >> 7;
+        ((u8 *)prim)[40] = (g[0] * obj->colors.cur_color.r) >> 7;
+        ((u8 *)prim)[41] = (g[1] * obj->colors.cur_color.g) >> 7;
+        ((u8 *)prim)[42] = (g[2] * obj->colors.cur_color.b) >> 7;
+    } else {
+        uv = *(u32 *)g;
+        prim[1] = uv;
+        prim[4] = uv;
+        prim[7] = uv;
+        prim[10] = uv;
+    }
+    gte_mfc2(sz1, 17);
+    ((u8 *)prim)[7] = g[3] | 0x3C;
+    gte_mfc2(t, 18);
+    gte_stsxy(14, prim[8]);
+    sz1 += t;
+    gte_mfc2(t, 19);
+    gte_stsxy(13, prim[5]);
+    sz1 = z + (0x800 - D_80065C90.unkC4 / 2) - ((u32)(sz1 + t) >> 5);
+    if (sz1 < 0x7FF) {
+        slot = ot;
+        if (sz1 >= 0) {
+            slot += sz1;
+        }
+    } else {
+        slot = ot + 0x7FF;
+    }
+    z = *slot;
+    if (link && (z & 0xFFFFFF) != 0xFFFFFF) {
+        slot = (u32 *)(((u32)slot & 0xFF000000) | (z & 0xFFFFFF));
+        z = *slot;
+    }
+    prim[0] = z | 0x0C000000;
+    *slot = ((u32)prim & 0xFFFFFF) | (z & 0xFF000000);
+    t = (u16)v[3] | (v[1] << 16);
+    gte_stsxy(12, prim[2]);
+    gte_mtc2(t, 0);
+    gte_mtc2(0, 1);
+    gte_rtps();
+    prim[3] = ((u32 *)g)[1];
+    prim[6] = ((u32 *)g)[2];
+    uv = ((u32 *)g)[3];
+    ((u16 *)prim)[18] = uv;
+    uv >>= 16;
+    ((u16 *)prim)[24] = uv;
+    gte_stsxy(14, prim[11]);
+}

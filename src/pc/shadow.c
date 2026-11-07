@@ -30,6 +30,7 @@ extern u32 pc_mips_extra[4]; /* src/pc/mips.c: arguments 9 to 12 of the next cal
 u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7);
 u32 pc_func_lookup(u32 psx);
 u32 nd_native_lookup(u32 addr);
+void pc_cd_state(s32 save);
 s32 pc_mips_in_stack(u32 a);
 static u32 stack_here; /* about where the C stack is (pc_shadow) */
 u32 pc_mips_stack_top(s32 set, u32 top);
@@ -241,6 +242,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
     memcpy(scr_before, (void *)PSX_SCRATCH, SCRATCH_SIZE);
     gte_before = gte;
     save_windows(win_before);
+    pc_cd_state(1);
 
     top = pc_mips_stack_top(0, 0);
     pc_mips_force = addr;
@@ -272,6 +274,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
         memcpy((void *)PSX_SCRATCH, scr_before, SCRATCH_SIZE);
         gte = gte_before;
         load_windows(win_before);
+        pc_cd_state(0);
         hold(0);
         nested = 0;
         return ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
@@ -286,6 +289,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
     memcpy((void *)PSX_SCRATCH, scr_before, SCRATCH_SIZE);
     gte = gte_before;
     load_windows(win_before);
+    pc_cd_state(0);
     r_port = ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     checks++;
 

@@ -203,6 +203,21 @@ s32 CdPosToInt(u8 *p)
     return (unbcd(p[0]) * 60 + unbcd(p[1])) * 75 + unbcd(p[2]) - 150;
 }
 
+/* the state of the drive, kept and put back by the shadow check around a run
+ * of the original code (src/pc/shadow.c): the commands only change these */
+void pc_cd_state(s32 save)
+{
+    static u32 pos, mode;
+
+    if (save) {
+        pos = cd_pos;
+        mode = cd_mode;
+    } else {
+        cd_pos = pos;
+        cd_mode = mode;
+    }
+}
+
 static s32 command(s32 com, u8 *param, u8 *result)
 {
     switch (com) {
@@ -232,26 +247,22 @@ static s32 command(s32 com, u8 *param, u8 *result)
  * nothing is written there. */
 s32 CdControl(s32 com, u8 *param, u8 *result)
 {
-    SHADOW_UNSAFE();
     return command(com, param, NULL);
 }
 
 s32 CdControlB(s32 com, u8 *param, u8 *result)
 {
-    SHADOW_UNSAFE();
     return command(com, param, result);
 }
 
 s32 CdControlF(s32 com, u8 *param)
 {
-    SHADOW_UNSAFE();
     return command(com, param, NULL);
 }
 
 /* reads n sectors from the position (mode: as CdlSetmode) */
 s32 CdRead(s32 n, u32 *buf, s32 mode)
 {
-    SHADOW_UNSAFE();
     u8 *out = (u8 *)buf;
     s32 whole = mode & CdlModeSize1;
 

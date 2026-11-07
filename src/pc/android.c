@@ -672,6 +672,13 @@ static void dump_vram(const char *path)
 }
 
 static char vram_path[600];
+static char image_dir[600];
+
+/* the folder of the disc image: the files of the diagnostics go there */
+const char *pc_android_dir(void)
+{
+    return image_dir[0] ? image_dir : NULL;
+}
 
 /* where the game thread is (sampled with SIGUSR1 when it shows nothing) */
 extern volatile u32 pc_mips_pc;
@@ -799,6 +806,7 @@ static void *game_thread(void *arg)
         snprintf(path, sizeof(path), "%.*s/crash3_log.txt", (int)(slash - image), image);
         logf = fopen(path, "w");
         snprintf(vram_path, sizeof(vram_path), "%.*s/crash3_vram.png", (int)(slash - image), image);
+        snprintf(image_dir, sizeof(image_dir), "%.*s", (int)(slash - image), image);
     }
     status_lines = 0;
     say("DISC IMAGE: %s", image);

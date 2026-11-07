@@ -50,12 +50,43 @@ static void dump(void)
     fclose(f);
 }
 
+/* Recordings of whole frames of the GPU work (PC_GPU_TRACE=dir, or on
+ * Android next to the disc image): frames 600, 1200 and 1800, each from
+ * 4 presents on (a whole frame of the game), as crash3_gpu_N.bin. */
+#ifdef __ANDROID__
+const char *pc_android_dir(void);
+#endif
+
+static void trace_frames(void)
+{
+    static s32 active;
+    const char *dir = getenv("PC_GPU_TRACE");
+    const char *at_s = getenv("PC_GPU_TRACE_AT");
+    u32 at = at_s ? (u32)atoi(at_s) : 600;
+    char path[600];
+
+#ifdef __ANDROID__
+    dir = pc_android_dir();
+#endif
+    const char *len_s = getenv("PC_GPU_TRACE_LEN");
+
+    if (active && --active == 0) {
+        gpu_trace_end(); /* 4 presents: a whole frame of the game (30 per second) */
+    }
+    if (dir && !active && frames % at == 0 && frames <= 3 * at) {
+        snprintf(path, sizeof(path), "%s/crash3_gpu_%u.bin", dir, frames / at);
+        gpu_trace_begin(path);
+        active = len_s ? atoi(len_s) : 4;
+    }
+}
+
 void pc_video_present(void)
 {
     if (gpu_display.w <= 0 || gpu_display.h <= 0 || gpu_display.w > 640 || gpu_display.h > 512) {
         return;
     }
     frames++;
+    trace_frames();
     gpu_display_rgb(frame_rgb);
     dump();
 #ifdef __ANDROID__

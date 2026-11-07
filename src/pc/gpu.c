@@ -12,9 +12,33 @@
  * 1-2-3; a polygon larger than 1023x511 is not drawn. */
 #include "pc_gpu.h"
 
+#include <stdio.h>
 #include <string.h>
 
 u16 gpu_vram[GPU_VRAM_H][GPU_VRAM_W];
+
+/* A recording of the GPU work (gpu_trace_begin/end): records of u32 words,
+ * [type, count, count words]. 0: the VRAM (u16 pixels), 1: GP0 words,
+ * 2: a load (x, y, w, h, the pixels), 3: a move (sx, sy, dx, dy, w, h),
+ * 4: the state of the GPU (the struct below, raw), 5: the display (x, y, w,
+ * h, rgb24, enabled). tools/pc/gpu_replay.c plays it back. */
+static FILE *trace;
+static s32 tracing_commands;
+
+static void trace_rec(u32 type, const void *a, u32 na, const void *b, u32 nb)
+{
+    u32 head[2];
+
+    head[0] = type;
+    head[1] = na + nb;
+    fwrite(head, 4, 2, trace);
+    if (na) {
+        fwrite(a, 4, na, trace);
+    }
+    if (nb) {
+        fwrite(b, 4, nb, trace);
+    }
+}
 GpuDisplay gpu_display = { 0, 0, 320, 240, 0, 0 };
 
 static struct {
@@ -35,6 +59,44 @@ static const s8 dither_matrix[4][4] = {
     { -3, 1, -4, 0 },
     { 3, -1, 2, -2 },
 };
+
+void gpu_trace_begin(const char *path)
+{
+    trace = fopen(path, "wb");
+    if (trace) {
+        trace_rec(4, &st, sizeof(st) / 4, NULL, 0);
+        trace_rec(0, gpu_vram, sizeof(gpu_vram) / 4, NULL, 0);
+        fflush(trace);
+    }
+}
+
+void gpu_trace_end(void)
+{
+    if (trace) {
+        u32 d[6];
+
+        d[0] = gpu_display.x;
+        d[1] = gpu_display.y;
+        d[2] = gpu_display.w;
+        d[3] = gpu_display.h;
+        d[4] = gpu_display.rgb24;
+        d[5] = gpu_display.enabled;
+        trace_rec(5, d, 6, NULL, 0);
+        fclose(trace);
+        trace = NULL;
+    }
+}
+
+/* for the replay: the state as raw words */
+u32 gpu_state_words(void)
+{
+    return sizeof(st) / 4;
+}
+
+void *gpu_state(void)
+{
+    return &st;
+}
 
 void gpu_reset(void)
 {
@@ -470,6 +532,12 @@ void gpu_fill(s32 x, s32 y, s32 w, s32 h, u32 rgb)
 
 void gpu_move(s32 sx, s32 sy, s32 dx, s32 dy, s32 w, s32 h)
 {
+    if (trace && !tracing_commands) {
+        u32 d[6];
+
+        d[0] = sx; d[1] = sy; d[2] = dx; d[3] = dy; d[4] = w; d[5] = h;
+        trace_rec(3, d, 6, NULL, 0);
+    }
     static u16 line_buf[GPU_VRAM_W];
     s32 i, j;
 
@@ -489,6 +557,12 @@ void gpu_move(s32 sx, s32 sy, s32 dx, s32 dy, s32 w, s32 h)
 
 void gpu_load(s32 x, s32 y, s32 w, s32 h, const u16 *src)
 {
+    if (trace && !tracing_commands && w > 0 && h > 0) {
+        u32 d[4];
+
+        d[0] = x; d[1] = y; d[2] = w; d[3] = h;
+        trace_rec(2, d, 4, src, ((u32)(w * h) + 1) / 2);
+    }
     s32 i, j;
 
     for (j = 0; j < h; j++) {
@@ -513,6 +587,10 @@ void gpu_commands(const u32 *w, u32 count)
 {
     u32 k = 0;
 
+    if (trace && count) {
+        trace_rec(1, w, count, NULL, 0);
+    }
+    tracing_commands = 1;
     while (k < count) {
         u32 cmd = w[k] >> 24;
         u32 n = 1;
@@ -572,6 +650,7 @@ void gpu_commands(const u32 *w, u32 count)
         }
         k += n;
     }
+    tracing_commands = 0;
 }
 
 /* the display area as 0xRRGGBB */

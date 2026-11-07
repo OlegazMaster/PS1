@@ -21,6 +21,12 @@ void gpu_store(s32 x, s32 y, s32 w, s32 h, u16 *dst);
 void gpu_move(s32 sx, s32 sy, s32 dx, s32 dy, s32 w, s32 h);
 void gpu_fill(s32 x, s32 y, s32 w, s32 h, u32 rgb);
 
+/* a recording of the GPU work between begin and end (tools/pc/gpu_replay.c) */
+void gpu_trace_begin(const char *path);
+void gpu_trace_end(void);
+u32 gpu_state_words(void);
+void *gpu_state(void);
+
 /* what the screen shows: the display area of the VRAM */
 typedef struct {
     s32 x, y, w, h;

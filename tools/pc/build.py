@@ -93,6 +93,10 @@ HEAP_NAMES = ["-Dmalloc=psx_malloc", "-Dfree=psx_free", "-Drealloc=psx_realloc"]
 RODATA_LO, RODATA_HI = 0x80010000, 0x8001101C
 DATA_LO = 0x8005BC40
 EXE_END = 0x80061000  # the end of what the executable loads
+# the overlay (code loaded at run time) and its functions the C code calls
+# (names other than func_*: declared as functions in src/sys.c)
+OVERLAY_LO, OVERLAY_HI = 0x8006EA78, 0x80072230
+OVERLAY_FUNCS = {"D_8006F64C", "D_8006F780"}
 # SDL2 for MinGW (the Windows build)
 SDL_VERSION = "2.30.9"
 SDL_URL = "https://github.com/libsdl-org/SDL/releases/download/release-%s/SDL2-devel-%s-mingw.tar.gz" % (
@@ -389,8 +393,13 @@ def main():
         undef |= set(unprefix(n) for t, n in symbols(o, "-u"))
         defined |= set(unprefix(n) for t, n in symbols(o, "--defined-only")
                        if t in "TDBR" and re.match(r"^%s[A-Za-z_]\w*$" % US, n))
+    # the functions of the overlay the game loads at run time (S0/WARPSCUS.BIN,
+    # between the end of .bss and D_80072230): C thunks that interpret them
+    # (src/pc/mips.c)
+    overlay = sorted(n for n in undef - defined if n in psx and OVERLAY_LO <= psx[n][0] < OVERLAY_HI
+                     and (n.startswith("func_") or n in OVERLAY_FUNCS))
     defsyms, missing = [], []
-    for s in sorted(undef - defined):
+    for s in sorted(undef - defined - set(overlay)):
         if is_data(psx, s) or (s in psx and psx[s][1] in "Aa"):  # A: constants like D_40100
             a = psx[s][0]
             if (ANDROID or LINUX_ARM) and 0x1F800000 <= a < 0x1F804000:
@@ -408,6 +417,11 @@ def main():
             "const u32 pc_func_table[][2] = {"]
     tab += ["    { 0x%08Xu, (u32)%s }," % (a, n) for a, n in funcs]
     tab += ["};", "const u32 pc_func_count = %d;" % len(funcs)]
+    tab += ["", "/* the functions of the overlay: interpreted */",
+            "u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7);"]
+    for n in overlay:
+        tab += ["u32 %s(u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7)" % n,
+                "{", "    return pc_mips_call(0x%08Xu, a0, a1, a2, a3, a4, a5, a6, a7);" % psx[n][0], "}"]
     # where the startup code looks for pointers to C functions: the constant
     # data before the code and the data segment
     ranges = [(RODATA_LO, RODATA_HI), (DATA_LO, EXE_END)]

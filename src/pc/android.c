@@ -681,3 +681,15 @@ void ANativeActivity_onCreate(ANativeActivity *a, void *saved, size_t saved_size
     pthread_attr_setstacksize(&attr, 8 << 20);
     pthread_create(&t, &attr, game_thread, NULL);
 }
+
+/* Division by zero on 32-bit ARM goes to these (libgcc raises SIGFPE in
+ * them); the R3000 does not trap: the game goes on. */
+int __aeabi_idiv0(int r)
+{
+    return 0;
+}
+
+long long __aeabi_ldiv0(long long r)
+{
+    return 0;
+}

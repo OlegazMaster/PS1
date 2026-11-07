@@ -126,6 +126,12 @@ s32 pc_cd_open(const char *path);
 s32 pc_cd_find(const char *name, u32 *lba, u32 *size);
 s32 pc_cd_read_file(u32 lba, u32 size, void *buf);
 
+/* for the interpreter of the overlay (src/pc/mips.c) */
+u32 pc_func_lookup(u32 psx)
+{
+    return func_lookup(psx);
+}
+
 /* the executable (a PS-X EXE) into the RAM */
 static void load_exe_image(const u8 *head, const u8 *text, u32 len, const char *what)
 {
@@ -314,6 +320,45 @@ static char *find_image(const char *argv0)
     return NULL;
 }
 
+/* PC_MIPS_TEST: the interpreter (src/pc/mips.c) runs the original code of
+ * some functions of the game, which must give what their C versions give */
+extern u32 pc_mips_force;
+u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7);
+
+static void mips_selftest(void)
+{
+    static const u32 funcs[][2] = { { 0x80031E10, 3 }, { 0x80031E34, 4 }, { 0x80031F9C, 2 },
+                                    { 0x80032250, 2 }, { 0x8001FD08, 3 }, { 0x8001FD58, 3 } };
+    u32 i, k, seed = 1, bad = 0, n = 0;
+
+    for (i = 0; i < sizeof(funcs) / sizeof(funcs[0]); i++) {
+        u32 native = func_lookup(funcs[i][0]);
+
+        if (!native) {
+            continue;
+        }
+        for (k = 0; k < 2000; k++) {
+            u32 a[4], j, x, y;
+
+            for (j = 0; j < 4; j++) {
+                seed = seed * 1103515245u + 12345u;
+                a[j] = (seed >> 8) % 3 ? (seed >> 4) % 0x10000 - 0x8000 : seed;
+            }
+            x = ((u32(*)(u32, u32, u32, u32))native)(a[0], a[1], a[2], a[3]);
+            pc_mips_force = funcs[i][0];
+            y = pc_mips_call(funcs[i][0], a[0], a[1], a[2], a[3], 0, 0, 0, 0);
+            pc_mips_force = 0;
+            n++;
+            if (x != y && bad++ < 5) {
+                fprintf(stderr, "mips test: %08X(%X, %X, %X, %X): C %X, interpreted %X\n", funcs[i][0], a[0], a[1],
+                        a[2], a[3], x, y);
+            }
+        }
+    }
+    fprintf(stderr, "mips test: %u calls, %u differ\n", n, bad);
+    exit(bad != 0);
+}
+
 /* starts the game from a disc image (or, with disc NULL, an executable
  * without a disc); exe: its executable when not the one on the disc */
 s32 pc_start(const char *disc, const char *exe)
@@ -338,6 +383,9 @@ s32 pc_start(const char *disc, const char *exe)
     STEP("EXECUTABLE LOADED");
     patch_func_pointers();
     psx_start();
+    if (getenv("PC_MIPS_TEST")) {
+        mips_selftest();
+    }
     STEP("HEAP READY, STARTING THE GAME");
     return game_main();
 }

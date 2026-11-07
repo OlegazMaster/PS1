@@ -224,10 +224,12 @@ static s32 command(s32 com, u8 *param, u8 *result)
     return disc != NULL;
 }
 
-/* blocking and not: the same here */
+/* blocking and not: the same here. The game calls CdControl with two
+ * arguments (ns.c): its result pointer is whatever the register held, so
+ * nothing is written there. */
 s32 CdControl(s32 com, u8 *param, u8 *result)
 {
-    return command(com, param, result);
+    return command(com, param, NULL);
 }
 
 s32 CdControlB(s32 com, u8 *param, u8 *result)

@@ -11,6 +11,8 @@
 #include "pc_shadow.h"
 #include "types.h"
 
+#include <stdio.h>
+
 #ifdef PC_SDL
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -91,6 +93,10 @@ void func_800492B4(s32 port, u8 *data, s32 len)
 /* the buttons from elsewhere (the touch screen and controllers on Android) */
 void pc_pad_set(u16 buttons)
 {
+    if (buttons != held) {
+        fprintf(stderr, "pad: %04X (bits: 0x10 triangle, 0x20 circle, 0x40 cross, 0x80 square, 0x800 start)\n",
+                buttons);
+    }
     held = buttons;
 }
 

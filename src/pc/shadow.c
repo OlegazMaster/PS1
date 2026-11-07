@@ -30,6 +30,7 @@ extern u32 pc_mips_extra[4]; /* src/pc/mips.c: arguments 9 to 12 of the next cal
 
 u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7);
 u32 pc_func_lookup(u32 psx);
+u32 pc_frames(void);
 u32 nd_native_lookup(u32 addr);
 void pc_cd_state(s32 save);
 s32 pc_mips_in_stack(u32 a);
@@ -213,8 +214,8 @@ static void load_windows(u8 (*from)[WINDOW])
     }
 }
 
-u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5,
-              u32 a6, u32 a7, u32 a8, u32 a9, u32 a10, u32 a11)
+static u32 shadow_call(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4,
+                       u32 a5, u32 a6, u32 a7, u32 a8, u32 a9, u32 a10, u32 a11)
 {
     /* (static: a window of the C stack may cover this frame) */
     static u32 args[12], *calls, *reports, r_orig, r_port, first, va, vb, n, mask, top;
@@ -372,4 +373,62 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
     hold(0);
     nested = 0;
     return r_port;
+}
+
+/* The log of the calls (on Android, or PC_CALL_LOG=1; PC_CALL_LOG=0 turns
+ * it off): the first calls of each function of the game with their
+ * arguments and what they return, the calls that return an error code (-1
+ * to -255), all the objects created (GoolObjectCreate). Up to 30000 lines. */
+static s32 call_log = -1;
+static u32 call_lines;
+static struct {
+    u32 addr, calls, errors;
+} logs[2048];
+
+static void log_call(const char *name, u32 addr, s32 ret, const u32 *a, u32 r)
+{
+    u32 h = (addr >> 2) * 2654435761u >> 21;
+    u32 i;
+    s32 error = ret == 1 && r + 254u < 254u; /* -254..-1 (-255, 0xFFFFFF01: success) */
+    s32 create = addr == 0x8001A42Cu;
+
+    for (i = 0; i < 2048 && logs[h].addr != addr && logs[h].addr != 0; i++, h = (h + 1) & 2047) {
+    }
+    if (i == 2048) {
+        return;
+    }
+    logs[h].addr = addr;
+    if (!create && !(logs[h].calls++ < 4) && !(error && logs[h].errors++ < 20)) {
+        return;
+    }
+    if (call_lines++ >= 30000) {
+        return;
+    }
+    fprintf(stderr, "call %s(%X, %X, %X, %X, %X, %X)", name, a[0], a[1], a[2], a[3], a[4], a[5]);
+    if (ret) {
+        fprintf(stderr, " -> %X%s", r, error ? " (an error)" : "");
+    }
+    fprintf(stderr, " [frame %u]\n", pc_frames());
+}
+
+u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5,
+              u32 a6, u32 a7, u32 a8, u32 a9, u32 a10, u32 a11)
+{
+    s32 outer = !nested;
+    u32 r = shadow_call(name, addr, native, ret, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+
+    if (call_log < 0) {
+        const char *e = getenv("PC_CALL_LOG");
+#ifdef __ANDROID__
+        call_log = !e || atoi(e) != 0;
+#else
+        call_log = e && atoi(e) != 0;
+#endif
+    }
+    if (call_log && outer) {
+        u32 a[6] = { a0, a1, a2, a3, a4, a5 };
+
+        log_call(name, addr, ret, a, r);
+    }
+    return r;
 }

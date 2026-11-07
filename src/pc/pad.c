@@ -8,6 +8,7 @@
  *
  * Keys: arrows; Z Cross (jump), X Square (spin), C Circle (slide), S
  * Triangle, Enter Start, Backspace Select, Q L1, W R1, A L2, E R2. */
+#include "pc_shadow.h"
 #include "types.h"
 
 #ifdef PC_SDL
@@ -38,6 +39,7 @@ static s32 started;
 
 void PadInitDirect(u8 *buf1, u8 *buf2)
 {
+    SHADOW_UNSAFE();
     bufs[0] = buf1;
     bufs[1] = buf2;
     if (buf1) {
@@ -50,38 +52,45 @@ void PadInitDirect(u8 *buf1, u8 *buf2)
 
 void PadStartCom(void)
 {
+    SHADOW_UNSAFE();
     started = 1;
 }
 
 /* PadStopCom */
 void func_80048E88(void)
 {
+    SHADOW_UNSAFE();
     started = 0;
 }
 
 /* PadInfoMode: the kind of the pad (4: a digital pad) */
 s32 func_80048F00(s32 port)
 {
+    SHADOW_UNSAFE();
     return port == 0 ? 4 : 0;
 }
 
 /* PadInfoAct */
 s32 func_80048FC0(s32 port, s32 term, s32 offs)
 {
+    SHADOW_UNSAFE();
     return 0;
 }
 
 /* PadSetActAlign, PadSetMainMode, PadSetAct: no actuators */
 void func_80049234(s32 port, u8 *data)
 {
+    SHADOW_UNSAFE();
 }
 
 void func_8004926C(s32 port, s32 a, s32 b)
 {
+    SHADOW_UNSAFE();
 }
 
 void func_800492B4(s32 port, u8 *data, s32 len)
 {
+    SHADOW_UNSAFE();
 }
 
 /* the buttons from elsewhere (the touch screen and controllers on Android) */

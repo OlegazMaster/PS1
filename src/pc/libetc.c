@@ -6,6 +6,7 @@
  * per second). EnterCriticalSection/ExitCriticalSection block the signal, as
  * they disable the interrupts on the console. VSync waits for vertical
  * blanks and shows the frame. */
+#include "pc_shadow.h"
 #include "types.h"
 
 #include <string.h>
@@ -111,6 +112,7 @@ static void start(void)
 
 void EnterCriticalSection(void)
 {
+    SHADOW_UNSAFE();
     if (crit_depth++ == 0) {
         block(1);
     }
@@ -118,6 +120,7 @@ void EnterCriticalSection(void)
 
 void ExitCriticalSection(void)
 {
+    SHADOW_UNSAFE();
     if (crit_depth > 0 && --crit_depth == 0) {
         block(0);
     }
@@ -125,6 +128,7 @@ void ExitCriticalSection(void)
 
 s32 OpenEvent(u32 desc, s32 spec, s32 mode, void (*func)(void))
 {
+    SHADOW_UNSAFE();
     s32 i;
 
     start();
@@ -154,6 +158,7 @@ static Event *event(s32 id)
  * a timeout (EvSpTIMOUT), as with no card in the slot. */
 s32 TestEvent(s32 id)
 {
+    SHADOW_UNSAFE();
     Event *e = event(id);
 
     if (e && (e->desc == 0xF4000001u || e->desc == 0xF0000011u)) {
@@ -164,11 +169,13 @@ s32 TestEvent(s32 id)
 
 s32 WaitEvent(s32 id)
 {
+    SHADOW_UNSAFE();
     return TestEvent(id);
 }
 
 s32 EnableEvent(s32 id)
 {
+    SHADOW_UNSAFE();
     Event *e = event(id);
 
     if (e) {
@@ -179,6 +186,7 @@ s32 EnableEvent(s32 id)
 
 s32 DisableEvent(s32 id)
 {
+    SHADOW_UNSAFE();
     Event *e = event(id);
 
     if (e) {
@@ -189,6 +197,7 @@ s32 DisableEvent(s32 id)
 
 s32 CloseEvent(s32 id)
 {
+    SHADOW_UNSAFE();
     Event *e = event(id);
 
     if (e) {
@@ -200,6 +209,7 @@ s32 CloseEvent(s32 id)
 /* a root counter: spec 0xF2000000 + n; counter 2 counts the CPU clock / 8 */
 s32 SetRCnt(u32 spec, u16 target, s32 mode)
 {
+    SHADOW_UNSAFE();
     u32 n = spec & 3;
 
     if (n < 3 && target) {
@@ -210,6 +220,7 @@ s32 SetRCnt(u32 spec, u16 target, s32 mode)
 
 s32 StartRCnt(u32 spec)
 {
+    SHADOW_UNSAFE();
     u32 n = spec & 3;
 
     start();
@@ -222,6 +233,7 @@ s32 StartRCnt(u32 spec)
 
 s32 StopRCnt(u32 spec)
 {
+    SHADOW_UNSAFE();
     u32 n = spec & 3;
 
     if (n < 3) {
@@ -238,11 +250,13 @@ void FlushCache(void)
 
 void ResetCallback(void)
 {
+    SHADOW_UNSAFE();
     vsync_cb = NULL;
 }
 
 void VSyncCallback(void (*func)(void))
 {
+    SHADOW_UNSAFE();
     start();
     vsync_cb = func;
 }
@@ -251,6 +265,7 @@ void VSyncCallback(void (*func)(void))
  * for n after the last call; 1: (the time since the last) 0 */
 s32 VSync(s32 mode)
 {
+    SHADOW_UNSAFE();
     static u32 last;
     u32 target;
 

@@ -6,6 +6,7 @@
  * sector commands are needed: set the position (CdlSetloc, the seeks) and
  * read. pc_cd_find() finds a file in the root directory for the start code
  * (the executable). */
+#include "pc_shadow.h"
 #include "types.h"
 
 #include <stdio.h>
@@ -162,6 +163,7 @@ s32 pc_cd_find(const char *name, u32 *lba, u32 *size)
 /* reads size bytes of the file at sector lba */
 s32 pc_cd_read_file(u32 lba, u32 size, void *buf)
 {
+    SHADOW_UNSAFE();
     u8 tmp[2048];
     u8 *out = buf;
 
@@ -182,6 +184,7 @@ s32 pc_cd_read_file(u32 lba, u32 size, void *buf)
 
 s32 CdInit(void)
 {
+    SHADOW_UNSAFE();
     return disc != NULL;
 }
 
@@ -229,22 +232,26 @@ static s32 command(s32 com, u8 *param, u8 *result)
  * nothing is written there. */
 s32 CdControl(s32 com, u8 *param, u8 *result)
 {
+    SHADOW_UNSAFE();
     return command(com, param, NULL);
 }
 
 s32 CdControlB(s32 com, u8 *param, u8 *result)
 {
+    SHADOW_UNSAFE();
     return command(com, param, result);
 }
 
 s32 CdControlF(s32 com, u8 *param)
 {
+    SHADOW_UNSAFE();
     return command(com, param, NULL);
 }
 
 /* reads n sectors from the position (mode: as CdlSetmode) */
 s32 CdRead(s32 n, u32 *buf, s32 mode)
 {
+    SHADOW_UNSAFE();
     u8 *out = (u8 *)buf;
     s32 whole = mode & CdlModeSize1;
 
@@ -260,6 +267,7 @@ s32 CdRead(s32 n, u32 *buf, s32 mode)
 /* CdReadSync: 0 when the read is over */
 s32 func_80047F44(s32 mode, u8 *result)
 {
+    SHADOW_UNSAFE();
     if (result) {
         result[0] = 0x02;
     }
@@ -268,6 +276,7 @@ s32 func_80047F44(s32 mode, u8 *result)
 
 s32 CdSync(s32 mode, u8 *result)
 {
+    SHADOW_UNSAFE();
     if (result) {
         result[0] = 0x02;
     }

@@ -19,6 +19,9 @@
 /* src/pc/startup.c: the C function at a PlayStation address (0: none) */
 u32 pc_func_lookup(u32 psx);
 s32 pc_func_is_native(u32 addr);
+extern volatile s32 pc_shadow_orig;
+extern u32 pc_shadow_steps;
+void pc_shadow_unsafe(const char *what);
 u32 nd_exec(u32 pc, RcRegs *regs);
 
 #define ND_LO 0x80039E3Cu
@@ -254,6 +257,9 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
             }
         }
     interpret:
+        if (pc_shadow_orig && ++pc_shadow_steps > 5000000) {
+            pc_shadow_unsafe("too long");
+        }
         cur = pc;
         pc_mips_pc = cur;
         in = lw(cur);

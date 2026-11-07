@@ -42,9 +42,12 @@ static GteState gte_before, gte_orig;
 static u8 win_before[8][WINDOW], win_orig[8][WINDOW];
 static u8 *win_at[8];
 static s32 nested, enabled = -1;
-static u32 checks, differ_total;
+static u32 checks, differ_total, unchecked;
 static void *jump[5];       /* __builtin_setjmp: back from a crash of the original code */
-static volatile s32 in_orig;
+volatile s32 pc_shadow_orig; /* the original code is running */
+#define in_orig pc_shadow_orig
+static const char *volatile stopped_by; /* why it stopped (NULL: a crash) */
+u32 pc_shadow_steps;                    /* its instructions (src/pc/mips.c) */
 static const char *volatile now; /* the function being checked */
 
 const char *pc_shadow_now(void)
@@ -58,6 +61,19 @@ void pc_shadow_fault(void)
 {
     if (in_orig) {
         in_orig = 0;
+        stopped_by = NULL;
+        __builtin_longjmp(jump, 1);
+    }
+}
+
+/* a function of the port with effects outside the PlayStation memory, or
+ * too many instructions (a loop waiting for an interrupt): the run of the
+ * original code ends there, and the function is not checked any more */
+void pc_shadow_unsafe(const char *what)
+{
+    if (in_orig) {
+        in_orig = 0;
+        stopped_by = what;
         __builtin_longjmp(jump, 1);
     }
 }
@@ -85,8 +101,7 @@ static u32 *count_of(u32 addr, u32 **reports)
 
 static s32 checked_call(u32 n)
 {
-    return n <= 3 || n == 30 || n == 100 || n == 300 || n == 1000 || n == 3000 || n == 10000 || n == 30000 ||
-           n == 100000;
+    return n <= 3 || n == 100 || n == 1000 || n == 10000 || n == 100000;
 }
 
 /* the same value, written by the original code and by the port: a pointer
@@ -219,6 +234,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
     top = pc_mips_stack_top(0, 0);
     pc_mips_force = addr;
     in_orig = 1;
+    pc_shadow_steps = 0;
     if (__builtin_setjmp(jump) == 0) {
         r_orig = pc_mips_call(addr, a0, a1, a2, a3, a4, a5, a6, a7);
         in_orig = 0;
@@ -227,8 +243,12 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
          * otherwise): no more checks of this function */
         pc_mips_force = 0;
         pc_mips_stack_top(1, top);
-        fprintf(stderr, "shadow: %s (%08X) call %u: the original code crashed (at %08X); not checked any more\n",
-                name, addr, *calls, pc_mips_pc);
+        if (!stopped_by) {
+            fprintf(stderr, "shadow: %s (%08X) call %u: the original code crashed (at %08X); not checked any more\n",
+                    name, addr, *calls, pc_mips_pc);
+        } else {
+            unchecked++;
+        }
         *reports = 3;
         memcpy((void *)0x80000000u, ram_before, RAM_SIZE);
         memcpy((void *)PSX_SCRATCH, scr_before, SCRATCH_SIZE);
@@ -287,8 +307,9 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
                 va);
         ++*reports;
     }
-    if (checks % 500 == 0) {
-        fprintf(stderr, "shadow: %u checks, %u differences\n", checks, differ_total);
+    if (checks % 200 == 0) {
+        fprintf(stderr, "shadow: %u checks, %u differences (%u functions not checkable)\n", checks, differ_total,
+                unchecked);
     }
     hold(0);
     nested = 0;

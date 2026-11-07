@@ -2,6 +2,7 @@
  * software GPU (src/pc/gpu.c). Primitive lists are linked as on the console:
  * a tag word holds the length of the packet (top byte) and the low 24 bits
  * of the address of the next one, in the PlayStation RAM. */
+#include "pc_shadow.h"
 #include "libgpu.h"
 #include "pc_gpu.h"
 
@@ -17,6 +18,7 @@ static DISPENV cur_disp;
 
 s32 ResetGraph(s32 mode)
 {
+    SHADOW_UNSAFE();
     if (mode == 0 || mode == 3) {
         gpu_reset();
     }
@@ -25,6 +27,7 @@ s32 ResetGraph(s32 mode)
 
 s32 SetGraphDebug(s32 level)
 {
+    SHADOW_UNSAFE();
     return 0;
 }
 
@@ -99,6 +102,7 @@ void SetDrawEnv(DR_ENV *dr, DRAWENV *env)
 
 DRAWENV *PutDrawEnv(DRAWENV *env)
 {
+    SHADOW_UNSAFE();
     u32 c[16];
     u32 n = env_commands(env, c);
 
@@ -111,6 +115,7 @@ DRAWENV *PutDrawEnv(DRAWENV *env)
 
 DISPENV *PutDispEnv(DISPENV *env)
 {
+    SHADOW_UNSAFE();
     if (env != &cur_disp) {
         memcpy(&cur_disp, env, sizeof(cur_disp));
     }
@@ -124,17 +129,20 @@ DISPENV *PutDispEnv(DISPENV *env)
 
 void SetDispMask(s32 mask)
 {
+    SHADOW_UNSAFE();
     gpu_display.enabled = mask != 0;
 }
 
 /* everything is drawn at once */
 s32 DrawSync(s32 mode)
 {
+    SHADOW_UNSAFE();
     return 0;
 }
 
 void DrawPrim(void *prim)
 {
+    SHADOW_UNSAFE();
     u32 *p = prim;
 
     gpu_commands(p + 1, p[0] >> 24);
@@ -147,6 +155,7 @@ static u32 ot_seen[0x200000 / 4 / 32];
 
 void func_8004CBF4(void *ot)
 {
+    SHADOW_UNSAFE();
     static u32 loops;
     u32 *p = ot;
     u32 prev = 0;
@@ -191,18 +200,21 @@ void AddPrim(void *ot, void *prim)
 
 s32 LoadImage(RECT *r, u32 *data)
 {
+    SHADOW_UNSAFE();
     gpu_load(r->x, r->y, r->w, r->h, (const u16 *)data);
     return 0;
 }
 
 s32 StoreImage(RECT *r, u32 *data)
 {
+    SHADOW_UNSAFE();
     gpu_store(r->x, r->y, r->w, r->h, (u16 *)data);
     return 0;
 }
 
 s32 MoveImage(RECT *r, s32 x, s32 y)
 {
+    SHADOW_UNSAFE();
     gpu_move(r->x, r->y, x, y, r->w, r->h);
     return 0;
 }

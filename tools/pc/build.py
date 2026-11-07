@@ -108,18 +108,12 @@ INTERPRETED = {"func_8004F37C", "SetGeomScreen", "SetGeomOffset", "ReadGeomOffse
                "SetTransMatrix", "MulMatrix", "TransMatrix", "RotTrans", "RotTransPers", "ReadSZfifo3",
                "func_8004F544", "func_8004F794"}
 # The shadow check (src/pc/shadow.c; not on Windows): the global functions of
-# these game files that compute only in the RAM (what they call, directly,
-# stays in these files or in SHADOW_CALLS; no calls through pointers) get a
-# wrapper that, for some of their calls, runs the original code in the
-# interpreter too and logs where the C version leaves the memory different
+# the game files (but main, which never returns) get a wrapper that, for some
+# of their calls, runs the original code in the interpreter too and logs where
+# the C version leaves the memory different (the functions of the port with
+# effects outside the PlayStation memory end such a run: include/pc_shadow.h)
 SHADOW = not WINDOWS
-SHADOW_FILES = ["camera", "coll", "game", "gfx", "gool", "goolop", "goolvm", "interp", "level", "math", "obj", "prop"]
-SHADOW_CALLS = {"gte_write_data", "gte_read_data", "gte_command", "gte_write_ctrl", "gte_read_ctrl", "AddPrim",
-                "psx_malloc", "psx_free", "psx_realloc", "SetSemiTrans", "SetPolyFT4", "SetPolyF4", "GetTPage",
-                "strlen", "strncmp", "atoi", "sprintf", "memcpy", "memset", "memmove", "__aeabi_idiv", "__aeabi_uidiv",
-                "__aeabi_idivmod", "__aeabi_uidivmod", "__aeabi_ldivmod", "__aeabi_uldivmod", "__aeabi_lmul",
-                "__aeabi_llsl", "__aeabi_llsr", "__aeabi_lasr", "__divdi3", "__moddi3", "__udivdi3",
-                "__umoddi3"} | INTERPRETED
+SHADOW_SKIP = {"main"}
 # SDL2 for MinGW (the Windows build)
 SDL_VERSION = "2.30.9"
 SDL_URL = "https://github.com/libsdl-org/SDL/releases/download/release-%s/SDL2-devel-%s-mingw.tar.gz" % (
@@ -231,40 +225,20 @@ def move_variables(asm, psx, moved):
 
 
 def shadow_set(asms, psx):
-    """The functions the shadow check wraps: name -> (address, returns a
-    value of what size), from the assembly of the game files (file -> text)."""
-    defs, calls, glob = {}, {}, set()
+    """The functions the shadow check wraps: name -> (address, size of what
+    it returns), from the assembly of the game files (file -> text)."""
+    defs, glob = {}, set()
     for g, asm in asms.items():
-        cur = None
         for line in asm.splitlines():
             m = re.match(r"^%s([A-Za-z_]\w*):" % US, line)
             if m:
-                cur = m.group(1)
-                defs[cur] = g
-                calls[cur] = set()
-                continue
+                defs[m.group(1)] = g
             m = re.match(r"^\s+\.globa?l\s+%s(\w+)" % US, line)
             if m:
                 glob.add(m.group(1))
-            if cur is None:
-                continue
-            m = re.match(r"^\s+(call|j[a-z]+|b[a-z]{0,4})\s+%s([A-Za-z_][\w.]*)" % US, line)
-            if m and not m.group(2).startswith(".L") and not re.match(r"^(r\d+|ip|lr|sp|fp)$", m.group(2)):
-                calls[cur].add(m.group(2).split("(")[0])
-            elif re.match(r"^\s+call\s+\*|^\s+(blx|bx)\s+(r\d|ip|lr)\b", line) and \
-                    not re.match(r"^\s+bx\s+lr", line):
-                calls[cur].add("*")  # through a pointer
-    bad = set(f for f in defs if defs[f] not in SHADOW_FILES)
-    changed = True
-    while changed:
-        changed = False
-        for f in defs:
-            if f not in bad and any(c in bad or (c not in defs and c not in SHADOW_CALLS) for c in calls[f]):
-                bad.add(f)
-                changed = True
     out = {}
     for f in defs:
-        if f in bad or f not in glob or f not in psx or psx[f][1] not in "Tt" or is_data(psx, f):
+        if f in SHADOW_SKIP or f not in glob or f not in psx or psx[f][1] not in "Tt" or is_data(psx, f):
             continue
         src = open(os.path.join(ROOT, "src", defs[f] + ".c")).read()
         m = re.search(r"^([A-Za-z_][\w \t\*]*?)\b%s\s*\(([^;{]*)\)\s*\{" % f, src, re.M)

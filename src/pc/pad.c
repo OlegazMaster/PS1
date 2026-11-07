@@ -66,31 +66,26 @@ void func_80048E88(void)
 /* PadInfoMode: the kind of the pad (4: a digital pad) */
 s32 func_80048F00(s32 port)
 {
-    SHADOW_UNSAFE();
     return port == 0 ? 4 : 0;
 }
 
 /* PadInfoAct */
 s32 func_80048FC0(s32 port, s32 term, s32 offs)
 {
-    SHADOW_UNSAFE();
     return 0;
 }
 
 /* PadSetActAlign, PadSetMainMode, PadSetAct: no actuators */
 void func_80049234(s32 port, u8 *data)
 {
-    SHADOW_UNSAFE();
 }
 
 void func_8004926C(s32 port, s32 a, s32 b)
 {
-    SHADOW_UNSAFE();
 }
 
 void func_800492B4(s32 port, u8 *data, s32 len)
 {
-    SHADOW_UNSAFE();
 }
 
 /* the buttons from elsewhere (the touch screen and controllers on Android) */

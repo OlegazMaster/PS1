@@ -147,6 +147,9 @@ volatile u32 pc_mips_pc;
 /* an address interpreted even when it has a C version (the self-test) */
 u32 pc_mips_force;
 
+/* arguments 9 to 12 of the next pc_mips_call (the shadow check) */
+u32 pc_mips_extra[4];
+
 static u32 stack_top = 0;      /* the next free word (nested calls) */
 
 /* the depth of the stacks of the interpreted code (the shadow check puts it
@@ -186,6 +189,12 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
     sw(r[29] + 0x14, a5);
     sw(r[29] + 0x18, a6);
     sw(r[29] + 0x1C, a7);
+    /* arguments 9 to 12 (the shadow check): once */
+    sw(r[29] + 0x20, pc_mips_extra[0]);
+    sw(r[29] + 0x24, pc_mips_extra[1]);
+    sw(r[29] + 0x28, pc_mips_extra[2]);
+    sw(r[29] + 0x2C, pc_mips_extra[3]);
+    memset(pc_mips_extra, 0, sizeof(pc_mips_extra));
     r[28] = 0x80060878u; /* $gp of the game */
     r[31] = MIPS_RETURN;
 

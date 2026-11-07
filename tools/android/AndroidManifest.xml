@@ -4,8 +4,8 @@
      read files (the storage of apps targeting 28 is not scoped). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="io.github.olegazmaster.crash3port"
-    android:versionCode="17"
-    android:versionName="0.17">
+    android:versionCode="18"
+    android:versionName="0.18">
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />

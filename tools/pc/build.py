@@ -242,7 +242,7 @@ def shadow_set(asms, psx):
             continue
         src = open(os.path.join(ROOT, "src", defs[f] + ".c")).read()
         m = re.search(r"^([A-Za-z_][\w \t\*]*?)\b%s\s*\(([^;{]*)\)\s*\{" % f, src, re.M)
-        if not m or "..." in m.group(2) or m.group(2).count(",") >= 8 or "struct" in m.group(2) and \
+        if not m or "..." in m.group(2) or m.group(2).count(",") >= 12 or "struct" in m.group(2) and \
                 "*" not in m.group(2):
             continue
         ret = m.group(1).replace("static", "").replace("inline", "").strip()
@@ -492,12 +492,13 @@ def main():
             tab.append("extern char %s[];" % n)
     # the wrappers of the shadow check
     tab += ["u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4,",
-            "              u32 a5, u32 a6, u32 a7);"]
+            "              u32 a5, u32 a6, u32 a7, u32 a8, u32 a9, u32 a10, u32 a11);"]
     for n, (a, ret) in sorted(shadow.items()):
         tab += ["extern char %s__native[];" % n,
-                "u32 %s(u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7)" % n,
-                "{", "    return pc_shadow(\"%s\", 0x%08Xu, (u32)%s__native, %d, a0, a1, a2, a3, a4, a5, a6, a7);"
-                % (n, a, n, ret), "}"]
+                "u32 %s(u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7, u32 a8, u32 a9, u32 a10,"
+                % n, "      u32 a11)",
+                "{", "    return pc_shadow(\"%s\", 0x%08Xu, (u32)%s__native, %d, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9,"
+                % (n, a, n, ret), "                     a10, a11);", "}"]
     tab += ["", "/* the C functions: PlayStation address, x86 address (sorted) */",
             "const u32 pc_func_table[][2] = {"]
     tab += ["    { 0x%08Xu, (u32)%s }," % (a, n) for a, n in funcs]

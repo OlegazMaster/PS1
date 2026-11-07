@@ -24,7 +24,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef u32 (*CFunc)(u32, u32, u32, u32, u32, u32, u32, u32);
+typedef u32 (*CFunc)(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32);
+extern u32 pc_mips_extra[4]; /* src/pc/mips.c: arguments 9 to 12 of the next call */
 
 u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7);
 u32 pc_func_lookup(u32 psx);
@@ -42,10 +43,11 @@ extern volatile u32 pc_mips_pc;
 static u8 ram_before[RAM_SIZE], ram_orig[RAM_SIZE];
 static u8 scr_before[SCRATCH_SIZE], scr_orig[SCRATCH_SIZE];
 static GteState gte_before, gte_orig;
-static u8 win_before[8][WINDOW], win_orig[8][WINDOW];
-static u8 *win_at[8];
+static u8 win_before[12][WINDOW], win_orig[12][WINDOW];
+static u8 *win_at[12];
 static s32 nested, enabled = -1;
 static u32 checks, differ_total, unchecked;
+static s32 log_stops = 1; /* which functions could not be checked, and why */
 static void *jump[5];       /* __builtin_setjmp: back from a crash of the original code */
 volatile s32 pc_shadow_orig; /* the original code is running */
 #define in_orig pc_shadow_orig
@@ -121,7 +123,7 @@ static s32 same_word(u32 o, u32 n)
     if (o - 0x80010000u < 0x60000u && (pc_func_lookup(o) == n || nd_native_lookup(n) == o)) {
         return 1; /* a function: of the game, of nd_asm (the recompiled entry) */
     }
-    if (pc_mips_in_stack(o) && n - stack_here < 0x100000u) {
+    if ((pc_mips_in_stack(o) || o - stack_here < 0x100000u) && n - stack_here < 0x100000u) {
         return 1; /* an address in the stack: of the interpreter, of the C code */
     }
     return 0;
@@ -178,7 +180,7 @@ static void save_windows(u8 (*to)[WINDOW])
 {
     s32 i;
 
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 12; i++) {
         if (win_at[i]) {
             memcpy(to[i], win_at[i], WINDOW);
         }
@@ -189,7 +191,7 @@ static void load_windows(u8 (*from)[WINDOW])
 {
     s32 i;
 
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 12; i++) {
         if (win_at[i]) {
             memcpy(win_at[i], from[i], WINDOW);
         }
@@ -197,10 +199,10 @@ static void load_windows(u8 (*from)[WINDOW])
 }
 
 u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5,
-              u32 a6, u32 a7)
+              u32 a6, u32 a7, u32 a8, u32 a9, u32 a10, u32 a11)
 {
     /* (static: a window of the C stack may cover this frame) */
-    static u32 args[8], *calls, *reports, r_orig, r_port, first, va, vb, n, mask, top;
+    static u32 args[12], *calls, *reports, r_orig, r_port, first, va, vb, n, mask, top;
     static s32 i;
     u8 *here = (u8 *)__builtin_frame_address(0);
 
@@ -218,18 +220,19 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
         }
     }
     if (nested || !enabled) {
-        return ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7);
+        return ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     }
     calls = count_of(addr, &reports);
     if (!checked_call(++*calls) || *reports >= 3) {
-        return ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7);
+        return ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     }
     nested = 1;
     now = name;
     hold(1);
     args[0] = a0, args[1] = a1, args[2] = a2, args[3] = a3, args[4] = a4, args[5] = a5, args[6] = a6, args[7] = a7;
+    args[8] = a8, args[9] = a9, args[10] = a10, args[11] = a11;
     /* the arguments that point into the C stack (above this frame) */
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 12; i++) {
         u8 *p = (u8 *)args[i];
 
         win_at[i] = p > here + 64 && p < here + 0x100000 ? p : NULL;
@@ -244,6 +247,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
     in_orig = 1;
     pc_shadow_steps = 0;
     if (__builtin_setjmp(jump) == 0) {
+        pc_mips_extra[0] = a8, pc_mips_extra[1] = a9, pc_mips_extra[2] = a10, pc_mips_extra[3] = a11;
         r_orig = pc_mips_call(addr, a0, a1, a2, a3, a4, a5, a6, a7);
         in_orig = 0;
     } else {
@@ -254,17 +258,23 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
         if (!stopped_by) {
             fprintf(stderr, "shadow: %s (%08X) call %u: the original code crashed (at %08X); not checked any more\n",
                     name, addr, *calls, pc_mips_pc);
+            *reports = 3;
         } else {
-            unchecked++;
+            /* (the next checked call may take another way: tried again) */
+            if (*calls == 1) {
+                unchecked++;
+                if (log_stops) {
+                    fprintf(stderr, "shadow: %s (%08X) not checked: it uses %s\n", name, addr, stopped_by);
+                }
+            }
         }
-        *reports = 3;
         memcpy((void *)0x80000000u, ram_before, RAM_SIZE);
         memcpy((void *)PSX_SCRATCH, scr_before, SCRATCH_SIZE);
         gte = gte_before;
         load_windows(win_before);
         hold(0);
         nested = 0;
-        return ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7);
+        return ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     }
     pc_mips_force = 0;
     memcpy(ram_orig, (void *)0x80000000u, RAM_SIZE);
@@ -276,7 +286,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
     memcpy((void *)PSX_SCRATCH, scr_before, SCRATCH_SIZE);
     gte = gte_before;
     load_windows(win_before);
-    r_port = ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7);
+    r_port = ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     checks++;
 
     mask = ret == 0 ? 0 : ret == 2 ? 0xFFFFu : ret == 3 ? 0xFFu : 0xFFFFFFFFu;
@@ -300,7 +310,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
         ++*reports;
         differ_total++;
     }
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 12; i++) {
         if (win_at[i] && (n = compare(win_orig[i], win_at[i], WINDOW, 0, &first, &va, &vb)) != 0) {
             fprintf(stderr, "shadow: %s (%08X) call %u: %u words differ after argument %d (a pointer to the C "
                     "stack), the first at +%X: %08X, the original %08X\n", name, addr, *calls, n, i, first, vb, va);
@@ -316,8 +326,8 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
         ++*reports;
     }
     if (checks % 200 == 0) {
-        fprintf(stderr, "shadow: %u checks, %u differences (%u functions not checkable)\n", checks, differ_total,
-                unchecked);
+        fprintf(stderr, "shadow: %u checks, %u differences (%u functions stopped at their first call)\n", checks,
+                differ_total, unchecked);
     }
     hold(0);
     nested = 0;

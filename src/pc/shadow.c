@@ -21,6 +21,7 @@
 #include "pc_gpu.h"
 
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -431,4 +432,20 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
         log_call(name, addr, ret, a, r);
     }
     return r;
+}
+
+/* the spawns of the objects of the entities (src/gool.c), with the log of
+ * the calls: up to 5000 lines */
+void pc_spawn_log(const char *fmt, ...)
+{
+    static u32 lines;
+    va_list ap;
+
+    if (nested || !call_log || lines++ >= 5000) {
+        return;
+    }
+    fprintf(stderr, "spawn [frame %u]: ", pc_frames());
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
 }

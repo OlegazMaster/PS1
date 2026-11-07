@@ -282,6 +282,14 @@ typedef struct {
  * the id twice. */
 #define EntitySpawn(e) (id = (EntityProp(e, 0x9F), EntityProp(e, 0x9F)), spawns[id])
 
+/* the log of the spawns in the PC port (the port's log: src/pc/shadow.c) */
+#ifdef TARGET_PC
+void pc_spawn_log(const char *fmt, ...);
+#define PC_SPAWN_LOG(...) pc_spawn_log(__VA_ARGS__)
+#else
+#define PC_SPAWN_LOG(...)
+#endif
+
 #ifdef NON_MATCHING
 /* Spawns the object of entity idx of zone (c1: GoolObjectSpawn); crates
  * (exec 0x22) right above the previous one are stacked on it. Equivalent;
@@ -312,6 +320,10 @@ GoolObject *GoolObjectSpawn(Entry *zone, s32 idx) {
     if (EntityProp(entity, 0xA9) == 0 || (EntityProp(entity, 0x9F) > 0 && EntityProp(entity, 0x9F) < 5)) {
         is_player = 1;
     }
+    PC_SPAWN_LOG("entity %d exec %X sub %X: zone %08X idx %d, spawns %X, player %d%s\n", EntityProp(entity, 0x9F),
+                 EntityProp(entity, 0xA9), EntityProp(entity, 0xAA), (u32)zone, idx,
+                 EntityProp(entity, 0x9F) >= 0 && EntityProp(entity, 0x9F) < 0x300 ? spawns[EntityProp(entity, 0x9F)] : 0xDEAD,
+                 is_player, EntityProp(entity, 0x342) & 1 ? ", flag 0x342" : "");
     if (is_player && crash != NULL) {
         return (GoolObject *)-0xE;
     }
@@ -368,6 +380,7 @@ GoolObject *GoolObjectSpawn(Entry *zone, s32 idx) {
         argc = 0;
     }
     res = GoolObjectInit(obj, EntityProp(entity, 0xA9), EntityProp(entity, 0xAA), argc, argv, 1);
+    PC_SPAWN_LOG("  GoolObjectInit -> %X\n", res);
     if (res > -0xFF) {
         GoolObjectAddChild(obj, (GoolObject *)&game.free_objects);
         return (GoolObject *)res;
@@ -738,6 +751,8 @@ void func_8001AE64(Entry *zone, s32 id) {
         case 0x13C:
             value = e->value;
             pid = value & 0xFFFF00;
+            PC_SPAWN_LOG("queue 0x13C: value %08X (zone %d, pid %X, entity %d), spawns %X\n", value, value & 0xFF,
+                         pid >> 8, *((u8 *)e + 3), spawns[pid >> 8]);
             if (!(spawns[pid >> 8] & 1) && (value & 0xFF) < 0x10) {
                 e->unk4 = (s32)GoolObjectSpawn((Entry *)NSOpen(&((ZoneHeader *)zone->items[0])->neighbors[value & 0xFF], 1, 0), *((u8 *)e + 3));
                 if (e->unk4 > -0xFF) {

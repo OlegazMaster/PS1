@@ -23,6 +23,8 @@ u32 nd_exec(u32 pc, RcRegs *regs);
 #define ND_LO 0x80039E3Cu
 #define ND_HI 0x80045750u
 #define MIPS_RETURN 0xFFFFFFF0u
+#define PSYQ_LO 0x80045750u /* the PSY-Q libraries in the executable */
+#define PSYQ_HI 0x8005BC40u
 
 /* the memory at an address the code uses: kseg0/kseg1/kuseg mirrors of the
  * RAM, the scratchpad where the port has it */
@@ -49,6 +51,56 @@ static void sw(u32 a, u32 v)
 
 typedef u32 (*CFunc)(u32, u32, u32, u32, u32, u32, u32, u32);
 
+static u32 logged;
+
+/* the port's libapi (src/pc/libetc.c) */
+s32 OpenEvent(u32 desc, s32 spec, s32 mode, void (*func)(void));
+s32 CloseEvent(s32 id);
+s32 TestEvent(s32 id);
+s32 EnableEvent(s32 id);
+s32 DisableEvent(s32 id);
+
+/* The BIOS functions the libraries call (table 0xA0, 0xB0 or 0xC0, function
+ * t1, arguments a0..a3 in r). The memory card answers as with no card. */
+static u32 bios(u32 table, u32 fn, u32 *r)
+{
+    static u32 seen[3][256 / 32];
+    u32 t = table == 0xA0 ? 0 : table == 0xB0 ? 1 : 2;
+
+    if (table == 0xB0) {
+        switch (fn) {
+        case 0x07: return 1;                                           /* DeliverEvent */
+        case 0x08: return (u32)OpenEvent(r[4], (s32)r[5], (s32)r[6], NULL); /* (no handler in the overlay) */
+        case 0x09: return (u32)CloseEvent((s32)r[4]);
+        case 0x0A: return (u32)TestEvent((s32)r[4]);                     /* WaitEvent */
+        case 0x0B: return (u32)TestEvent((s32)r[4]);
+        case 0x0C: return (u32)EnableEvent((s32)r[4]);
+        case 0x0D: return (u32)DisableEvent((s32)r[4]);
+        case 0x4A: case 0x4B: case 0x4C: return 1;                         /* InitCard, StartCard, StopCard */
+        case 0x4E: case 0x4F: return 0;                                    /* write/read a card sector: none */
+        case 0x50: return 1;                                               /* allow_new_card */
+        default: break;
+        }
+    } else if (table == 0xA0) {
+        switch (fn) {
+        case 0x17: return (u32)strcmp((const char *)mem(r[4]), (const char *)mem(r[5]));
+        case 0x18: return (u32)strncmp((const char *)mem(r[4]), (const char *)mem(r[5]), r[6]);
+        case 0x19: strcpy((char *)mem(r[4]), (const char *)mem(r[5])); return r[4];
+        case 0x1B: return (u32)strlen((const char *)mem(r[4]));
+        case 0x2A: memcpy(mem(r[4]), mem(r[5]), r[6]); return r[4];
+        case 0x2B: memset(mem(r[4]), (int)r[5], r[6]); return r[4];
+        case 0xAB: return 0; /* _card_info: no card (the events report a timeout) */
+        case 0xAC: return 0; /* _card_load */
+        default: break;
+        }
+    }
+    if (!(seen[t][(fn & 255) / 32] & (1u << (fn & 31)))) {
+        seen[t][(fn & 255) / 32] |= 1u << (fn & 31);
+        fprintf(stderr, "port: BIOS function %02X:%02X is not implemented (returns 0)\n", table, fn);
+    }
+    return 0;
+}
+
 /* an address interpreted even when it has a C version (the self-test) */
 u32 pc_mips_force;
 
@@ -61,6 +113,7 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
     u32 r[32], hi = 0, lo = 0;
     u32 pc = addr, npc = addr + 4;
     s32 jumped = 1;
+    u32 last_jump = addr;
     u32 base;
 
     memset(r, 0, sizeof(r));
@@ -99,6 +152,21 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
             if (pc == pc_mips_force) {
                 goto interpret;
             }
+            if ((pc & 0x1FFFFFFFu) == 0xA0 || (pc & 0x1FFFFFFFu) == 0xB0 || (pc & 0x1FFFFFFFu) == 0xC0) {
+                /* a call of the BIOS: the table at pc, the function in t1 */
+                r[2] = bios((pc & 0xFF), r[9], r);
+                pc = r[31];
+                npc = pc + 4;
+                jumped = 1;
+                continue;
+            }
+            if (pc < 0x80010000u || pc >= 0x80200000u) {
+                if (warned++ < 20) {
+                    fprintf(stderr, "port: interpreted code jumps to %08X (from about %08X): returning\n", pc,
+                            last_jump);
+                }
+                break;
+            }
             if (pc >= ND_LO && pc < ND_HI) {
                 /* the recompiled hand-written assembly, with all registers
                  * (before the C functions: its procedures with register
@@ -121,7 +189,11 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
                 jumped = 1;
                 continue;
             }
-            if ((f = pc_func_lookup(pc)) != 0) {
+            if ((f = pc_func_lookup(pc)) == 0 && pc >= PSYQ_LO && pc < PSYQ_HI && logged < 40) {
+                logged++;
+                fprintf(stderr, "port: interpreting PSY-Q code at %08X (called from %08X)\n", pc, r[31] - 8);
+            }
+            if (f != 0) {
                 /* a C function of the game (or of the port's libraries) */
                 r[2] = ((CFunc)f)(r[4], r[5], r[6], r[7], lw(r[29] + 0x10), lw(r[29] + 0x14), lw(r[29] + 0x18),
                                   lw(r[29] + 0x1C));
@@ -148,7 +220,7 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
         if (jumped > 1) {
             jumped--; /* set to 2 by a jump: 1 from its delay slot on, checked at the target */
         }
-#define BRANCH(c) do { if (c) { npc = cur + 4 + ((u32)simm << 2); jumped = 2; } } while (0)
+#define BRANCH(c) do { if (c) { npc = cur + 4 + ((u32)simm << 2); jumped = 2; last_jump = cur; } } while (0)
         switch (op) {
         case 0:
             switch (fn) {
@@ -158,8 +230,8 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
             case 0x04: r[rd] = r[rt] << (r[rs] & 31); break;
             case 0x06: r[rd] = r[rt] >> (r[rs] & 31); break;
             case 0x07: r[rd] = (u32)((s32)r[rt] >> (r[rs] & 31)); break;
-            case 0x08: npc = r[rs]; jumped = 2; break;
-            case 0x09: { u32 t = r[rs]; r[rd] = cur + 8; npc = t; jumped = 2; break; }
+            case 0x08: npc = r[rs]; jumped = 2; last_jump = cur; break;
+            case 0x09: { u32 t = r[rs]; r[rd] = cur + 8; npc = t; jumped = 2; last_jump = cur; break; }
             case 0x0C: case 0x0D:
                 if (warned++ < 5) {
                     fprintf(stderr, "port: syscall/break at %08X in interpreted code\n", cur);
@@ -193,8 +265,8 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
             BRANCH((rt & 1) ? ge : !ge);
             break;
         }
-        case 2: npc = (cur & 0xF0000000) | ((in & 0x3FFFFFF) << 2); jumped = 2; break;
-        case 3: r[31] = cur + 8; npc = (cur & 0xF0000000) | ((in & 0x3FFFFFF) << 2); jumped = 2; break;
+        case 2: npc = (cur & 0xF0000000) | ((in & 0x3FFFFFF) << 2); jumped = 2; last_jump = cur; break;
+        case 3: r[31] = cur + 8; npc = (cur & 0xF0000000) | ((in & 0x3FFFFFF) << 2); jumped = 2; last_jump = cur; break;
         case 4: BRANCH(r[rs] == r[rt]); break;
         case 5: BRANCH(r[rs] != r[rt]); break;
         case 6: BRANCH((s32)r[rs] <= 0); break;

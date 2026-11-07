@@ -149,6 +149,24 @@ static Event *event(s32 id)
     return ((u32)id >> 24) == 0xF1 && i < MAX_EVENTS && events[i].used ? &events[i] : NULL;
 }
 
+/* Whether an event happened. The memory card (software 0xF4000001 and
+ * hardware 0xF0000011 events): the port has none, so every operation ends in
+ * a timeout (EvSpTIMOUT), as with no card in the slot. */
+s32 TestEvent(s32 id)
+{
+    Event *e = event(id);
+
+    if (e && (e->desc == 0xF4000001u || e->desc == 0xF0000011u)) {
+        return e->spec == 0x100;
+    }
+    return 0;
+}
+
+s32 WaitEvent(s32 id)
+{
+    return TestEvent(id);
+}
+
 s32 EnableEvent(s32 id)
 {
     Event *e = event(id);

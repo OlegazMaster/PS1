@@ -355,6 +355,23 @@ static void mips_selftest(void)
             }
         }
     }
+    /* a call of the BIOS as the PSY-Q stubs make it: TestEvent of memory
+     * card events (a timeout: no card) */
+    {
+        static const u32 stub[] = { 0x240A00B0, 0x01400008, 0x2409000B }; /* li t2,0xB0; jr t2; li t1,0x0B */
+        s32 OpenEvent(u32 desc, s32 spec, s32 mode, void (*func)(void));
+        s32 timeout = OpenEvent(0xF4000001u, 0x100, 0x2000, NULL), ioe = OpenEvent(0xF4000001u, 4, 0x2000, NULL);
+        u32 x, y;
+
+        memcpy((void *)0x801FE000u, stub, sizeof(stub));
+        x = pc_mips_call(0x801FE000u, (u32)timeout, 0, 0, 0, 0, 0, 0, 0);
+        y = pc_mips_call(0x801FE000u, (u32)ioe, 0, 0, 0, 0, 0, 0, 0);
+        n += 2;
+        if (x != 1 || y != 0) {
+            bad++;
+            fprintf(stderr, "mips test: BIOS TestEvent: timeout %u, ioe %u\n", x, y);
+        }
+    }
     fprintf(stderr, "mips test: %u calls, %u differ\n", n, bad);
     exit(bad != 0);
 }

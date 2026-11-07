@@ -105,6 +105,23 @@ static struct {
     u32 addr, calls, reports;
 } counts[2048];
 
+/* The objects followed closely (PC_FOCUS=exec in hex, default 0x49: the
+ * level buttons and portals of the warp rooms): every call of a game
+ * function on such an object (its first argument) is checked and logged. */
+static s32 focus_exec = -1;
+static u32 focus_checks;
+
+static s32 is_focus(u32 obj)
+{
+    if (focus_exec < 0) {
+        const char *e = getenv("PC_FOCUS");
+
+        focus_exec = e ? (s32)strtoul(e, NULL, 16) : 0x49;
+    }
+    return obj - 0x80000000u < 0x1FFF00u && !(obj & 3) && *(u32 *)obj == 1 &&
+           (*(u32 *)(obj + 0xB4) >> 16) == (u32)focus_exec;
+}
+
 static u32 *count_of(u32 addr, u32 **reports)
 {
     u32 h = (addr >> 2) * 2654435761u >> 21; /* 2048 slots */
@@ -219,8 +236,9 @@ static u32 shadow_call(const char *name, u32 addr, u32 native, s32 ret, u32 a0, 
                        u32 a5, u32 a6, u32 a7, u32 a8, u32 a9, u32 a10, u32 a11)
 {
     /* (static: a window of the C stack may cover this frame) */
+    static u32 n_before;
     static u32 args[12], *calls, *reports, r_orig, r_port, first, va, vb, n, mask, top;
-    static s32 i;
+    static s32 i, focus;
     u8 *here = (u8 *)__builtin_frame_address(0);
 
     stack_here = (u32)here - 0x10000u; /* (the callees' frames are below) */
@@ -240,7 +258,11 @@ static u32 shadow_call(const char *name, u32 addr, u32 native, s32 ret, u32 a0, 
         return ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     }
     calls = count_of(addr, &reports);
-    if (!checked_call(++*calls) || *reports >= 3) {
+    focus = is_focus(a0) && focus_checks < 4000;
+    if (focus) {
+        focus_checks++;
+    }
+    if ((!checked_call(++*calls) || *reports >= 3) && !focus) {
         return ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     }
     nested = 1;
@@ -316,6 +338,7 @@ static u32 shadow_call(const char *name, u32 addr, u32 native, s32 ret, u32 a0, 
     }
     r_port = ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     checks++;
+    n_before = differ_total;
 
     mask = ret == 0 ? 0 : ret == 2 ? 0xFFFFu : ret == 3 ? 0xFFu : 0xFFFFFFFFu;
     if ((r_orig & mask) != (r_port & mask) && !same_word(r_orig, r_port)) {
@@ -367,6 +390,10 @@ static u32 shadow_call(const char *name, u32 addr, u32 native, s32 ret, u32 a0, 
                 va);
         ++*reports;
     }
+    if (focus && n_before != differ_total) {
+        fprintf(stderr, "shadow:   (on the object %08X: exec %X subtype %X, state %X, frame %u)\n", a0,
+                *(u32 *)(a0 + 0xB4) >> 16, *(u32 *)(a0 + 0xB4) & 0xFFFF, *(u32 *)(a0 + 0x1C), pc_frames());
+    }
     if (checks % 200 == 0) {
         fprintf(stderr, "shadow: %u checks, %u differences (%u functions stopped at their first call)\n", checks,
                 differ_total, unchecked);
@@ -386,7 +413,7 @@ static struct {
     u32 addr, calls, errors;
 } logs[2048];
 
-static void log_call(const char *name, u32 addr, s32 ret, const u32 *a, u32 r)
+static void log_call(const char *name, u32 addr, s32 ret, const u32 *a, u32 r, s32 focus, u32 id, u32 state)
 {
     u32 h = (addr >> 2) * 2654435761u >> 21;
     u32 i;
@@ -399,7 +426,7 @@ static void log_call(const char *name, u32 addr, s32 ret, const u32 *a, u32 r)
         return;
     }
     logs[h].addr = addr;
-    if (!create && !(logs[h].calls++ < 4) && !(error && logs[h].errors++ < 20)) {
+    if (!create && !(logs[h].calls++ < 4) && !(error && logs[h].errors++ < 20) && !focus) {
         return;
     }
     if (call_lines++ >= 30000) {
@@ -409,6 +436,9 @@ static void log_call(const char *name, u32 addr, s32 ret, const u32 *a, u32 r)
     if (ret) {
         fprintf(stderr, " -> %X%s", r, error ? " (an error)" : "");
     }
+    if (focus) {
+        fprintf(stderr, " {exec %X sub %X state %X -> %X}", id >> 16, id & 0xFFFF, state, *(u32 *)(a[0] + 0x1C));
+    }
     fprintf(stderr, " [frame %u]\n", pc_frames());
 }
 
@@ -416,6 +446,8 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
               u32 a6, u32 a7, u32 a8, u32 a9, u32 a10, u32 a11)
 {
     s32 outer = !nested;
+    s32 focus = outer && is_focus(a0);
+    u32 id = focus ? *(u32 *)(a0 + 0xB4) : 0, state = focus ? *(u32 *)(a0 + 0x1C) : 0;
     u32 r = shadow_call(name, addr, native, ret, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
 
     if (call_log < 0) {
@@ -429,7 +461,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
     if (call_log && outer) {
         u32 a[6] = { a0, a1, a2, a3, a4, a5 };
 
-        log_call(name, addr, ret, a, r);
+        log_call(name, addr, ret, a, r, focus, id, state);
     }
     return r;
 }

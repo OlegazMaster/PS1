@@ -447,6 +447,69 @@ static volatile s32 game_started;
  * sigcontext at 20: r0 at 12, ..., lr at 68, pc at 72) */
 u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7);
 
+/* The low 2 MB of addresses are a mirror of the RAM on the PlayStation, and
+ * the game reads there (fields of a null object: 0x120). A process cannot
+ * have memory there, so the faulting ARM load or store is done here on the
+ * RAM at 0x80000000 and the code goes on. regs: r0..r15, cpsr. */
+static s32 emulate_low(u32 *regs, u32 addr)
+{
+    static u32 count;
+    u32 in = *(u32 *)regs[15];
+    u8 *m = (u8 *)(0x80000000u | addr);
+    u32 rt = (in >> 12) & 15, rn = (in >> 16) & 15;
+    s32 p = (in >> 24) & 1, w = (in >> 21) & 1, up = (in >> 23) & 1, load = (in >> 20) & 1;
+    s32 off = 0;
+
+    if (rt == 15) {
+        return 0;
+    }
+    if ((in & 0x0C000000u) == 0x04000000u) {
+        /* LDR, STR, LDRB, STRB */
+        s32 byte = (in >> 22) & 1;
+
+        if (load) {
+            regs[rt] = byte ? *m : (u32)m[0] | m[1] << 8 | m[2] << 16 | (u32)m[3] << 24;
+        } else if (byte) {
+            *m = (u8)regs[rt];
+        } else {
+            memcpy(m, &regs[rt], 4);
+        }
+        if (!(in & (1u << 25))) {
+            off = in & 0xFFF;
+        } else if (((in >> 4) & 0xFF) == 0) {
+            off = regs[in & 15];
+        } else if (!p || w) {
+            return 0; /* a shifted register with writeback: not here */
+        }
+    } else if ((in & 0x0E000090u) == 0x00000090u && (in & 0x60u)) {
+        /* LDRH, STRH, LDRSB, LDRSH */
+        u32 sh = (in >> 5) & 3;
+
+        if (load) {
+            regs[rt] = sh == 1 ? (u32)(m[0] | m[1] << 8)
+                     : sh == 2 ? (u32)(s32)(s8)m[0]
+                               : (u32)(s32)(s16)(m[0] | m[1] << 8);
+        } else if (sh == 1) {
+            m[0] = (u8)regs[rt];
+            m[1] = (u8)(regs[rt] >> 8);
+        } else {
+            return 0; /* LDRD/STRD */
+        }
+        off = (in & (1u << 22)) ? (s32)(((in >> 4) & 0xF0) | (in & 15)) : (s32)regs[in & 15];
+    } else {
+        return 0;
+    }
+    if (!p || w) {
+        regs[rn] = p ? addr : regs[rn] + (up ? off : -off);
+    }
+    if (count++ < 10 && logf) {
+        fprintf(logf, "port: %s at the low mirror %08X from +%X\n", load ? "read" : "write", addr,
+                regs[15] - (u32)__ehdr_start);
+    }
+    regs[15] += 4;
+    return 1;
+}
+
 static void on_crash(int sig, void *info, void *uc)
 {
     u32 addr = *(u32 *)((u8 *)info + 12);
@@ -455,6 +518,9 @@ static void on_crash(int sig, void *info, void *uc)
     u32 pc = regs[15];
     u32 sp = regs[13];
 
+    if (sig == 11 && addr < 0x200000u && !(regs[16] & 0x20) && emulate_low(regs, addr)) {
+        return; /* a load or store at the low mirror of the RAM, done */
+    }
     if (sig == 11 && addr == pc && pc - 0x80010000u < 0x1F0000u && !(pc & 3)) {
         /* the native code called a PlayStation address (a pointer to a
          * function in the data of the game): the call goes to the
@@ -504,6 +570,109 @@ static void catch_crashes(void)
     }
 }
 
+/* ---- the VRAM as a PNG (no compression), for the diagnostics ---- */
+
+#include "pc_gpu.h"
+
+static u32 crc_table[256];
+
+static u32 crc32(u32 c, const u8 *p, u32 n)
+{
+    u32 i, k;
+
+    if (!crc_table[1]) {
+        for (i = 0; i < 256; i++) {
+            u32 x = i;
+
+            for (k = 0; k < 8; k++) {
+                x = x & 1 ? 0xEDB88320u ^ (x >> 1) : x >> 1;
+            }
+            crc_table[i] = x;
+        }
+    }
+    c = ~c;
+    while (n--) {
+        c = crc_table[(c ^ *p++) & 255] ^ (c >> 8);
+    }
+    return ~c;
+}
+
+static void put32(FILE *f, u32 v)
+{
+    fputc(v >> 24, f);
+    fputc(v >> 16 & 255, f);
+    fputc(v >> 8 & 255, f);
+    fputc(v & 255, f);
+}
+
+static void chunk(FILE *f, const char *type, const u8 *data, u32 n)
+{
+    u32 c = crc32(0, (const u8 *)type, 4);
+
+    put32(f, n);
+    fwrite(type, 1, 4, f);
+    fwrite(data, 1, n, f);
+    put32(f, crc32(c, data, n));
+}
+
+static void dump_vram(const char *path)
+{
+    static u8 raw[GPU_VRAM_H * (1 + GPU_VRAM_W * 3)];
+    static u8 z[sizeof(raw) + sizeof(raw) / 65535 * 5 + 64];
+    u8 head[13] = { 0, 0, 4, 0, 0, 0, 2, 0, 8, 2, 0, 0, 0 };
+    u32 x, y, n = 0, i, a = 1, b = 0;
+    FILE *f;
+
+    for (y = 0; y < GPU_VRAM_H; y++) {
+        raw[n++] = 0;
+        for (x = 0; x < GPU_VRAM_W; x++) {
+            u16 c = gpu_vram[y][x];
+
+            raw[n++] = (u8)((c & 31) << 3);
+            raw[n++] = (u8)(((c >> 5) & 31) << 3);
+            raw[n++] = (u8)(((c >> 10) & 31) << 3);
+        }
+    }
+    /* zlib with stored blocks */
+    z[0] = 0x78;
+    z[1] = 0x01;
+    i = 2;
+    for (x = 0; x < n; x += 65535) {
+        u32 len = n - x < 65535 ? n - x : 65535;
+
+        z[i++] = x + len == n;
+        z[i++] = (u8)len;
+        z[i++] = (u8)(len >> 8);
+        z[i++] = (u8)~len;
+        z[i++] = (u8)(~len >> 8);
+        memcpy(z + i, raw + x, len);
+        i += len;
+    }
+    for (x = 0; x < n; x++) {
+        a = (a + raw[x]) % 65521;
+        b = (b + a) % 65521;
+    }
+    z[i++] = (u8)(b >> 8);
+    z[i++] = (u8)b;
+    z[i++] = (u8)(a >> 8);
+    z[i++] = (u8)a;
+    head[2] = GPU_VRAM_W >> 8;
+    head[3] = GPU_VRAM_W & 255;
+    head[6] = GPU_VRAM_H >> 8;
+    head[7] = GPU_VRAM_H & 255;
+    f = fopen(path, "wb");
+    if (!f) {
+        return;
+    }
+    fwrite("\x89PNG\r\n\x1a\n", 1, 8, f);
+    chunk(f, "IHDR", head, 13);
+    chunk(f, "IDAT", z, i);
+    chunk(f, "IEND", NULL, 0);
+    fclose(f);
+}
+
+static char vram_path[600];
+
 /* where the game thread is (sampled with SIGUSR1 when it shows nothing) */
 extern volatile u32 pc_mips_pc;
 static pthread_t game_tid;
@@ -549,6 +718,9 @@ static void *monitor_thread(void *arg)
             fflush(logf);
         }
         last_frames = f;
+        if (game_started && vram_path[0] && n % 9 == 0) {
+            dump_vram(vram_path);
+        }
         if (pc_frames() == 0) {
             pc_android_present(NULL, 0, 0); /* the messages until the game shows something */
         }
@@ -626,6 +798,7 @@ static void *game_thread(void *arg)
 
         snprintf(path, sizeof(path), "%.*s/crash3_log.txt", (int)(slash - image), image);
         logf = fopen(path, "w");
+        snprintf(vram_path, sizeof(vram_path), "%.*s/crash3_vram.png", (int)(slash - image), image);
     }
     status_lines = 0;
     say("DISC IMAGE: %s", image);

@@ -267,7 +267,6 @@ s32 CdRead(s32 n, u32 *buf, s32 mode)
 /* CdReadSync: 0 when the read is over */
 s32 func_80047F44(s32 mode, u8 *result)
 {
-    SHADOW_UNSAFE();
     if (result) {
         result[0] = 0x02;
     }
@@ -276,7 +275,6 @@ s32 func_80047F44(s32 mode, u8 *result)
 
 s32 CdSync(s32 mode, u8 *result)
 {
-    SHADOW_UNSAFE();
     if (result) {
         result[0] = 0x02;
     }

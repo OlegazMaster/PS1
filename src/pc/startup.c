@@ -386,6 +386,24 @@ static void mips_selftest(void)
             fprintf(stderr, "mips test: BIOS TestEvent: timeout %u, ioe %u\n", x, y);
         }
     }
+    /* the native code of GOOL (opcode 0x49): all the registers in and out */
+    {
+        static const u32 code[] = { 0x26B50008, 0x03E00008, 0x26D60004 }; /* addiu s5,8; jr ra; addiu s6,4 */
+        void pc_mips_call_regs(u32 addr, u32 *regs);
+        u32 regs[32];
+
+        memset(regs, 0, sizeof(regs));
+        memcpy((void *)0x801FE100u, code, sizeof(code));
+        regs[21] = 0x80100000u;
+        regs[22] = 0x80100100u;
+        regs[16] = 0x1234;
+        pc_mips_call_regs(0x801FE100u, regs);
+        n++;
+        if (regs[21] != 0x80100008u || regs[22] != 0x80100104u || regs[16] != 0x1234) {
+            bad++;
+            fprintf(stderr, "mips test: registers in and out: s5 %X s6 %X s0 %X\n", regs[21], regs[22], regs[16]);
+        }
+    }
     /* native calls of PlayStation addresses (pointers in the data of the
      * game): through the fault handler into the interpreter */
     {

@@ -163,14 +163,18 @@ u32 pc_mips_stack_top(s32 set, u32 top)
 }
 static u32 warned;
 
+static u32 *regs_io; /* pc_mips_call_regs */
+
 u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7)
 {
     u32 r[32], hi = 0, lo = 0;
+    u32 *io = regs_io;
     u32 pc = addr, npc = addr + 4;
     s32 jumped = 1;
     u32 last_jump = addr;
     u32 base;
 
+    regs_io = NULL;
     memset(r, 0, sizeof(r));
     r[4] = a0;
     r[5] = a1;
@@ -197,6 +201,14 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
     memset(pc_mips_extra, 0, sizeof(pc_mips_extra));
     r[28] = 0x80060878u; /* $gp of the game */
     r[31] = MIPS_RETURN;
+    if (io) {
+        /* all the registers from the caller (pc_mips_call_regs) */
+        for (int k = 1; k < 32; k++) {
+            if (k != 28 && k != 29 && k != 31) {
+                r[k] = io[k];
+            }
+        }
+    }
 
     for (;;) {
         u32 in, op, rs, rt, rd, sa, fn, imm, cur;
@@ -401,5 +413,16 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
 #undef BRANCH
     }
     stack_top = base;
+    if (io) {
+        memcpy(io, r, sizeof(r));
+    }
     return r[2];
+}
+
+/* runs the code at addr with the registers regs (but sp, gp and ra), and
+ * gives back all of them (the native code of GOOL, src/goolvm.c) */
+void pc_mips_call_regs(u32 addr, u32 *regs)
+{
+    regs_io = regs;
+    pc_mips_call(addr, regs[4], regs[5], regs[6], regs[7], 0, 0, 0, 0);
 }

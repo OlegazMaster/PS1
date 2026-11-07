@@ -27,8 +27,8 @@
  *    a dummy word (the original writes near address 0), and reading a
  *    halfword field of a missing linked object gives 0;
  *  - opcodes above 0x51 (past the end of the table) do nothing;
- *  - opcode 0x49, which calls native code at the pc, cannot run here: it
- *    returns from the subroutine instead. */
+ *  - opcode 0x49 calls native code at the pc: the PC port runs it in its
+ *    interpreter of the R3000 (elsewhere it returns from the subroutine). */
 
 #ifndef GOOL_SCRATCHPAD
 #define GOOL_SCRATCHPAD ((u8 *)PSX_SCRATCH)
@@ -394,6 +394,7 @@ static void GoolDrawLine(GoolVm *vm, u32 op) {
 #ifdef TARGET_PC
 /* the trace of the PC port (src/pc/shadow.c) */
 s32 pc_gool_trace_on(u32 obj);
+void pc_mips_call_regs(u32 addr, u32 *regs);
 void pc_gool_trace(u32 obj, u32 pc, u32 op, u32 top);
 #endif
 
@@ -617,7 +618,41 @@ s32 func_80038E28(GoolObject *obj, u32 flags, u32 *out) {
             func_80035ABC();
             LOAD();
             break;
-        case 0x49: /* native code at the pc: not supported, see above */
+        case 0x49: /* native code at the pc */
+#ifdef TARGET_PC
+        {
+            /* the R3000 code after the instruction runs in the interpreter of
+             * the port (src/pc/mips.c) with the registers of the original
+             * interpreter: s0 the object, s1 the flags, s2 out, s3/s4 the
+             * data, s5 the pc, s6 the sp, s7 the fp, fp the scratchpad, a1
+             * the instruction. It returns the pc to go on with in s5, or 0:
+             * then a return from the subroutine. */
+            u32 regs[32];
+
+            memset(regs, 0, sizeof(regs));
+            regs[5] = op;
+            regs[16] = (u32)obj;
+            regs[17] = flags;
+            regs[18] = (u32)out;
+            regs[19] = (u32)vm.sdata;
+            regs[20] = (u32)vm.gdata;
+            regs[21] = (u32)vm.pc;
+            regs[22] = (u32)vm.sp;
+            regs[23] = (u32)vm.fp;
+            regs[30] = PSX_SCRATCH;
+            SAVE();
+            pc_mips_call_regs((u32)vm.pc, regs);
+            flags = regs[17];
+            vm.pc = (u32 *)regs[21];
+            vm.sp = (u32 *)regs[22];
+            vm.fp = (u32 *)regs[23];
+            obj->pc = vm.pc;
+            if (vm.pc != NULL) {
+                break;
+            }
+        }
+#endif
+            /* fall through: a return from the subroutine */
         case 0x31: /* return from the subroutine */
             w = vm.fp[2];
             v = -0x19;

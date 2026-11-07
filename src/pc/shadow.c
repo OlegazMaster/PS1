@@ -28,6 +28,9 @@ typedef u32 (*CFunc)(u32, u32, u32, u32, u32, u32, u32, u32);
 
 u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7);
 u32 pc_func_lookup(u32 psx);
+u32 nd_native_lookup(u32 addr);
+s32 pc_mips_in_stack(u32 a);
+static u32 stack_here; /* about where the C stack is (pc_shadow) */
 u32 pc_mips_stack_top(s32 set, u32 top);
 extern u32 pc_mips_force;
 extern volatile u32 pc_mips_pc;
@@ -115,8 +118,11 @@ static s32 same_word(u32 o, u32 n)
     if ((o & 0xFFFFC000u) == 0x1F800000u && n == o - 0x1F800000u + PSX_SCRATCH) {
         return 1;
     }
-    if (o - 0x80010000u < 0x60000u && pc_func_lookup(o) == n) {
-        return 1;
+    if (o - 0x80010000u < 0x60000u && (pc_func_lookup(o) == n || nd_native_lookup(n) == o)) {
+        return 1; /* a function: of the game, of nd_asm (the recompiled entry) */
+    }
+    if (pc_mips_in_stack(o) && n - stack_here < 0x100000u) {
+        return 1; /* an address in the stack: of the interpreter, of the C code */
     }
     return 0;
 }
@@ -197,6 +203,8 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
     static u32 args[8], *calls, *reports, r_orig, r_port, first, va, vb, n, mask, top;
     static s32 i;
     u8 *here = (u8 *)__builtin_frame_address(0);
+
+    stack_here = (u32)here - 0x10000u; /* (the callees' frames are below) */
 
     if (enabled < 0) {
         const char *e = getenv("PC_SHADOW");

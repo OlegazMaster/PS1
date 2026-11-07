@@ -871,7 +871,7 @@ s32 NSPageAllocate(s32 *count, s32 flag) {
                 }
                 age += 1 + ps->timestamp;
             }
-            if (idx_max == -1 || len + 1 > len_max || (len + 1 == len_max && age >= age_max)) {
+            if (idx_max == -1 || len + 1 > len_max || (len + 1 == len_max && age < age_max)) {
                 idx_max = i;
                 len_max = len + 1;
                 age_max = age;

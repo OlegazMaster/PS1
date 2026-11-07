@@ -32,6 +32,12 @@ u32 nd_exec(u32 pc, RcRegs *regs);
 
 static u32 stack_area[0x4000]; /* 64 KB for the stacks of the interpreted code */
 
+/* whether an address is in those stacks (the shadow check) */
+s32 pc_mips_in_stack(u32 a)
+{
+    return a - (u32)stack_area < sizeof(stack_area);
+}
+
 /* the memory at an address the code uses: kseg0/kseg1/kuseg mirrors of the
  * RAM, the scratchpad where the port has it */
 static u8 *mem(u32 a)

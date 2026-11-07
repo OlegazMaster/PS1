@@ -112,7 +112,9 @@ static void start(void)
 
 void EnterCriticalSection(void)
 {
-    SHADOW_UNSAFE();
+    if (pc_shadow_orig) {
+        return; /* (the shadow check holds the interrupts; the C version does this) */
+    }
     if (crit_depth++ == 0) {
         block(1);
     }
@@ -120,7 +122,9 @@ void EnterCriticalSection(void)
 
 void ExitCriticalSection(void)
 {
-    SHADOW_UNSAFE();
+    if (pc_shadow_orig) {
+        return;
+    }
     if (crit_depth > 0 && --crit_depth == 0) {
         block(0);
     }
@@ -266,7 +270,7 @@ void VSyncCallback(void (*func)(void))
 s32 VSync(s32 mode)
 {
     SHADOW_UNSAFE();
-    static u32 last;
+    static u32 last, shown;
     u32 target;
 
     start();
@@ -290,7 +294,12 @@ s32 VSync(s32 mode)
         }
     }
     last = vblanks;
-    pc_video_present();
+    /* the screen at 30 frames per second at most (a frame every two
+     * vertical blanks, as the game draws them) */
+    if (vblanks - shown >= 2) {
+        shown = vblanks;
+        pc_video_present();
+    }
     pc_video_poll();
     return 0;
 }

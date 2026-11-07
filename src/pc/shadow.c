@@ -18,6 +18,7 @@
  * PC_SHADOW=1 (PC_SHADOW=0 disables it). */
 #include "types.h"
 #include "gte_soft.h"
+#include "pc_gpu.h"
 
 #include <signal.h>
 #include <stdio.h>
@@ -69,6 +70,19 @@ void pc_shadow_fault(void)
         in_orig = 0;
         stopped_by = NULL;
         __builtin_longjmp(jump, 1);
+    }
+}
+
+/* the VRAM: before the run of the original code (kept when that run first
+ * changes it), what that run left */
+static u16 vram_before[GPU_VRAM_H][GPU_VRAM_W], vram_orig[GPU_VRAM_H][GPU_VRAM_W];
+static s32 vram_kept;
+
+void pc_shadow_vram(void)
+{
+    if (in_orig && !vram_kept) {
+        memcpy(vram_before, gpu_vram, sizeof(gpu_vram));
+        vram_kept = 1;
     }
 }
 
@@ -246,6 +260,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
 
     top = pc_mips_stack_top(0, 0);
     pc_mips_force = addr;
+    vram_kept = 0;
     in_orig = 1;
     pc_shadow_steps = 0;
     if (__builtin_setjmp(jump) == 0) {
@@ -275,6 +290,9 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
         gte = gte_before;
         load_windows(win_before);
         pc_cd_state(0);
+        if (vram_kept) {
+            memcpy(gpu_vram, vram_before, sizeof(gpu_vram));
+        }
         hold(0);
         nested = 0;
         return ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
@@ -290,6 +308,10 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
     gte = gte_before;
     load_windows(win_before);
     pc_cd_state(0);
+    if (vram_kept) {
+        memcpy(vram_orig, gpu_vram, sizeof(gpu_vram));
+        memcpy(gpu_vram, vram_before, sizeof(gpu_vram));
+    }
     r_port = ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     checks++;
 
@@ -321,6 +343,20 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
             ++*reports;
             differ_total++;
         }
+    }
+    if (vram_kept && memcmp(vram_orig, gpu_vram, sizeof(gpu_vram)) != 0) {
+        u32 k, total = 0, at = 0;
+
+        for (k = 0; k < GPU_VRAM_W * GPU_VRAM_H; k++) {
+            if (((u16 *)vram_orig)[k] != ((u16 *)gpu_vram)[k] && total++ == 0) {
+                at = k;
+            }
+        }
+        fprintf(stderr, "shadow: %s (%08X) call %u: %u pixels of the VRAM differ, the first at (%u, %u): %04X, "
+                "the original %04X\n", name, addr, *calls, total, at % GPU_VRAM_W, at / GPU_VRAM_W,
+                ((u16 *)gpu_vram)[at], ((u16 *)vram_orig)[at]);
+        ++*reports;
+        differ_total++;
     }
     n = compare((u8 *)&gte_orig, (u8 *)&gte, sizeof(gte), 0, &first, &va, &vb);
     if (n && *reports == 0) {

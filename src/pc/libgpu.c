@@ -136,7 +136,6 @@ void SetDispMask(s32 mask)
 /* everything is drawn at once */
 s32 DrawSync(s32 mode)
 {
-    SHADOW_UNSAFE();
     return 0;
 }
 
@@ -200,21 +199,20 @@ void AddPrim(void *ot, void *prim)
 
 s32 LoadImage(RECT *r, u32 *data)
 {
-    SHADOW_UNSAFE();
+    SHADOW_VRAM();
     gpu_load(r->x, r->y, r->w, r->h, (const u16 *)data);
     return 0;
 }
 
 s32 StoreImage(RECT *r, u32 *data)
 {
-    SHADOW_UNSAFE();
     gpu_store(r->x, r->y, r->w, r->h, (u16 *)data);
     return 0;
 }
 
 s32 MoveImage(RECT *r, s32 x, s32 y)
 {
-    SHADOW_UNSAFE();
+    SHADOW_VRAM();
     gpu_move(r->x, r->y, x, y, r->w, r->h);
     return 0;
 }

@@ -17,4 +17,15 @@ void pc_shadow_unsafe(const char *what);
         }                                \
     } while (0)
 
+/* a function about to change the VRAM: the check keeps it (once per run of
+ * the original code), puts it back for the C version and compares them */
+void pc_shadow_vram(void);
+
+#define SHADOW_VRAM()             \
+    do {                          \
+        if (pc_shadow_orig) {     \
+            pc_shadow_vram();     \
+        }                         \
+    } while (0)
+
 #endif /* PC_SHADOW_H */

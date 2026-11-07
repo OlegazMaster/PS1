@@ -482,18 +482,52 @@ static void catch_crashes(void)
     }
 }
 
+/* where the game thread is (sampled with SIGUSR1 when it shows nothing) */
+extern char __ehdr_start[]; /* the start of this library */
+extern volatile u32 pc_mips_pc;
+static pthread_t game_tid;
+static volatile u32 sample_pc, sample_lr;
+
+static void on_sample(int sig, void *info, void *uc)
+{
+    sample_lr = *(u32 *)((u8 *)uc + 20 + 68);
+    sample_pc = *(u32 *)((u8 *)uc + 20 + 72);
+}
+
 static void *monitor_thread(void *arg)
 {
-    u32 n = 0;
+    u32 n = 0, last_frames = 0;
+    struct {
+        void (*handler)(int, void *, void *);
+        unsigned long mask;
+        int flags;
+        void (*restorer)(void);
+    } sa;
 
+    memset(&sa, 0, sizeof(sa));
+    sa.handler = on_sample;
+    sa.flags = 4 | 0x10000000; /* SA_SIGINFO, SA_RESTART */
+    sigaction(10, (void *)&sa, NULL); /* SIGUSR1 */
     for (;;) {
         struct timespec t = { 3, 0 };
+        u32 f;
 
         nanosleep(&t, NULL);
+        f = pc_frames();
         if (game_started && logf) {
-            fprintf(logf, "port: alive %u s, %u vblanks, %u frames\n", (n += 3), pc_vblanks(), pc_frames());
+            fprintf(logf, "port: alive %u s, %u vblanks, %u frames\n", (n += 3), pc_vblanks(), f);
+            if (f == last_frames) {
+                u32 base = (u32)__ehdr_start;
+
+                sample_pc = sample_lr = 0;
+                pthread_kill(game_tid, 10);
+                nanosleep(&(struct timespec){ 0, 50000000 }, NULL);
+                fprintf(logf, "port: no new frames; the game is at +%X (called from +%X), interpreter %08X\n",
+                        sample_pc - base, sample_lr - base, pc_mips_pc);
+            }
             fflush(logf);
         }
+        last_frames = f;
         if (pc_frames() == 0) {
             pc_android_present(NULL, 0, 0); /* the messages until the game shows something */
         }
@@ -583,6 +617,7 @@ static void *game_thread(void *arg)
         stderr = logf;
     }
     catch_crashes();
+    game_tid = pthread_self();
     {
         pthread_t m;
 

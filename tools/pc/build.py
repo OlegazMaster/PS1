@@ -272,7 +272,7 @@ ANDROID_LIBS = {
     "liblog.so": r"^__android_log_",
     "libc.so": r"^(strtoul|fopen|freopen|fclose|fread|fwrite|fseek|ftell|fgets|fputc|fputs|fflush|setvbuf|printf|fprintf|"
                r"vfprintf|sprintf|snprintf|vsnprintf|puts|malloc|calloc|realloc|free|exit|abort|atoi|getenv|memcpy|"
-               r"memmove|memset|memcmp|strlen|strcmp|strncmp|strchr|strrchr|strstr|strcpy|strncpy|strcat|strspn|"
+               r"memmove|memset|memcmp|memchr|strlen|strcmp|strncmp|strchr|strrchr|strstr|strcpy|strncpy|strcat|strspn|"
                r"strerror|strcasecmp|strncasecmp|__errno|opendir|readdir|closedir|clock_gettime|nanosleep|"
                r"setitimer|sigaction|sigprocmask|pthread_sigmask|sigemptyset|sigaddset|mmap|munmap|usleep|"
                r"raise|pthread_attr_init|pthread_attr_setstacksize|pthread_create|pthread_kill|pthread_self|"
@@ -306,7 +306,7 @@ def link_android(objs, defsyms):
         lib = next((l for l, rx in ANDROID_LIBS.items() if re.match(rx, n)), None)
         if lib:
             per_lib[lib].append(n)
-        elif n not in ("__aeabi_unwind_cpp_pr0", "_GLOBAL_OFFSET_TABLE_"):  # made by the linker
+        elif n not in ("__aeabi_unwind_cpp_pr0", "_GLOBAL_OFFSET_TABLE_", "__ehdr_start"):  # made by the linker
             unknown.append(n)
     if unknown:
         sys.exit("not in the libraries of Android the port links with: %s" % " ".join(unknown))

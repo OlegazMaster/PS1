@@ -52,7 +52,6 @@ STUB(func_80051714) /* SpuSetKey */
 STUB(func_800518D4)
 STUB(func_80051934)
 STUB(func_80051994) /* Starts the sound: frees the voices, turns the reverb on, sets the volumes. */
-STUB(func_800519C4)
 STUB(func_80051A74) /* SpuSetCommonAttr */
 STUB(func_80051EC8) /* SpuGetAllKeysStatus */
 STUB(func_80051F54) /* SpuSetVoiceAttr */

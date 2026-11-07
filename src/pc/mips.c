@@ -87,8 +87,20 @@ static u32 bios(u32 table, u32 fn, u32 *r)
         case 0x18: return (u32)strncmp((const char *)mem(r[4]), (const char *)mem(r[5]), r[6]);
         case 0x19: strcpy((char *)mem(r[4]), (const char *)mem(r[5])); return r[4];
         case 0x1B: return (u32)strlen((const char *)mem(r[4]));
+        case 0x25: return r[4] >= 'a' && r[4] <= 'z' ? r[4] - 32 : r[4]; /* toupper */
+        case 0x26: return r[4] >= 'A' && r[4] <= 'Z' ? r[4] + 32 : r[4]; /* tolower */
+        case 0x27: memmove(mem(r[5]), mem(r[4]), r[6]); return r[5];      /* bcopy(src, dst, n) */
+        case 0x28: memset(mem(r[4]), 0, r[5]); return r[4];               /* bzero */
+        case 0x29: return (u32)memcmp(mem(r[4]), mem(r[5]), r[6]);        /* bcmp */
         case 0x2A: memcpy(mem(r[4]), mem(r[5]), r[6]); return r[4];
         case 0x2B: memset(mem(r[4]), (int)r[5], r[6]); return r[4];
+        case 0x2C: memmove(mem(r[4]), mem(r[5]), r[6]); return r[4];
+        case 0x2D: return (u32)memcmp(mem(r[4]), mem(r[5]), r[6]);
+        case 0x2E: {
+            u8 *p = memchr(mem(r[4]), (int)(r[5] & 255), r[6]);
+
+            return p ? r[4] + (u32)(p - mem(r[4])) : 0;
+        }
         case 0xAB: return 0; /* _card_info: no card (the events report a timeout) */
         case 0xAC: return 0; /* _card_load */
         default: break;
@@ -100,6 +112,9 @@ static u32 bios(u32 table, u32 fn, u32 *r)
     }
     return 0;
 }
+
+/* the instruction being interpreted (the diagnostics of the port) */
+volatile u32 pc_mips_pc;
 
 /* an address interpreted even when it has a C version (the self-test) */
 u32 pc_mips_force;
@@ -205,6 +220,7 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
         }
     interpret:
         cur = pc;
+        pc_mips_pc = cur;
         in = lw(cur);
         pc = npc;
         npc += 4;

@@ -437,6 +437,7 @@ static void ask_permission(ANativeActivity *a)
 /* ---- diagnostics: a crash is shown and logged; a heartbeat in the log ---- */
 
 void ANativeActivity_onCreate(ANativeActivity *a, void *saved, size_t saved_size);
+extern char __ehdr_start[]; /* the start of this library */
 
 u32 pc_vblanks(void);
 u32 pc_frames(void);
@@ -444,12 +445,33 @@ static volatile s32 game_started;
 
 /* bionic on 32-bit ARM: siginfo (si_addr at 12) and ucontext (the
  * sigcontext at 20: r0 at 12, ..., lr at 68, pc at 72) */
+u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7);
+
 static void on_crash(int sig, void *info, void *uc)
 {
     u32 addr = *(u32 *)((u8 *)info + 12);
-    u32 lr = *(u32 *)((u8 *)uc + 20 + 68);
-    u32 pc = *(u32 *)((u8 *)uc + 20 + 72);
-    u32 sp = *(u32 *)((u8 *)uc + 20 + 64);
+    u32 *regs = (u32 *)((u8 *)uc + 20 + 12); /* r0..r10, fp, ip, sp, lr, pc, cpsr */
+    u32 lr = regs[14];
+    u32 pc = regs[15];
+    u32 sp = regs[13];
+
+    if (sig == 11 && addr == pc && pc - 0x80010000u < 0x1F0000u && !(pc & 3)) {
+        /* the native code called a PlayStation address (a pointer to a
+         * function in the data of the game): the call goes to the
+         * interpreter, which runs it (or passes it to nd_asm or to a C
+         * function), and returns to the caller */
+        static u32 count;
+        const u32 *st = (const u32 *)sp;
+
+        if (count++ < 10 && logf) {
+            fprintf(logf, "port: a call of %08X from +%X goes through the interpreter\n", pc,
+                    lr - (u32)__ehdr_start);
+        }
+        regs[0] = pc_mips_call(pc, regs[0], regs[1], regs[2], regs[3], st[0], st[1], st[2], st[3]);
+        regs[15] = lr & ~1u;
+        regs[16] = (lr & 1) ? regs[16] | 0x20 : regs[16] & ~0x20u; /* Thumb or ARM, as the caller */
+        return;
+    }
 
     say("CRASH: SIGNAL %d ADDRESS %08X", sig, addr);
     say("PC %08X LR %08X SP %08X", pc, lr, sp);
@@ -476,14 +498,13 @@ static void catch_crashes(void)
 
     memset(&sa, 0, sizeof(sa));
     sa.handler = on_crash;
-    sa.flags = 4; /* SA_SIGINFO */
+    sa.flags = 4 | 0x40000000; /* SA_SIGINFO, SA_NODEFER (calls through it nest) */
     for (i = 0; i < 4; i++) {
         sigaction(sigs[i], (void *)&sa, NULL);
     }
 }
 
 /* where the game thread is (sampled with SIGUSR1 when it shows nothing) */
-extern char __ehdr_start[]; /* the start of this library */
 extern volatile u32 pc_mips_pc;
 static pthread_t game_tid;
 static volatile u32 sample_pc, sample_lr;

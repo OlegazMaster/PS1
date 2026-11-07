@@ -372,6 +372,23 @@ static void mips_selftest(void)
             fprintf(stderr, "mips test: BIOS TestEvent: timeout %u, ioe %u\n", x, y);
         }
     }
+    /* native calls of PlayStation addresses (pointers in the data of the
+     * game): through the fault handler into the interpreter */
+    {
+        s32 func_8003C2F0(s32 a);
+        s32 func_80031E10(s32 a, s32 b, s32 t);
+        u32 (*nd_sin)(u32) = (u32(*)(u32))0x8003C2F0u;
+        u32 (*c_lerp)(u32, u32, u32) = (u32(*)(u32, u32, u32))0x80031E10u;
+
+        for (k = 0; k < 200; k++) {
+            seed = seed * 1103515245u + 12345u;
+            n += 2;
+            if (nd_sin(seed) != (u32)func_8003C2F0((s32)seed) ||
+                c_lerp(seed, seed >> 3, k) != (u32)func_80031E10((s32)seed, (s32)(seed >> 3), (s32)k)) {
+                bad++;
+            }
+        }
+    }
     fprintf(stderr, "mips test: %u calls, %u differ\n", n, bad);
     exit(bad != 0);
 }
@@ -399,6 +416,11 @@ s32 pc_start(const char *disc, const char *exe)
     }
     STEP("EXECUTABLE LOADED");
     patch_func_pointers();
+    {
+        void pc_sys_catch_ps_calls(void);
+
+        pc_sys_catch_ps_calls();
+    }
     psx_start();
     if (getenv("PC_MIPS_TEST")) {
         mips_selftest();

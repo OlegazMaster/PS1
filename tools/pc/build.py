@@ -311,7 +311,13 @@ def link_android(objs, defsyms):
         open(c, "w").write("".join(("void *%s;\n" if n in ANDROID_DATA else "void %s(void) {}\n") % n
                                    for n in names))
         run(LD + ["-shared", "-nostdlib", "-Wl,-soname," + lib, "-o", os.path.join(stubs, lib), c])
-    link = LD + ["-shared", "-nostdlib", "-o", so, "-Wl,-soname,libcrash3.so",
+    # only the entry of the activity is exported: the addresses of the
+    # PlayStation (absolute symbols) are then resolved by the link. Exported,
+    # they would be bound at load time, and the loader of Android adds the
+    # load address of the library to absolute symbols.
+    script = os.path.join(OUT, "exports.map")
+    open(script, "w").write("{ global: ANativeActivity_onCreate; local: *; };\n")
+    link = LD + ["-shared", "-nostdlib", "-o", so, "-Wl,-soname,libcrash3.so", "-Wl,--version-script=" + script,
                  "-Wl,--no-undefined", "-Wl,-z,noexecstack", "-Wl,-z,max-page-size=16384", "-Wl,--hash-style=both"] + \
         objs + [os.path.join(OUT, "func_table.o")] + ["-Wl," + d for d in defsyms] + [libgcc] + \
         [os.path.join(stubs, lib) for lib in ANDROID_LIBS]
@@ -319,6 +325,32 @@ def link_android(objs, defsyms):
     if r.returncode:
         print("\n".join(r.stderr.splitlines()[:30]))
         sys.exit(1)
+    exported = [l.split()[-1] for l in run(["llvm-readelf", "--dyn-syms", "-W", so]).splitlines()
+                if len(l.split()) >= 8 and l.split()[6] != "UND" and l.split()[0].endswith(":")
+                and l.split()[0][:-1].isdigit() and l.split()[-1] != "ANativeActivity_onCreate"
+                and l.split()[3] != "SECTION" and l.split()[1] != "00000000"]
+    if exported:
+        sys.exit("libcrash3.so exports more than its entry: %s" % " ".join(exported[:10]))
+    # and no relocation at load time may touch a word that holds a
+    # PlayStation address (the loader would add the load address)
+    import struct as st
+    data = open(so, "rb").read()
+    segs = []  # (vaddr, offset, filesz)
+    for l in run(["llvm-readelf", "-lW", so]).splitlines():
+        p = l.split()
+        if p and p[0] == "LOAD":
+            segs.append((int(p[2], 16), int(p[1], 16), int(p[4], 16)))
+    bad = 0
+    for l in run(["llvm-readelf", "-rW", so]).splitlines():
+        p = l.split()
+        if len(p) >= 3 and p[2] == "R_ARM_RELATIVE":
+            off = int(p[0], 16)
+            for va, fo, fs in segs:
+                if va <= off < va + fs:
+                    w = st.unpack_from("<I", data, fo + off - va)[0]
+                    bad += 0x80000000 <= w < 0x80220000 or 0x1F800000 <= w < 0x1F804000
+    if bad:
+        sys.exit("%d relocations at load time would move PlayStation addresses" % bad)
     return package_apk(so)
 
 

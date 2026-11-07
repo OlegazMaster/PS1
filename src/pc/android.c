@@ -539,6 +539,14 @@ static void on_crash(int sig, void *info, void *uc)
         return;
     }
 
+    {
+        void pc_shadow_fault(void);
+
+        if (logf) {
+            fflush(logf);
+        }
+        pc_shadow_fault(); /* (returns only when not in the shadow check) */
+    }
     say("CRASH: SIGNAL %d ADDRESS %08X", sig, addr);
     say("PC %08X LR %08X SP %08X", pc, lr, sp);
     say("BASE %08X (ANATIVEACTIVITY_ONCREATE)", (u32)ANativeActivity_onCreate);

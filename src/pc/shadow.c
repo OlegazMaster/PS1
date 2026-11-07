@@ -28,7 +28,9 @@ typedef u32 (*CFunc)(u32, u32, u32, u32, u32, u32, u32, u32);
 
 u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7);
 u32 pc_func_lookup(u32 psx);
+u32 pc_mips_stack_top(s32 set, u32 top);
 extern u32 pc_mips_force;
+extern volatile u32 pc_mips_pc;
 
 #define RAM_SIZE 0x200000u
 #define SCRATCH_SIZE 0x400u /* the part of the scratchpad the PlayStation has */
@@ -41,6 +43,18 @@ static u8 win_before[8][WINDOW], win_orig[8][WINDOW];
 static u8 *win_at[8];
 static s32 nested, enabled = -1;
 static u32 checks, differ_total;
+static void *jump[5];       /* __builtin_setjmp: back from a crash of the original code */
+static volatile s32 in_orig;
+
+/* from the handler of a crash (src/pc/android.c, src/pc/platform.c): a crash
+ * of the original code the check runs goes back to the check */
+void pc_shadow_fault(void)
+{
+    if (in_orig) {
+        in_orig = 0;
+        __builtin_longjmp(jump, 1);
+    }
+}
 
 /* the calls of each function so far (by its address) */
 static struct {
@@ -159,7 +173,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
               u32 a6, u32 a7)
 {
     /* (static: a window of the C stack may cover this frame) */
-    static u32 args[8], *calls, *reports, r_orig, r_port, first, va, vb, n, mask;
+    static u32 args[8], *calls, *reports, r_orig, r_port, first, va, vb, n, mask, top;
     static s32 i;
     u8 *here = (u8 *)__builtin_frame_address(0);
 
@@ -195,8 +209,28 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
     gte_before = gte;
     save_windows(win_before);
 
+    top = pc_mips_stack_top(0, 0);
     pc_mips_force = addr;
-    r_orig = pc_mips_call(addr, a0, a1, a2, a3, a4, a5, a6, a7);
+    in_orig = 1;
+    if (__builtin_setjmp(jump) == 0) {
+        r_orig = pc_mips_call(addr, a0, a1, a2, a3, a4, a5, a6, a7);
+        in_orig = 0;
+    } else {
+        /* the original code crashed (it reads something the port keeps
+         * otherwise): no more checks of this function */
+        pc_mips_force = 0;
+        pc_mips_stack_top(1, top);
+        fprintf(stderr, "shadow: %s (%08X) call %u: the original code crashed (at %08X); not checked any more\n",
+                name, addr, *calls, pc_mips_pc);
+        *reports = 3;
+        memcpy((void *)0x80000000u, ram_before, RAM_SIZE);
+        memcpy((void *)PSX_SCRATCH, scr_before, SCRATCH_SIZE);
+        gte = gte_before;
+        load_windows(win_before);
+        hold(0);
+        nested = 0;
+        return ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7);
+    }
     pc_mips_force = 0;
     memcpy(ram_orig, (void *)0x80000000u, RAM_SIZE);
     memcpy(scr_orig, (void *)PSX_SCRATCH, SCRATCH_SIZE);

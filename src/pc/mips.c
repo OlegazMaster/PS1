@@ -58,9 +58,19 @@ static void sw(u32 a, u32 v)
     memcpy(mem(a), &v, 4);
 }
 
-typedef u32 (*CFunc)(u32, u32, u32, u32, u32, u32, u32, u32);
+typedef u32 (*CFunc)(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32);
 
 static u32 logged;
+
+/* a C function called from the code: the arguments in a0..a3 and on the
+ * stack (up to 12: func_80032710 has 9) */
+static u32 call_c(u32 f, const u32 *r)
+{
+    u32 sp = r[29];
+
+    return ((CFunc)f)(r[4], r[5], r[6], r[7], lw(sp + 0x10), lw(sp + 0x14), lw(sp + 0x18), lw(sp + 0x1C),
+                      lw(sp + 0x20), lw(sp + 0x24), lw(sp + 0x28), lw(sp + 0x2C));
+}
 
 /* the port's libapi (src/pc/libetc.c) */
 s32 OpenEvent(u32 desc, s32 spec, s32 mode, void (*func)(void));
@@ -129,6 +139,16 @@ volatile u32 pc_mips_pc;
 u32 pc_mips_force;
 
 static u32 stack_top = 0;      /* the next free word (nested calls) */
+
+/* the depth of the stacks of the interpreted code (the shadow check puts it
+ * back when the code it ran crashed) */
+u32 pc_mips_stack_top(s32 set, u32 top)
+{
+    if (set) {
+        stack_top = top;
+    }
+    return stack_top;
+}
 static u32 warned;
 
 u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7)
@@ -185,8 +205,7 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
             }
             if ((pc < 0x80010000u || pc >= 0x80200000u) && pc_func_is_native(pc)) {
                 /* a pointer to a C function in the data (patched by the start) */
-                r[2] = ((CFunc)pc)(r[4], r[5], r[6], r[7], lw(r[29] + 0x10), lw(r[29] + 0x14), lw(r[29] + 0x18),
-                                   lw(r[29] + 0x1C));
+                r[2] = call_c(pc, r);
                 pc = r[31];
                 npc = pc + 4;
                 jumped = 1;
@@ -227,8 +246,7 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
             }
             if (f != 0) {
                 /* a C function of the game (or of the port's libraries) */
-                r[2] = ((CFunc)f)(r[4], r[5], r[6], r[7], lw(r[29] + 0x10), lw(r[29] + 0x14), lw(r[29] + 0x18),
-                                  lw(r[29] + 0x1C));
+                r[2] = call_c(f, r);
                 pc = r[31];
                 npc = pc + 4;
                 jumped = 1;

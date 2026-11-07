@@ -104,6 +104,11 @@ static void on_segv(int sig, siginfo_t *si, void *ucv)
         return;
     }
 #endif
+    {
+        void pc_shadow_fault(void);
+
+        pc_shadow_fault(); /* a crash of the original code in the shadow check: back there */
+    }
     signal(SIGSEGV, SIG_DFL); /* a real crash */
 }
 

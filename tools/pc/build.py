@@ -97,6 +97,13 @@ EXE_END = 0x80061000  # the end of what the executable loads
 # (names other than func_*: declared as functions in src/sys.c)
 OVERLAY_LO, OVERLAY_HI = 0x8006EA78, 0x80072230
 OVERLAY_FUNCS = {"D_8006F64C", "D_8006F780"}
+# functions of the PSY-Q libraries that only compute (libgte: the geometry on
+# the GTE): their original code runs in the interpreter, exactly as on the
+# console (func_8004F37C InitGeom, func_8004F544 ScaleMatrix, func_8004F794
+# ratan2)
+INTERPRETED = {"func_8004F37C", "SetGeomScreen", "SetGeomOffset", "ReadGeomOffset", "SetRotMatrix",
+               "SetTransMatrix", "MulMatrix", "TransMatrix", "RotTrans", "RotTransPers", "ReadSZfifo3",
+               "func_8004F544", "func_8004F794"}
 # SDL2 for MinGW (the Windows build)
 SDL_VERSION = "2.30.9"
 SDL_URL = "https://github.com/libsdl-org/SDL/releases/download/release-%s/SDL2-devel-%s-mingw.tar.gz" % (
@@ -396,8 +403,8 @@ def main():
     # the functions of the overlay the game loads at run time (S0/WARPSCUS.BIN,
     # between the end of .bss and D_80072230): C thunks that interpret them
     # (src/pc/mips.c)
-    overlay = sorted(n for n in undef - defined if n in psx and OVERLAY_LO <= psx[n][0] < OVERLAY_HI
-                     and (n.startswith("func_") or n in OVERLAY_FUNCS))
+    overlay = sorted(n for n in undef - defined if n in psx and ((OVERLAY_LO <= psx[n][0] < OVERLAY_HI
+                     and (n.startswith("func_") or n in OVERLAY_FUNCS)) or n in INTERPRETED))
     defsyms, missing = [], []
     for s in sorted(undef - defined - set(overlay)):
         if is_data(psx, s) or (s in psx and psx[s][1] in "Aa"):  # A: constants like D_40100
@@ -417,7 +424,7 @@ def main():
             "const u32 pc_func_table[][2] = {"]
     tab += ["    { 0x%08Xu, (u32)%s }," % (a, n) for a, n in funcs]
     tab += ["};", "const u32 pc_func_count = %d;" % len(funcs)]
-    tab += ["", "/* the functions of the overlay: interpreted */",
+    tab += ["", "/* the functions of the overlay and of libgte: interpreted */",
             "u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7);"]
     for n in overlay:
         tab += ["u32 %s(u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7)" % n,

@@ -389,6 +389,24 @@ static void mips_selftest(void)
             }
         }
     }
+    /* libgte in the interpreter: InitGeom and the screen of the GTE */
+    {
+        void func_8004F37C(void);
+        void SetGeomScreen(s32 h);
+        void SetGeomOffset(s32 x, s32 y);
+        u32 gte_read_ctrl(int reg);
+
+        func_8004F37C();
+        SetGeomScreen(0x140);
+        SetGeomOffset(256, 120);
+        n += 3;
+        if (gte_read_ctrl(29) != 0x155 || gte_read_ctrl(30) != 0x100 || gte_read_ctrl(26) != 0x140 ||
+            gte_read_ctrl(24) != 256u << 16 || gte_read_ctrl(25) != 120u << 16) {
+            bad++;
+            fprintf(stderr, "mips test: libgte: ZSF3 %X ZSF4 %X H %X OFX %X OFY %X\n", gte_read_ctrl(29),
+                    gte_read_ctrl(30), gte_read_ctrl(26), gte_read_ctrl(24), gte_read_ctrl(25));
+        }
+    }
     fprintf(stderr, "mips test: %u calls, %u differ\n", n, bad);
     exit(bad != 0);
 }

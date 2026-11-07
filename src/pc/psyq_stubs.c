@@ -24,26 +24,13 @@ static void stub(const char *name, int *seen)
     }
 
 STUB(InitCARD)
-STUB(MulMatrix)
-STUB(ReadGeomOffset)
-STUB(ReadSZfifo3)
-STUB(RotTrans)
-STUB(RotTransPers)
-STUB(SetGeomOffset)
-STUB(SetGeomScreen)
-STUB(SetRotMatrix)
-STUB(SetTransMatrix)
 STUB(StartCARD)
 STUB(StopCARD)
-STUB(TransMatrix)
 STUB(_bu_init)
 STUB(func_8004592C)
 STUB(func_80045E48)
 STUB(func_8004B590)
 STUB(func_8004BFBC)
-STUB(func_8004F37C)
-STUB(func_8004F544) /* ScaleMatrix */
-STUB(func_8004F794) /* angle of (x, z) */
 STUB(func_8004F9B4)
 STUB(func_80050554) /* SpuSetReverb */
 STUB(func_800508C4) /* SpuSetReverbModeParam */

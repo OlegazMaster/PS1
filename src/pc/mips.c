@@ -328,7 +328,9 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
         case 0x0C: r[rt] = r[rs] & imm; break;
         case 0x0D: r[rt] = r[rs] | imm; break;
         case 0x0E: r[rt] = r[rs] ^ imm; break;
-        case 0x0F: r[rt] = imm << 16; break;
+        case 0x0F: /* lui (of the scratchpad: where the port has it, as the C code and nd_asm use it) */
+            r[rt] = imm == 0x1F80 ? PSX_SCRATCH : imm << 16;
+            break;
         case 0x10:
             /* COP0 (the status of the CPU: interrupts, the GTE on): mfc0
              * reads 0, the rest does nothing */

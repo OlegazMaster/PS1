@@ -688,8 +688,10 @@ const char *pc_android_dir(void)
     return image_dir[0] ? image_dir : NULL;
 }
 
-/* where the game thread is (sampled with SIGUSR1 when it shows nothing) */
+/* where the game thread is (sampled with SIGURG when it shows nothing:
+ * SIGUSR1 is the runtime's) */
 extern volatile u32 pc_mips_pc;
+const char *pc_shadow_now(void);
 static pthread_t game_tid;
 static volatile u32 sample_pc, sample_lr;
 
@@ -712,7 +714,7 @@ static void *monitor_thread(void *arg)
     memset(&sa, 0, sizeof(sa));
     sa.handler = on_sample;
     sa.flags = 4 | 0x10000000; /* SA_SIGINFO, SA_RESTART */
-    sigaction(10, (void *)&sa, NULL); /* SIGUSR1 */
+    sigaction(23, (void *)&sa, NULL); /* SIGURG */
     for (;;) {
         struct timespec t = { 3, 0 };
         u32 f;
@@ -725,10 +727,11 @@ static void *monitor_thread(void *arg)
                 u32 base = (u32)__ehdr_start;
 
                 sample_pc = sample_lr = 0;
-                pthread_kill(game_tid, 10);
+                pthread_kill(game_tid, 23);
                 nanosleep(&(struct timespec){ 0, 50000000 }, NULL);
-                fprintf(logf, "port: no new frames; the game is at +%X (called from +%X), interpreter %08X\n",
-                        sample_pc - base, sample_lr - base, pc_mips_pc);
+                fprintf(logf, "port: no new frames; the game is at +%X (called from +%X), interpreter %08X%s%s\n",
+                        sample_pc - base, sample_lr - base, pc_mips_pc, pc_shadow_now() ? ", shadow check of " : "",
+                        pc_shadow_now() ? pc_shadow_now() : "");
             }
             fflush(logf);
         }

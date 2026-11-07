@@ -45,6 +45,12 @@ static s32 nested, enabled = -1;
 static u32 checks, differ_total;
 static void *jump[5];       /* __builtin_setjmp: back from a crash of the original code */
 static volatile s32 in_orig;
+static const char *volatile now; /* the function being checked */
+
+const char *pc_shadow_now(void)
+{
+    return nested ? now : NULL;
+}
 
 /* from the handler of a crash (src/pc/android.c, src/pc/platform.c): a crash
  * of the original code the check runs goes back to the check */
@@ -196,6 +202,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
         return ((CFunc)native)(a0, a1, a2, a3, a4, a5, a6, a7);
     }
     nested = 1;
+    now = name;
     hold(1);
     args[0] = a0, args[1] = a1, args[2] = a2, args[3] = a3, args[4] = a4, args[5] = a5, args[6] = a6, args[7] = a7;
     /* the arguments that point into the C stack (above this frame) */

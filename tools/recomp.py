@@ -544,7 +544,7 @@ class Gen:
         o.append("}")
         open(out, "w").write("\n".join(o) + "\n")
 
-    def emit_port(self, out, entries, prefix, defined, data, rename=None):
+    def emit_port(self, out, entries, prefix, defined, data, rename=None, at=()):
         """The C side of the port: a wrapper with the C calling convention for
         each entry the C code uses (unless a C version is defined), the table
         from their addresses back to the segment, the data words of the
@@ -557,7 +557,8 @@ class Gen:
             if name not in self.visible or name in defined:
                 continue
             if name in data:
-                o.append("u32 %s; /* a data word of the segment */\n" % name)
+                if name not in at:  # (at: the link puts it at its PlayStation address)
+                    o.append("u32 %s; /* a data word of the segment */\n" % name)
                 continue
             name = (rename or {}).get(name, name)
             wrapped.append((name, addr))
@@ -601,6 +602,7 @@ def main():
     ap.add_argument("--visible", nargs="*", default=[], help="C files of the game: the symbols of the segment they use")
     ap.add_argument("--defined", nargs="*", default=[], help="C files with C versions of entries (no wrapper)")
     ap.add_argument("--data", nargs="*", default=[], help="entries that are data words")
+    ap.add_argument("--at", nargs="*", default=[], help="data entries the link puts at their PlayStation address")
     ap.add_argument("--port", help="also write the wrappers and the table for the port here")
     ap.add_argument("--rename", nargs="*", default=[], help="old=new: names of the wrappers in the port")
     args = ap.parse_args()
@@ -613,7 +615,7 @@ def main():
     g.emit(args.out, entries, args.prefix)
     if args.port:
         g.emit_port(args.port, entries, args.prefix, c_defined(args.defined), set(args.data),
-                    dict(r.split("=") for r in args.rename))
+                    dict(r.split("=") for r in args.rename), set(args.at))
     for a, t in g.hazards:
         print("load delay at %08X: %s" % (a, t), file=sys.stderr)
 

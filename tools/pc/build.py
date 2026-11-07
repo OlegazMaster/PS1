@@ -76,12 +76,15 @@ CFLAGS = ([] if ANDROID or LINUX_ARM else X86) + \
     ["-std=gnu99", "-O1", "-g", "-fno-common", "-fno-strict-aliasing", "-fwrapv", "-funsigned-char",
      "-fno-stack-protector", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables",
      "-DNON_MATCHING", "-DVERSION_US", "-DTARGET_PC", "-I" + os.path.join(ROOT, "include"), "-w"]
+# (not src/nd.c: the port runs all of nd_asm as recompiled code, which is
+# the original exactly; the shadow check found C versions there that differ
+# on the data of the game)
 GAME = ["audio", "camera", "cdfs", "coll", "game", "gfx", "gool", "goolop", "goolvm", "interp", "level", "main",
-        "math", "nd", "ns", "obj", "prop", "sys"]
+        "math", "ns", "obj", "prop", "sys"]
 RAM_LO, RAM_HI = 0x80000000, 0x80200000
 # segments of hand-written assembly run as recompiled C: prefix, file, options
 RECOMPILED = [
-    ("nd", "nd_asm.s", ["--defined", os.path.join(ROOT, "src", "nd.c"), "--data", "ticks_elapsed"]),
+    ("nd", "nd_asm.s", ["--data", "ticks_elapsed", "--at", "ticks_elapsed"]),
     ("heap", "heap.s", ["--rename", "malloc=psx_malloc", "free=psx_free", "realloc=psx_realloc"]),
 ]
 # the heap of the game (in the PlayStation RAM, so that the 24-bit addresses of
@@ -110,8 +113,7 @@ INTERPRETED = {"func_8004F37C", "SetGeomScreen", "SetGeomOffset", "ReadGeomOffse
 # wrapper that, for some of their calls, runs the original code in the
 # interpreter too and logs where the C version leaves the memory different
 SHADOW = not WINDOWS
-SHADOW_FILES = ["camera", "coll", "game", "gfx", "gool", "goolop", "goolvm", "interp", "level", "math", "nd", "obj",
-                "prop"]
+SHADOW_FILES = ["camera", "coll", "game", "gfx", "gool", "goolop", "goolvm", "interp", "level", "math", "obj", "prop"]
 SHADOW_CALLS = {"gte_write_data", "gte_read_data", "gte_command", "gte_write_ctrl", "gte_read_ctrl", "AddPrim",
                 "psx_malloc", "psx_free", "psx_realloc", "SetSemiTrans", "SetPolyFT4", "SetPolyF4", "GetTPage",
                 "strlen", "strncmp", "atoi", "sprintf", "memcpy", "memset", "memmove", "__aeabi_idiv", "__aeabi_uidiv",
@@ -174,10 +176,16 @@ def psx_symbols():
     return syms
 
 
+# variables inside the code (a data word of nd_asm)
+CODE_VARS = {"ticks_elapsed"}
+
+
 def is_data(psx, name):
     """Whether name is a variable of the PlayStation build in the RAM."""
     if name not in psx:
         return False
+    if name in CODE_VARS:
+        return True
     a, t = psx[name]
     if not RAM_LO <= a < RAM_HI:
         return False

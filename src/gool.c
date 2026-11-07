@@ -52,6 +52,7 @@ s32 GoolObjectAddChild(GoolObject *child, GoolObject *parent) {
     child->parent = parent;
     child->sibling = GoolObjectGetChildren(parent);
     GoolObjectSetChildren(parent, child);
+    return 2; /* (what the original leaves in v0) */
 }
 #else
 INCLUDE_ASM("asm/us/nonmatchings/gool", GoolObjectAddChild);

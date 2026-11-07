@@ -5,6 +5,7 @@
 #include "libgpu.h"
 #include "pc_gpu.h"
 
+#include <stdio.h>
 #include <string.h>
 
 void pc_video_present(void);
@@ -139,22 +140,39 @@ void DrawPrim(void *prim)
     gpu_commands(p + 1, p[0] >> 24);
 }
 
-/* DrawOTag: draws a primitive list, up to the tag 0xFFFFFF */
+/* DrawOTag: draws a primitive list, up to the tag 0xFFFFFF. A list that
+ * comes back to a primitive it has drawn (a loop: the GPU of the console
+ * would draw it forever) ends there, and the log says where. */
+static u32 ot_seen[0x200000 / 4 / 32];
+
 void func_8004CBF4(void *ot)
 {
+    static u32 loops;
     u32 *p = ot;
-    u32 guard = 0;
+    u32 prev = 0;
 
-    while (guard++ < 0x100000) {
-        u32 tag = *p;
+    memset(ot_seen, 0, sizeof(ot_seen));
+    for (;;) {
+        u32 at = (u32)p & 0x1FFFFC;
+        u32 tag;
 
+        if (ot_seen[at / 128] & (1u << (at / 4 % 32))) {
+            if (loops++ < 10) {
+                fprintf(stderr, "port: DrawOTag(%08X): the list comes back to %08X (from %08X): a loop\n",
+                        (u32)ot, (u32)p, prev);
+            }
+            break;
+        }
+        ot_seen[at / 128] |= 1u << (at / 4 % 32);
+        tag = *p;
         if (tag >> 24) {
             gpu_commands(p + 1, tag >> 24);
         }
         if ((tag & 0xFFFFFF) == 0xFFFFFF) {
             break;
         }
-        p = RAM(tag);
+        prev = (u32)p;
+        p = (u32 *)(0x80000000u | (tag & 0x1FFFFC)); /* (the DMA: the 2 MB mirrored) */
     }
 }
 

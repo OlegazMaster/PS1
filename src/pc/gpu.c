@@ -279,32 +279,84 @@ static void triangle(const Mode *m, Vertex v0, Vertex v1, Vertex v2, s32 gouraud
     bias0 = top_left(p[1], p[2]) ? 0 : -1;
     bias1 = top_left(p[2], p[0]) ? 0 : -1;
     bias2 = top_left(p[0], p[1]) ? 0 : -1;
-    for (y = miny; y <= maxy; y++) {
-        for (x = minx; x <= maxx; x++) {
-            /* edge functions, positive inside (counter-clockwise in y-down
-             * coordinates as ordered above) */
-            s64 w0 = -edge(p[1], p[2], x, y);
-            s64 w1 = -edge(p[2], p[0], x, y);
-            s64 w2 = -edge(p[0], p[1], x, y);
-            s32 r, g, b, u = 0, v = 0;
+    if (minx > maxx || miny > maxy) {
+        return;
+    }
+    {
+        /* The edge functions w0..w2 (positive inside: counter-clockwise in
+         * y-down coordinates as ordered above) are linear in x and y, and so
+         * is the numerator of each attribute, n = w0 a0 + w1 a1 + w2 a2
+         * (attribute = n / area, as the barycentric weights): the edges step
+         * by 32-bit additions, the attributes in fixed point with 32
+         * fraction bits (exact at the start of each row, a division there;
+         * the steps lose under 2^-21 over a row, covered by the bias). */
+        const Vertex *a = p[0], *b = p[1], *c = p[2];
+        s32 e0x = c->y - b->y, e0y = -(c->x - b->x); /* steps of w0 */
+        s32 e1x = a->y - c->y, e1y = -(a->x - c->x);
+        s32 e2x = b->y - a->y, e2y = -(b->x - a->x);
+        s32 w0r = -(s32)edge(b, c, minx, miny), w1r = -(s32)edge(c, a, minx, miny), w2r = -(s32)edge(a, b, minx, miny);
+        s32 at[5][3], na = 0, k;
+        s64 step[5];
 
-            if (w0 + bias0 < 0 || w1 + bias1 < 0 || w2 + bias2 < 0) {
-                continue;
+        if (gouraud) {
+            at[0][0] = a->r, at[0][1] = b->r, at[0][2] = c->r;
+            at[1][0] = a->g, at[1][1] = b->g, at[1][2] = c->g;
+            at[2][0] = a->b, at[2][1] = b->b, at[2][2] = c->b;
+            na = 3;
+        }
+        if (m->textured) {
+            at[na][0] = a->u, at[na][1] = b->u, at[na][2] = c->u;
+            na++;
+            at[na][0] = a->v, at[na][1] = b->v, at[na][2] = c->v;
+            na++;
+        }
+        for (k = 0; k < na; k++) {
+            s64 dn = (s64)e0x * at[k][0] + (s64)e1x * at[k][1] + (s64)e2x * at[k][2];
+
+            step[k] = (s64)(((dn < 0 ? -dn : dn) << 32) / area) * (dn < 0 ? -1 : 1);
+        }
+        for (y = miny; y <= maxy; y++, w0r += e0y, w1r += e1y, w2r += e2y) {
+            s32 w0 = w0r, w1 = w1r, w2 = w2r;
+            s64 f[5];
+            s32 val[5];
+            s32 started = 0;
+
+            for (x = minx; x <= maxx; x++, w0 += e0x, w1 += e1x, w2 += e2x) {
+                s32 r, g, bl, u = 0, v = 0;
+
+                if (w0 + bias0 < 0 || w1 + bias1 < 0 || w2 + bias2 < 0) {
+                    if (started) {
+                        break; /* a triangle is convex: the row is done */
+                    }
+                    continue;
+                }
+                if (!started) {
+                    started = 1;
+                    for (k = 0; k < na; k++) {
+                        s64 n = (s64)w0 * at[k][0] + (s64)w1 * at[k][1] + (s64)w2 * at[k][2];
+
+                        f[k] = (s64)(((u64)n << 32) / (u64)area) + (1 << 11);
+                    }
+                }
+                for (k = 0; k < na; k++) {
+                    val[k] = (s32)(f[k] >> 32);
+                    f[k] += step[k];
+                }
+                if (gouraud) {
+                    r = val[0];
+                    g = val[1];
+                    bl = val[2];
+                } else {
+                    r = v0.r;
+                    g = v0.g;
+                    bl = v0.b;
+                }
+                if (m->textured) {
+                    u = val[na - 2];
+                    v = val[na - 1];
+                }
+                pixel(m, x, y, r, g, bl, u, v);
             }
-            if (gouraud) {
-                r = (s32)((w0 * p[0]->r + w1 * p[1]->r + w2 * p[2]->r) / area);
-                g = (s32)((w0 * p[0]->g + w1 * p[1]->g + w2 * p[2]->g) / area);
-                b = (s32)((w0 * p[0]->b + w1 * p[1]->b + w2 * p[2]->b) / area);
-            } else {
-                r = v0.r;
-                g = v0.g;
-                b = v0.b;
-            }
-            if (m->textured) {
-                u = (s32)((w0 * p[0]->u + w1 * p[1]->u + w2 * p[2]->u) / area);
-                v = (s32)((w0 * p[0]->v + w1 * p[1]->v + w2 * p[2]->v) / area);
-            }
-            pixel(m, x, y, r, g, b, u, v);
         }
     }
 }

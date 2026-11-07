@@ -636,14 +636,14 @@ void func_8003A928(s16 *src, void *dst, s32 count);
 void func_8001AB64(void) {
     u32 ticks = context.c1_p->ticks_per_frame;
 
-    *(s32 *)0x1F800050 = game.unk19C;
+    *(s32 *)(PSX_SCRATCH + 0x0050) = game.unk19C;
     if (ticks >= 0x67) {
         ticks = 0x66;
     }
-    *(u32 *)0x1F800054 = ticks;
-    *(s32 **)0x1F800058 = game.unk60;
-    func_8003A928(D_8005D120, (void *)0x1F800060, D_8005D268 - D_8005D120);
-    *(s32 *)0x1F80005C = 0x1F800060;
+    *(u32 *)(PSX_SCRATCH + 0x0054) = ticks;
+    *(s32 **)(PSX_SCRATCH + 0x0058) = game.unk60;
+    func_8003A928(D_8005D120, (void *)(PSX_SCRATCH + 0x0060), D_8005D268 - D_8005D120);
+    *(s32 *)(PSX_SCRATCH + 0x005C) = (PSX_SCRATCH + 0x0060);
 }
 #else
 INCLUDE_ASM("asm/us/nonmatchings/gool", func_8001AB64);

@@ -153,7 +153,7 @@ s32 func_8003D9DC(s32 x) {
 }
 
 #ifndef ND_SCRATCHPAD
-#define ND_SCRATCHPAD ((u32 *)0x1F800000)
+#define ND_SCRATCHPAD ((u32 *)PSX_SCRATCH)
 #endif
 
 /* Marks the cell (x, z) (-32..31) of the grid of free cells around an

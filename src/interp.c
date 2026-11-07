@@ -73,7 +73,7 @@ void func_8001D16C(s32 full) {
             func_8002B838(crash, &crash->xform, D_80067E40);
         }
     }
-    *(s16 **)0x1F80005C = D_8005D120;
+    *(s16 **)(PSX_SCRATCH + 0x005C) = D_8005D120;
 }
 
 
@@ -973,7 +973,7 @@ moved:
         delta[2] = (obj->misc_a[2] * (s32)t) / 1020;
         if (obj->status_b & 8) {
             obj->event = 0xFF;
-            *(s16 **)0x1F80005C = D_8005D120;
+            *(s16 **)(PSX_SCRATCH + 0x005C) = D_8005D120;
             if ((obj->state_flags >> 28) == 10) {
                 r = *(s32 **)((u8 *)OBJ_W(obj, 0x134) + 0x10);
                 *(s32 *)obj->unkFC = func_80044CA0(ret, obj, &D_800676B0, delta);

@@ -84,6 +84,12 @@ void func_800492B4(s32 port, u8 *data, s32 len)
 {
 }
 
+/* the buttons from elsewhere (the touch screen and controllers on Android) */
+void pc_pad_set(u16 buttons)
+{
+    held = buttons;
+}
+
 /* at a vertical blank (from the interrupt) */
 void pc_pad_vblank(void)
 {

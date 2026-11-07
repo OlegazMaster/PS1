@@ -13,6 +13,9 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#ifdef __ANDROID__
+#include <pthread.h>
+#endif
 #include <signal.h>
 #include <sys/mman.h>
 #include <sys/time.h>
@@ -104,7 +107,11 @@ void pc_sys_block(s32 on)
 
     sigemptyset(&s);
     sigaddset(&s, SIGALRM);
+#ifdef __ANDROID__
+    pthread_sigmask(on ? SIG_BLOCK : SIG_UNBLOCK, &s, NULL);
+#else
     sigprocmask(on ? SIG_BLOCK : SIG_UNBLOCK, &s, NULL);
+#endif
 }
 
 static void on_alarm(int sig)
@@ -112,19 +119,48 @@ static void on_alarm(int sig)
     interrupt();
 }
 
+#ifdef __ANDROID__
+/* the signal goes to the game thread only (the other threads of the app are
+ * not ours): a timer thread sends it */
+static pthread_t game;
+
+static void *timer_thread(void *arg)
+{
+    for (;;) {
+        struct timespec t = { 0, 1000000 };
+
+        nanosleep(&t, NULL);
+        pthread_kill(game, SIGALRM);
+    }
+    return NULL;
+}
+#endif
+
 void pc_sys_start_interrupts(void (*func)(void))
 {
     struct sigaction sa;
-    struct itimerval it;
 
     interrupt = func;
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = on_alarm;
     sa.sa_flags = SA_RESTART;
     sigaction(SIGALRM, &sa, NULL);
-    it.it_interval.tv_sec = 0;
-    it.it_interval.tv_usec = 1000;
-    it.it_value = it.it_interval;
-    setitimer(ITIMER_REAL, &it, NULL);
+#ifdef __ANDROID__
+    {
+        pthread_t t;
+
+        game = pthread_self();
+        pthread_create(&t, NULL, timer_thread, NULL);
+    }
+#else
+    {
+        struct itimerval it;
+
+        it.it_interval.tv_sec = 0;
+        it.it_interval.tv_usec = 1000;
+        it.it_value = it.it_interval;
+        setitimer(ITIMER_REAL, &it, NULL);
+    }
+#endif
 }
 #endif

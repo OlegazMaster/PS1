@@ -64,7 +64,9 @@ Crash Bandicoot 3 (`SCUS_942.44`, американская версия) с по
   `.cue`, `.bin` или `.iso`; 32-битный x86, нужен `gcc-multilib`);
   `make pc-windows` → `build/pc-win/crash3.exe` для Windows (MinGW-w64,
   `docs/windows.md`; без аргументов ищет образ рядом с собой). Проверка
-  Windows-версии здесь — Wine (`wine32:i386`). Память PlayStation — по своим адресам в процессе,
+  Windows-версии здесь — Wine (`wine32:i386`). `make pc-android` →
+  `build/android/crash3.apk` (32-битный ARM, NativeActivity, без NDK:
+  `docs/android.md`); на устройстве ещё не проверялся. Память PlayStation — по своим адресам в процессе,
   переменные C — по адресам из сборки PlayStation (подробно —
   `docs/roadmap.md`, этап 4). Запускается и доходит до чтения с диска;
   Готовы `libcd` (образ диска), графика (программный GPU, `libgpu`, окно

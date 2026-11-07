@@ -29,7 +29,7 @@ const char D_80010714[0x29] = "******************** state return %d\n";
 
 /* .sdata */
 s32 D_80060A20 = 0; /* which of the two scratchpad words holds the last constant */
-s32 D_80060A24 = 0x1F800040; /* the two words */
+s32 D_80060A24 = (PSX_SCRATCH + 0x0040); /* the two words */
 s32 D_80060A28 = 0;
 s32 D_80060A2C = 12345; /* random seeds (set by game.c) */
 s32 D_80060A30 = 765634;
@@ -72,7 +72,7 @@ static __inline__ u32 *GoolReg(GoolObject *obj, u32 r) {
  * the stack frame, or a word of the code (global or of the state).
  * Equivalent; the original shares the NULL return and keeps the code word in v0. */
 u32 *func_80035410(GoolObject *obj, u32 op) {
-    u32 *buf = (u32 *)0x1F800040;
+    u32 *buf = (u32 *)(PSX_SCRATCH + 0x0040);
     GoolObject *link;
     s32 unused[4]; /* takes stack space in the original */
 
@@ -1282,7 +1282,7 @@ s32 func_800383DC(GoolObject *obj, u32 op, u32 flags, GoolStateRef *ref) {
 
     type = (op >> 22) & 3;
     cond = (op >> 20) & 3;
-    *(u32 *)0x1F800048 = flags;
+    *(u32 *)(PSX_SCRATCH + 0x0048) = flags;
     if (!(flags & 8)) {
         return -0xE;
     }
@@ -1300,7 +1300,7 @@ s32 func_800383DC(GoolObject *obj, u32 op, u32 flags, GoolStateRef *ref) {
     if (c) {
         ref->guard = (op >> 24) != 0x3D;
         flags |= 0x20;
-        *(u32 *)0x1F800048 = flags;
+        *(u32 *)(PSX_SCRATCH + 0x0048) = flags;
         switch (type) {
         case 2:
             r = func_8001D5E8(obj, NULL);

@@ -77,7 +77,7 @@ s32 SysInit(void) {
     u8 *p;
     s32 i;
 
-    p = (u8 *)0x1F800000;
+    p = (u8 *)PSX_SCRATCH;
     for (i = 0x3FF; i >= 0; i--) {
         p[i] = 0;
     }

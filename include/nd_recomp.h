@@ -38,8 +38,14 @@ void rc_step(u32 pc);
 #define RC_HI(sym) ((((u32)(sym)) + 0x8000u) & 0xFFFF0000u)
 #define RC_LO(sym) ((u32)(s32)(s16)((u32)(sym) & 0xFFFFu))
 
-/* memory at PlayStation addresses: the port maps the scratchpad at
- * 0x1F800000 as the C code of the game uses it there too */
+/* memory at PlayStation addresses; the scratchpad (and the I/O ports after
+ * it) where the port has it (PSX_SCRATCH: the code builds its addresses
+ * with lui 0x1F80, which becomes RC_SCRATCH_HI) */
+#ifdef RC_MIPS
+#define RC_SCRATCH_HI 0x1F800000u
+#else
+#define RC_SCRATCH_HI PSX_SCRATCH
+#endif
 #define RC_PTR(a) ((u8 *)(a))
 
 #define RC_LB(a) (*(s8 *)RC_PTR(a))

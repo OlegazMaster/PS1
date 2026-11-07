@@ -53,6 +53,13 @@ void pc_video_present(void)
     frames++;
     gpu_display_rgb(frame_rgb);
     dump();
+#ifdef __ANDROID__
+    {
+        void pc_android_present(const u32 *rgb, s32 w, s32 h);
+
+        pc_android_present(gpu_display.enabled ? frame_rgb : NULL, gpu_display.w, gpu_display.h);
+    }
+#endif
 #ifdef PC_SDL
     if (!window) {
         if (getenv("PC_NO_WINDOW") || SDL_Init(SDL_INIT_VIDEO) != 0) {

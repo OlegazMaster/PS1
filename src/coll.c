@@ -1249,11 +1249,11 @@ extern u32 D_8005C884[];
 s32 func_8002D8E0(void) {
     s32 i;
 
-    D_80060ADC = (u32 *)0x1F800100;
-    D_80060AD8 = (u32 *)0x1F800180;
-    D_80060AE0 = (u32 *)0x1F800380;
+    D_80060ADC = (u32 *)(PSX_SCRATCH + 0x0100);
+    D_80060AD8 = (u32 *)(PSX_SCRATCH + 0x0180);
+    D_80060AE0 = (u32 *)(PSX_SCRATCH + 0x0380);
     for (i = 0; i < 32; i++) {
-        ((u32 *)0x1F800380)[i] = D_8005C884[i];
+        ((u32 *)(PSX_SCRATCH + 0x0380))[i] = D_8005C884[i];
     }
     return -0xFF;
 }

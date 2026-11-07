@@ -245,6 +245,8 @@ class Gen:
             if i.sym and i.sym[0] == "hi" and not self.inside(i.sym[1]):
                 self.syms.add(i.sym[1])
                 return self.w(i.rt, "RC_HI(%s)" % i.sym[1])
+            if i.imm == 0x1F80:  # the scratchpad and the I/O ports: wherever the port has them
+                return self.w(i.rt, "RC_SCRATCH_HI")
             return self.w(i.rt, "0x%Xu" % (i.imm << 16))
         if op in (8, 9):
             return self.w(i.rt, "%s + %s" % (rs, self.imm_expr(i, True)))

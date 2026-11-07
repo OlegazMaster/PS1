@@ -38,7 +38,7 @@ void func_8002FA1C(void) {
         NSOpen(&ns.ldat->exec_map[9], 0, 1);
     }
     func_8002FDC4(1);
-    *(u8 **)0x1F80005C = D_8005D120;
+    *(u8 **)(PSX_SCRATCH + 0x005C) = D_8005D120;
 }
 #else
 INCLUDE_ASM("asm/us/nonmatchings/game", func_8002FA1C);

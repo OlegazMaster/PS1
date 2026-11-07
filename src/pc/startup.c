@@ -25,7 +25,7 @@
 
 #define RAM_ADDR 0x80000000u
 #define RAM_SIZE 0x200000u
-#define SCRATCH_ADDR 0x1F800000u
+#define SCRATCH_ADDR PSX_SCRATCH
 #define SCRATCH_SIZE 0x10000u /* the scratchpad and the I/O ports */
 
 s32 pc_sys_map(u32 addr, u32 size); /* src/pc/platform.c */
@@ -52,6 +52,12 @@ extern const u32 pc_scan_ranges[][2];
 extern const u32 pc_scan_count;
 
 s32 game_main(void); /* main() of src/main.c */
+
+#ifdef __ANDROID__
+/* an error: shown on the screen of the app (src/pc/android.c), which stays */
+void pc_android_fatal(void) __attribute__((noreturn));
+#define exit(n) pc_android_fatal()
+#endif
 
 /* for the start code of PSY-Q (__SN_ENTRY_POINT) */
 extern u8 D_80060A38[]; /* the start of .sbss/.bss */
@@ -197,6 +203,19 @@ static void patch_func_pointers(void)
     if (getenv("PC_VERBOSE")) {
         fprintf(stderr, "port: %u pointers to C functions in the data\n", n);
     }
+#if PSX_SCRATCH != 0x1F800000u
+    /* pointers into the scratchpad, which the port has elsewhere */
+    for (i = 0; i < pc_scan_count; i++) {
+        u32 *p = (u32 *)pc_scan_ranges[i][0];
+        u32 *end = (u32 *)pc_scan_ranges[i][1];
+
+        for (; p < end; p++) {
+            if (*p - 0x1F800000u < 0x400u) {
+                *p += PSX_SCRATCH - 0x1F800000u;
+            }
+        }
+    }
+#endif
 }
 
 /* the recompiled code calls a C function: by its x86 address, or by the
@@ -272,32 +291,21 @@ static char *find_image(const char *argv0)
     return NULL;
 }
 
-int main(int argc, char **argv)
+/* starts the game from a disc image (or, with disc NULL, an executable
+ * without a disc); exe: its executable when not the one on the disc */
+s32 pc_start(const char *disc, const char *exe)
 {
-    char *found[3];
-
-    if (argc < 2) {
-        found[0] = argv[0];
-        found[1] = find_image(argv[0]);
-        found[2] = NULL;
-        if (!found[1]) {
-            usage();
-        }
-        fprintf(stderr, "port: the disc image %s\n", found[1]);
-        argv = found;
-        argc = 2;
-    }
     map_fixed(RAM_ADDR, RAM_SIZE);
     map_fixed(SCRATCH_ADDR, SCRATCH_SIZE);
-    if (is_exe(argv[1])) {
-        load_exe(argv[1]);
+    if (!disc) {
+        load_exe(exe);
     } else {
-        if (!pc_cd_open(argv[1])) {
-            fprintf(stderr, "cannot open the disc image %s\n", argv[1]);
-            usage();
+        if (!pc_cd_open(disc)) {
+            fprintf(stderr, "cannot open the disc image %s\n", disc);
+            exit(1);
         }
-        if (argc > 2) {
-            load_exe(argv[2]);
+        if (exe) {
+            load_exe(exe);
         } else {
             load_exe_from_disc("SCUS_942.44");
         }
@@ -306,3 +314,23 @@ int main(int argc, char **argv)
     psx_start();
     return game_main();
 }
+
+#ifndef __ANDROID__ /* Android starts in src/pc/android.c */
+int main(int argc, char **argv)
+{
+    const char *disc;
+
+    if (argc < 2) {
+        disc = find_image(argv[0]);
+        if (!disc) {
+            usage();
+        }
+        fprintf(stderr, "port: the disc image %s\n", disc);
+        return pc_start(disc, NULL);
+    }
+    if (is_exe(argv[1])) {
+        return pc_start(NULL, argv[1]);
+    }
+    return pc_start(argv[1], argc > 2 ? argv[2] : NULL);
+}
+#endif

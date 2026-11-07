@@ -31,7 +31,7 @@
  *    returns from the subroutine instead. */
 
 #ifndef GOOL_SCRATCHPAD
-#define GOOL_SCRATCHPAD ((u8 *)0x1F800000)
+#define GOOL_SCRATCHPAD ((u8 *)PSX_SCRATCH)
 #endif
 #define SCRATCH(off) (*(u32 *)(GOOL_SCRATCHPAD + (off)))
 

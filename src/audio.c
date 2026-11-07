@@ -22,17 +22,17 @@ s32 D_80060A1C = 0;
 extern s32 D_80068F7C[]; /* game.unkE4: mono sound */
 
 /* .sbss */
-static s32 D_80060AE8;
-static s16 D_80060AEC[2]; /* volume (left, right) of a sound */
-static s16 D_80060AF0[4];
-static s32 D_80060AF8;
-static s16 D_80060AFC[2];
-static s16 D_80060B00;
-static s32 D_80060B04;
-static s32 D_80060B08[2];
-static s32 D_80060B10[2];
-static s32 D_80060B18;
-static s16 D_80060B1C[2];
+STATIC_DATA s32 D_80060AE8;
+STATIC_DATA s16 D_80060AEC[2]; /* volume (left, right) of a sound */
+STATIC_DATA s16 D_80060AF0[4];
+STATIC_DATA s32 D_80060AF8;
+STATIC_DATA s16 D_80060AFC[2];
+STATIC_DATA s16 D_80060B00;
+STATIC_DATA s32 D_80060B04;
+STATIC_DATA s32 D_80060B08[2];
+STATIC_DATA s32 D_80060B10[2];
+STATIC_DATA s32 D_80060B18;
+STATIC_DATA s16 D_80060B1C[2];
 
 /* A voice of the SPU (D_8006C7D8, 24 of them). */
 typedef struct {

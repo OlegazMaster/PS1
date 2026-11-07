@@ -213,7 +213,7 @@ void CoreLoop(s32 lid) {
             }
             src = (s32 *)cur_zone->items[0];
             count = *src;
-            dst = (u32 *)0x1F800280;
+            dst = (u32 *)(PSX_SCRATCH + 0x0280);
             entry = (Unk30 *)(src + 2);
             while (count != 0) {
                 count--;
@@ -264,7 +264,7 @@ void CoreLoop(s32 lid) {
         }
         func_80011FC0();
         for (i = 0; i < 8; i++) {
-            saved[i] = ((s32 *)0x1F800040)[i];
+            saved[i] = ((s32 *)(PSX_SCRATCH + 0x0040))[i];
         }
         func_8003F3AC(context.cur->unk2090, context.cur, &D_800676B0);
         if (game.unk364 == -1) {
@@ -281,7 +281,7 @@ void CoreLoop(s32 lid) {
             func_80018A54();
         }
         for (i = 0; i < 8; i++) {
-            ((s32 *)0x1F800040)[i] = saved[i];
+            ((s32 *)(PSX_SCRATCH + 0x0040))[i] = saved[i];
         }
         {
             ObjectLink *link;

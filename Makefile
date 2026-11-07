@@ -90,7 +90,7 @@ OBJECTS := $(if $(wildcard $(LD_SCRIPT)),$(shell grep -oE '$(BUILD)/[^ ()]+\.o' 
 
 # ---- Build -------------------------------------------------------------------
 
-.PHONY: all build check setup init extract clean distclean progress expected ctx decompile diff test pc pc-windows pc-test
+.PHONY: all build check setup init extract clean distclean progress expected ctx decompile diff test pc pc-windows pc-android pc-test
 
 all: check
 
@@ -175,6 +175,10 @@ pc: build
 # gcc-mingw-w64-i686): build/pc-win/crash3.exe and SDL2.dll, downloaded once.
 pc-windows: build
 	python3 tools/pc/build.py --windows
+
+# The port for Android (32-bit ARM): build/android/crash3.apk, see docs/android.md.
+pc-android: build
+	python3 tools/pc/build.py --android
 
 # Self-tests of the software GTE and GPU of the port (no game files needed).
 pc-test:

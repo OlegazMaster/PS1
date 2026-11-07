@@ -17,7 +17,12 @@ link turns into its PlayStation address (as for the symbols of the data
 segment). A table of the C functions (PlayStation address -> x86 address) lets
 the startup code replace pointers to functions in the data.
 
-usage: tools/pc/build.py [--windows]
+With --android it builds build/android/crash3.apk: the port as a
+NativeActivity for 32-bit ARM (armeabi-v7a), cross-compiled with clang and
+lld against the minimal interface of Android in tools/android (no NDK
+needed), packed with aapt, zipalign and apksigner (a debug key).
+
+usage: tools/pc/build.py [--windows | --android]
 """
 import hashlib
 import os
@@ -31,17 +36,39 @@ from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 WINDOWS = "--windows" in sys.argv
-OUT = os.path.join(ROOT, "build", "pc-win" if WINDOWS else "pc")
+ANDROID = "--android" in sys.argv
+OUT = os.path.join(ROOT, "build", "pc-win" if WINDOWS else "android" if ANDROID else "pc")
 MAIN_ELF = os.path.join(ROOT, "build", "us", "main.elf")
 RC = os.path.join(ROOT, "build", "us", "rc")
-CC = ["i686-w64-mingw32-gcc"] if WINDOWS else ["gcc", "-m32"]
-NM = "i686-w64-mingw32-nm" if WINDOWS else "nm"
+ANDROID_DIR = os.path.join(ROOT, "tools", "android")
+if WINDOWS:
+    CC = ["i686-w64-mingw32-gcc"]
+    NM = "i686-w64-mingw32-nm"
+elif ANDROID:
+    # 32-bit ARM as the NDK builds armeabi-v7a; position-independent (a
+    # shared library); the C library interface of tools/android/sysroot
+    # (GCC: the game code relies on its leniency, as with the other targets;
+    # the ABI is that of armeabi-v7a: ARMv7-A, AAPCS with VFP and soft-float
+    # calls)
+    CC = ["arm-linux-gnueabi-gcc", "-march=armv7-a", "-mfloat-abi=softfp", "-mfpu=vfpv3-d16", "-marm", "-fPIC",
+          "-D__ANDROID__", "-nostdinc",
+          "-isystem", subprocess.run(["arm-linux-gnueabi-gcc", "-print-file-name=include"], capture_output=True,
+                                     text=True).stdout.strip(),
+          "-isystem", os.path.join(ANDROID_DIR, "sysroot", "include")]
+    LD = ["clang", "--target=armv7a-linux-androideabi24", "-fuse-ld=lld"]
+    NM = "llvm-nm"
+else:
+    CC = ["gcc", "-m32"]
+    NM = "nm"
 US = "_" if WINDOWS else ""  # the prefix of C symbols
 # i686 without SSE: the variables are at their PlayStation addresses, which
 # are not aligned as x86 compilers align arrays for vector instructions
-CFLAGS = ["-march=i686", "-mno-sse", "-std=gnu99", "-O1", "-g", "-fno-pic", "-fno-common", "-fno-strict-aliasing",
-          "-fwrapv", "-funsigned-char", "-malign-double", "-DNON_MATCHING", "-DVERSION_US", "-DTARGET_PC",
-          "-I" + os.path.join(ROOT, "include"), "-w"]
+# (-malign-double: 64-bit fields aligned as on MIPS; ARM does that anyway)
+X86 = ["-march=i686", "-mno-sse", "-malign-double", "-fno-pic"]
+CFLAGS = ([] if ANDROID else X86) + \
+    ["-std=gnu99", "-O1", "-g", "-fno-common", "-fno-strict-aliasing", "-fwrapv", "-funsigned-char",
+     "-fno-stack-protector", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables",
+     "-DNON_MATCHING", "-DVERSION_US", "-DTARGET_PC", "-I" + os.path.join(ROOT, "include"), "-w"]
 GAME = ["audio", "camera", "cdfs", "coll", "game", "gfx", "gool", "goolop", "goolvm", "interp", "level", "main",
         "math", "nd", "ns", "obj", "prop", "sys"]
 RAM_LO, RAM_HI = 0x80000000, 0x80200000
@@ -77,6 +104,8 @@ def run(cmd, **kw):
 def sdl_flags():
     """(cflags, libs, dll) of a 32-bit SDL2, or None: without it the port
     runs without a window (frames can be written to files)."""
+    if ANDROID:
+        return None  # the window and the input are src/pc/android.c
     if WINDOWS:
         base = os.path.join(ROOT, "build", "sdl2-mingw")
         dev = os.path.join(base, "SDL2-%s" % SDL_VERSION, "i686-w64-mingw32")
@@ -165,7 +194,7 @@ def compile_all(psx):
     os.makedirs(OUT, exist_ok=True)
     jobs = [(os.path.join(ROOT, "src", g + ".c"), os.path.join(OUT, g + ".o")) for g in GAME]
     for f in sorted(os.listdir(os.path.join(ROOT, "src", "pc"))):
-        if f.endswith(".c"):
+        if f.endswith(".c") and (ANDROID or f != "android.c"):
             jobs.append((os.path.join(ROOT, "src", "pc", f), os.path.join(OUT, "pc_" + f[:-2] + ".o")))
     # the hand-written assembly the port runs as recompiled C (tools/recomp.py;
     # generated, not committed): the renderer and the heap of the game
@@ -224,6 +253,92 @@ def unprefix(n):
     return n[len(US):] if US and n.startswith(US) else n
 
 
+# The libraries of Android the port links with, and what it may use from
+# them: the stubs the link sees are made from these lists (a name not here is
+# an error: it might not exist on the device).
+ANDROID_LIBS = {
+    "libandroid.so": r"^(ANativeWindow_|AInputQueue_|AInputEvent_|AKeyEvent_|AMotionEvent_|ALooper_|ANativeActivity_)",
+    "liblog.so": r"^__android_log_",
+    "libc.so": r"^(fopen|freopen|fclose|fread|fwrite|fseek|ftell|fgets|fputc|fputs|fflush|setvbuf|printf|fprintf|"
+               r"vfprintf|sprintf|snprintf|vsnprintf|puts|malloc|calloc|realloc|free|exit|abort|atoi|getenv|memcpy|"
+               r"memmove|memset|memcmp|strlen|strcmp|strncmp|strchr|strrchr|strstr|strcpy|strncpy|strcat|strspn|"
+               r"strerror|strcasecmp|strncasecmp|__errno|opendir|readdir|closedir|clock_gettime|nanosleep|"
+               r"setitimer|sigaction|sigprocmask|pthread_sigmask|sigemptyset|sigaddset|mmap|munmap|usleep|"
+               r"raise|pthread_attr_init|pthread_attr_setstacksize|pthread_create|pthread_kill|pthread_self|"
+               r"__aeabi_memcpy\w*|__aeabi_memset\w*|__aeabi_memclr\w*|__aeabi_memmove\w*|stdin|stdout|stderr)$",
+    "libm.so": r"^(sqrt|sqrtf|sin|cos|atan2|floor|ceil|pow|fabs)$",
+}
+ANDROID_DATA = {"stdin", "stdout", "stderr"}
+
+
+def link_android(objs, defsyms):
+    """libcrash3.so with stubs of the system libraries, then the APK."""
+    libgcc = run(["arm-linux-gnueabi-gcc", "-print-libgcc-file-name"]).strip()
+    so = os.path.join(OUT, "lib", "armeabi-v7a", "libcrash3.so")
+    os.makedirs(os.path.dirname(so), exist_ok=True)
+    # what the objects need from the system (libgcc: the division helpers)
+    undef, defined = set(), set()
+    for o in objs + [os.path.join(OUT, "func_table.o")]:
+        undef |= set(n for t, n in symbols(o, "-u"))
+        defined |= set(n for t, n in symbols(o, "--defined-only"))
+    for t, n in symbols(libgcc, "--defined-only"):
+        defined.add(n)
+    absolute = set(d.split("=")[1] for d in defsyms)
+    # and what libgcc may need (raise: division by zero)
+    undef |= {"raise"}
+    need = sorted(undef - defined - absolute)
+    stubs = os.path.join(OUT, "stubs")
+    os.makedirs(stubs, exist_ok=True)
+    per_lib = dict((lib, []) for lib in ANDROID_LIBS)
+    unknown = []
+    for n in need:
+        lib = next((l for l, rx in ANDROID_LIBS.items() if re.match(rx, n)), None)
+        if lib:
+            per_lib[lib].append(n)
+        elif n not in ("__aeabi_unwind_cpp_pr0", "_GLOBAL_OFFSET_TABLE_"):  # made by the linker
+            unknown.append(n)
+    if unknown:
+        sys.exit("not in the libraries of Android the port links with: %s" % " ".join(unknown))
+    for lib, names in per_lib.items():
+        c = os.path.join(stubs, lib + ".c")
+        open(c, "w").write("".join(("void *%s;\n" if n in ANDROID_DATA else "void %s(void) {}\n") % n
+                                   for n in names))
+        run(LD + ["-shared", "-nostdlib", "-Wl,-soname," + lib, "-o", os.path.join(stubs, lib), c])
+    link = LD + ["-shared", "-nostdlib", "-o", so, "-Wl,-soname,libcrash3.so",
+                 "-Wl,--no-undefined", "-Wl,-z,noexecstack", "-Wl,-z,max-page-size=16384", "-Wl,--hash-style=both"] + \
+        objs + [os.path.join(OUT, "func_table.o")] + ["-Wl," + d for d in defsyms] + [libgcc] + \
+        [os.path.join(stubs, lib) for lib in ANDROID_LIBS]
+    r = subprocess.run(link, capture_output=True, text=True)
+    if r.returncode:
+        print("\n".join(r.stderr.splitlines()[:30]))
+        sys.exit(1)
+    return package_apk(so)
+
+
+def package_apk(so):
+    jar = "/usr/lib/android-sdk/platforms/android-23/android.jar"
+    apk = os.path.join(OUT, "crash3.apk")
+    tmp = os.path.join(OUT, "unsigned.apk")
+    aligned = os.path.join(OUT, "aligned.apk")
+    for f in (tmp, aligned, apk):
+        if os.path.exists(f):
+            os.remove(f)
+    run(["aapt", "package", "-f", "-M", os.path.join(ANDROID_DIR, "AndroidManifest.xml"), "-I", jar, "-F", tmp])
+    run(["aapt", "add", tmp, "lib/armeabi-v7a/libcrash3.so"], cwd=OUT)
+    run(["zipalign", "-f", "-p", "4", tmp, aligned])
+    # a debug key (made once; keep build/android-key.jks to update the app)
+    key = os.path.join(ROOT, "build", "android-key.jks")
+    if not os.path.exists(key):
+        run(["keytool", "-genkeypair", "-keystore", key, "-storepass", "android", "-keypass", "android",
+             "-alias", "crash3", "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000",
+             "-dname", "CN=Crash 3 port (debug)"])
+    run(["apksigner", "sign", "--ks", key, "--ks-pass", "pass:android", "--key-pass", "pass:android",
+         "--ks-key-alias", "crash3", "--out", apk, aligned])
+    os.remove(tmp)
+    os.remove(aligned)
+    return apk
+
+
 def main():
     psx = psx_symbols()
     objs, moved = compile_all(psx)
@@ -238,7 +353,10 @@ def main():
     defsyms, missing = [], []
     for s in sorted(undef - defined):
         if is_data(psx, s) or (s in psx and psx[s][1] in "Aa"):  # A: constants like D_40100
-            defsyms.append("--defsym=%s%s=0x%08X" % (US, s, psx[s][0]))
+            a = psx[s][0]
+            if ANDROID and 0x1F800000 <= a < 0x1F804000:
+                a += 0x80200000 - 0x1F800000  # the scratchpad of Android (PSX_SCRATCH)
+            defsyms.append("--defsym=%s%s=0x%08X" % (US, s, a))
         else:
             missing.append(s)
 
@@ -262,22 +380,25 @@ def main():
 
     if missing:
         open(os.path.join(OUT, "missing.txt"), "w").write("\n".join(missing) + "\n")
-    if WINDOWS:
-        exe = os.path.join(OUT, "crash3.exe")
-        # 4 GB of addresses for a 32-bit program on 64-bit Windows: the RAM is
-        # at 0x80000000
-        link = CC + ["-o", exe] + objs + [os.path.join(OUT, "func_table.o"), "-Wl,--large-address-aware"] + \
-            ["-Wl," + d for d in defsyms] + (SDL[1] if SDL else []) + ["-lwinmm"]
+    if ANDROID:
+        exe = link_android(objs, defsyms)
     else:
-        exe = os.path.join(OUT, "crash3")
-        link = CC + ["-no-pie", "-o", exe] + objs + [os.path.join(OUT, "func_table.o")] + \
-            ["-Wl," + d for d in defsyms] + ["-lm"] + (SDL[1] if SDL else [])
-    r = subprocess.run(link, capture_output=True, text=True)
-    if r.returncode:
-        print("\n".join(r.stderr.splitlines()[:20]))
-        sys.exit(1)
-    if WINDOWS and SDL:
-        shutil.copy(SDL[2], OUT)
+        if WINDOWS:
+            exe = os.path.join(OUT, "crash3.exe")
+            # 4 GB of addresses for a 32-bit program on 64-bit Windows: the RAM
+            # is at 0x80000000
+            link = CC + ["-o", exe] + objs + [os.path.join(OUT, "func_table.o"), "-Wl,--large-address-aware"] + \
+                ["-Wl," + d for d in defsyms] + (SDL[1] if SDL else []) + ["-lwinmm"]
+        else:
+            exe = os.path.join(OUT, "crash3")
+            link = CC + ["-no-pie", "-o", exe] + objs + [os.path.join(OUT, "func_table.o")] + \
+                ["-Wl," + d for d in defsyms] + ["-lm"] + (SDL[1] if SDL else [])
+        r = subprocess.run(link, capture_output=True, text=True)
+        if r.returncode:
+            print("\n".join(r.stderr.splitlines()[:20]))
+            sys.exit(1)
+        if WINDOWS and SDL:
+            shutil.copy(SDL[2], OUT)
     print("%s: %d variables at their PlayStation addresses, %d symbols of the executable, %d functions"
           % (exe, len(moved), len(defsyms) - len(moved), len(funcs)))
 

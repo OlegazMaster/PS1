@@ -111,6 +111,7 @@ static struct {
 /* The objects followed closely (PC_FOCUS=exec in hex, default 0x49: the
  * level buttons and portals of the warp rooms): every call of a game
  * function on such an object (its first argument) is checked and logged. */
+static s32 env_on(const char *name, s32 *cache);
 static s32 focus_exec = -1;
 static u32 focus_checks;
 
@@ -463,6 +464,11 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
     u32 id = focus ? *(u32 *)(a0 + 0xB4) : 0, state = focus ? *(u32 *)(a0 + 0x1C) : 0;
     u32 r = shadow_call(name, addr, native, ret, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
 
+    if (focus) {
+        static s32 calls_on = -1;
+
+        focus = env_on("PC_FOCUS_CALLS", &calls_on);
+    }
     if (call_log && (outer || focus)) {
         u32 a[6] = { a0, a1, a2, a3, a4, a5 };
 
@@ -491,9 +497,21 @@ void pc_spawn_log(const char *fmt, ...)
  * each instruction with the top of the stack before it; up to 12000 lines */
 static u32 trace_lines;
 
+static s32 env_on(const char *name, s32 *cache)
+{
+    if (*cache < 0) {
+        const char *e = getenv(name);
+
+        *cache = !e || atoi(e) != 0;
+    }
+    return *cache;
+}
+
 s32 pc_gool_trace_on(u32 obj)
 {
-    return call_log > 0 && !in_orig && trace_lines < 12000 && is_focus(obj);
+    static s32 on = -1;
+
+    return env_on("PC_GOOL_TRACE", &on) && call_log > 0 && !in_orig && trace_lines < 12000 && is_focus(obj);
 }
 
 void pc_gool_trace(u32 obj, u32 pc, u32 op, u32 top)
@@ -515,4 +533,21 @@ void pc_gool_native_log(u32 obj, u32 pc, u32 next, u32 flags)
     fprintf(stderr, "gool native: object %08X exec %X sub %X state %X: code at %08X -> %s%08X, flags %X [frame %u]\n",
             obj, *(u32 *)(obj + 0xB4) >> 16, *(u32 *)(obj + 0xB4) & 0xFFFF, *(u32 *)(obj + 0x1C), pc,
             next ? "go on at " : "return ", next, flags, pc_frames());
+}
+
+/* the log of the game code on the followed objects (src/interp.c) */
+void pc_focus_log(u32 obj, const char *fmt, ...)
+{
+    static u32 lines;
+    va_list ap;
+
+    if (in_orig || call_log <= 0 || lines >= 20000 || !is_focus(obj)) {
+        return;
+    }
+    lines++;
+    fprintf(stderr, "focus %08X {sub %X state %X} [frame %u]: ", obj, *(u32 *)(obj + 0xB4) & 0xFFFF,
+            *(u32 *)(obj + 0x1C), pc_frames());
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
 }

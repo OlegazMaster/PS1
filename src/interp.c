@@ -396,6 +396,14 @@ s32 func_8003188C(s32 *point, s32 *box); /* point in box */
 s32 func_8003191C(s32 *box_a, s32 *box_b); /* boxes overlap */
 s32 func_80031BD0(s32 a, s32 *p1, s32 *p2, s32 rx, s32 ry, s32 rz);
 
+#ifdef TARGET_PC
+/* the log of the PC port on the followed objects (src/pc/shadow.c) */
+void pc_focus_log(u32 obj, const char *fmt, ...);
+#define FOCUS_LOG(obj, ...) pc_focus_log((u32)(obj), __VA_ARGS__)
+#else
+#define FOCUS_LOG(obj, ...)
+#endif
+
 #ifdef NON_MATCHING
 /* Sends the event of msg to obj if obj is one of the receivers chosen by
  * msg->type: 1, 4 objects whose box touches the sender's, 2, 3 objects whose
@@ -436,14 +444,21 @@ s32 func_8001DDF4(GoolObject *obj, GoolBroadcast *msg) {
             }
             box = func_8002D0E8(obj, 0, -2);
             if (box == NULL) {
+                FOCUS_LOG(obj, "broadcast type %d event %X: no box for the object (records %d)\n", msg->type,
+                          msg->event, game.unk5C);
                 return -0xFF;
             }
             box2 = func_8002D0E8(msg->sender, 0, -2);
             if (box2 == NULL) {
+                FOCUS_LOG(obj, "broadcast type %d event %X: no box for the sender (records %d)\n", msg->type,
+                          msg->event, game.unk5C);
                 func_8002D85C();
                 return -0xFF;
             }
             hit = func_8003191C(box + 2, box2 + 2);
+            FOCUS_LOG(obj, "broadcast type %d event %X from %08X: box %X %X %X - %X %X %X, sender %X %X %X - %X %X %X: "
+                      "hit %d (records %d)\n", msg->type, msg->event, (u32)msg->sender, box[2], box[3], box[4],
+                      box[5], box[6], box[7], box2[2], box2[3], box2[4], box2[5], box2[6], box2[7], hit, game.unk5C);
             func_8002D85C();
             func_8002D85C();
             if (hit) {
@@ -460,6 +475,9 @@ s32 func_8001DDF4(GoolObject *obj, GoolBroadcast *msg) {
                 return -0xFF;
             }
             hit = func_8003188C(obj->xform.trans, box2 + 2);
+            FOCUS_LOG(obj, "broadcast type %d event %X: position %X %X %X in the sender's box %X %X %X - %X %X %X: %d\n",
+                      msg->type, msg->event, obj->xform.trans[0], obj->xform.trans[1], obj->xform.trans[2], box2[2],
+                      box2[3], box2[4], box2[5], box2[6], box2[7], hit);
             func_8002D85C();
             if (hit) {
                 break;
@@ -497,6 +515,9 @@ s32 func_8001DDF4(GoolObject *obj, GoolBroadcast *msg) {
                 }
                 func_8002D85C();
             }
+            FOCUS_LOG(obj, "broadcast type 6 event %X: sweep from %X %X %X by %X %X %X (x16), %d parts: %d\n",
+                      msg->event, msg->sender->xform.trans[0], msg->sender->xform.trans[1], msg->sender->xform.trans[2],
+                      step[0], step[1], step[2], n, any);
             if (any) {
                 break;
             }
@@ -516,6 +537,9 @@ s32 func_8001DDF4(GoolObject *obj, GoolBroadcast *msg) {
             bounds[4] = msg->sender->misc_b[1] + msg->sender->xform.trans[1];
             bounds[5] = msg->sender->misc_b[2] + msg->sender->xform.trans[2];
             hit = func_8003191C(box3 + 2, bounds);
+            FOCUS_LOG(obj, "broadcast type 5 event %X: box %X %X %X - %X %X %X, range %X %X %X - %X %X %X: %d\n",
+                      msg->event, box3[2], box3[3], box3[4], box3[5], box3[6], box3[7], bounds[0], bounds[1],
+                      bounds[2], bounds[3], bounds[4], bounds[5], hit);
             func_8002D85C();
             if (!hit) {
                 return -0xFF;
@@ -528,6 +552,7 @@ s32 func_8001DDF4(GoolObject *obj, GoolBroadcast *msg) {
         }
     }
     msg->sent++;
+    FOCUS_LOG(obj, "broadcast type %d: event %X sent\n", msg->type, msg->event);
     GoolSendEvent(msg->sender, obj, msg->event, msg->argc, msg->argv);
     if (msg->sender == NULL) {
         return -0xFF;

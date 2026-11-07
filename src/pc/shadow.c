@@ -446,7 +446,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
               u32 a6, u32 a7, u32 a8, u32 a9, u32 a10, u32 a11)
 {
     s32 outer = !nested;
-    s32 focus = outer && is_focus(a0);
+    s32 focus = !in_orig && is_focus(a0);
     u32 id = focus ? *(u32 *)(a0 + 0xB4) : 0, state = focus ? *(u32 *)(a0 + 0x1C) : 0;
     u32 r = shadow_call(name, addr, native, ret, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
 
@@ -458,7 +458,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
         call_log = e && atoi(e) != 0;
 #endif
     }
-    if (call_log && outer) {
+    if (call_log && (outer || focus)) {
         u32 a[6] = { a0, a1, a2, a3, a4, a5 };
 
         log_call(name, addr, ret, a, r, focus, id, state);
@@ -480,4 +480,20 @@ void pc_spawn_log(const char *fmt, ...)
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
+}
+
+/* the trace of the GOOL interpreter (src/goolvm.c) on the followed objects:
+ * each instruction with the top of the stack before it; up to 12000 lines */
+static u32 trace_lines;
+
+s32 pc_gool_trace_on(u32 obj)
+{
+    return call_log && !in_orig && trace_lines < 12000 && is_focus(obj);
+}
+
+void pc_gool_trace(u32 obj, u32 pc, u32 op, u32 top)
+{
+    trace_lines++;
+    fprintf(stderr, "gool %08X {sub %X state %X}: %08X: %08X  [top %X] [frame %u]\n", obj,
+            *(u32 *)(obj + 0xB4) & 0xFFFF, *(u32 *)(obj + 0x1C), pc, op, top, pc_frames());
 }

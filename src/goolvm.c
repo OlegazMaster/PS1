@@ -391,7 +391,16 @@ static void GoolDrawLine(GoolVm *vm, u32 op) {
  * (GoolObjectInterpret). flags: 1 return from the outermost frame, 8 stop
  * at a return (0x20: setting *out to 0xFF), 0x10 push 0 then. Returns
  * -0xFF, or the result of the instruction that stopped. */
+#ifdef TARGET_PC
+/* the trace of the PC port (src/pc/shadow.c) */
+s32 pc_gool_trace_on(u32 obj);
+void pc_gool_trace(u32 obj, u32 pc, u32 op, u32 top);
+#endif
+
 s32 func_80038E28(GoolObject *obj, u32 flags, u32 *out) {
+#ifdef TARGET_PC
+    s32 trace;
+#endif
     GoolVm vm;
     u32 op;
     s32 l;
@@ -445,7 +454,15 @@ s32 func_80038E28(GoolObject *obj, u32 flags, u32 *out) {
     vm.sp -= (op >> 10) & 0xF
 #define POP_ARGS() (vm.sp -= (op >> 10) & 0xF)
 
+#ifdef TARGET_PC
+    trace = pc_gool_trace_on((u32)obj);
+#endif
     for (;;) {
+#ifdef TARGET_PC
+        if (trace) {
+            pc_gool_trace((u32)obj, (u32)vm.pc, *vm.pc, vm.sp[-1]);
+        }
+#endif
         op = *vm.pc++;
         obj->pc = vm.pc;
         switch (op >> 24) {

@@ -28,10 +28,12 @@ typedef s32 bool32;
 /* The scratchpad (1 KB of fast RAM, then the I/O ports) is at 0x1F800000.
  * The Android port cannot have memory there (the Java heap is reserved
  * around it) and puts it after the RAM. */
+#ifndef PSX_SCRATCH
 #if defined(TARGET_PC) && defined(__ANDROID__)
 #define PSX_SCRATCH 0x80200000u
 #else
 #define PSX_SCRATCH 0x1F800000u
+#endif
 #endif
 
 #endif /* TYPES_H */

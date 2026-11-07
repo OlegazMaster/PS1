@@ -8,5 +8,6 @@ void free(void *p);
 void exit(int status) __attribute__((noreturn));
 void abort(void) __attribute__((noreturn));
 int atoi(const char *s);
+unsigned long strtoul(const char *s, char **end, int base);
 char *getenv(const char *name);
 #endif

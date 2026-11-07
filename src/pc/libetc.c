@@ -34,6 +34,12 @@ typedef struct {
 static Event events[MAX_EVENTS];
 static void (*vsync_cb)(void);
 static volatile u32 vblanks;
+
+/* for the diagnostics of the port */
+u32 pc_vblanks(void)
+{
+    return vblanks;
+}
 static double rcnt_period[3]; /* seconds per interrupt, 0: stopped */
 static s32 rcnt_started[3];
 static double next_vblank, next_rcnt[3];

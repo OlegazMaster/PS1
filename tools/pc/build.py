@@ -37,7 +37,10 @@ from concurrent.futures import ThreadPoolExecutor
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 WINDOWS = "--windows" in sys.argv
 ANDROID = "--android" in sys.argv
-OUT = os.path.join(ROOT, "build", "pc-win" if WINDOWS else "android" if ANDROID else "pc")
+# --linux-arm: the code of the Android build as a Linux program for ARM, to
+# run in qemu-arm (tests of the port on ARM without a device)
+LINUX_ARM = "--linux-arm" in sys.argv
+OUT = os.path.join(ROOT, "build", "pc-win" if WINDOWS else "android" if ANDROID else "pc-arm" if LINUX_ARM else "pc")
 MAIN_ELF = os.path.join(ROOT, "build", "us", "main.elf")
 RC = os.path.join(ROOT, "build", "us", "rc")
 ANDROID_DIR = os.path.join(ROOT, "tools", "android")
@@ -57,6 +60,10 @@ elif ANDROID:
           "-isystem", os.path.join(ANDROID_DIR, "sysroot", "include")]
     LD = ["clang", "--target=armv7a-linux-androideabi24", "-fuse-ld=lld"]
     NM = "llvm-nm"
+elif LINUX_ARM:
+    CC = ["arm-linux-gnueabi-gcc", "-march=armv7-a", "-mfloat-abi=softfp", "-mfpu=vfpv3-d16", "-marm", "-fPIC",
+          "-DPSX_SCRATCH=0x80200000u"]
+    NM = "llvm-nm"
 else:
     CC = ["gcc", "-m32"]
     NM = "nm"
@@ -65,7 +72,7 @@ US = "_" if WINDOWS else ""  # the prefix of C symbols
 # are not aligned as x86 compilers align arrays for vector instructions
 # (-malign-double: 64-bit fields aligned as on MIPS; ARM does that anyway)
 X86 = ["-march=i686", "-mno-sse", "-malign-double", "-fno-pic"]
-CFLAGS = ([] if ANDROID else X86) + \
+CFLAGS = ([] if ANDROID or LINUX_ARM else X86) + \
     ["-std=gnu99", "-O1", "-g", "-fno-common", "-fno-strict-aliasing", "-fwrapv", "-funsigned-char",
      "-fno-stack-protector", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables",
      "-DNON_MATCHING", "-DVERSION_US", "-DTARGET_PC", "-I" + os.path.join(ROOT, "include"), "-w"]
@@ -259,7 +266,7 @@ def unprefix(n):
 ANDROID_LIBS = {
     "libandroid.so": r"^(ANativeWindow_|AInputQueue_|AInputEvent_|AKeyEvent_|AMotionEvent_|ALooper_|ANativeActivity_)",
     "liblog.so": r"^__android_log_",
-    "libc.so": r"^(fopen|freopen|fclose|fread|fwrite|fseek|ftell|fgets|fputc|fputs|fflush|setvbuf|printf|fprintf|"
+    "libc.so": r"^(strtoul|fopen|freopen|fclose|fread|fwrite|fseek|ftell|fgets|fputc|fputs|fflush|setvbuf|printf|fprintf|"
                r"vfprintf|sprintf|snprintf|vsnprintf|puts|malloc|calloc|realloc|free|exit|abort|atoi|getenv|memcpy|"
                r"memmove|memset|memcmp|strlen|strcmp|strncmp|strchr|strrchr|strstr|strcpy|strncpy|strcat|strspn|"
                r"strerror|strcasecmp|strncasecmp|__errno|opendir|readdir|closedir|clock_gettime|nanosleep|"
@@ -354,7 +361,7 @@ def main():
     for s in sorted(undef - defined):
         if is_data(psx, s) or (s in psx and psx[s][1] in "Aa"):  # A: constants like D_40100
             a = psx[s][0]
-            if ANDROID and 0x1F800000 <= a < 0x1F804000:
+            if (ANDROID or LINUX_ARM) and 0x1F800000 <= a < 0x1F804000:
                 a += 0x80200000 - 0x1F800000  # the scratchpad of Android (PSX_SCRATCH)
             defsyms.append("--defsym=%s%s=0x%08X" % (US, s, a))
         else:
@@ -389,6 +396,10 @@ def main():
             # is at 0x80000000
             link = CC + ["-o", exe] + objs + [os.path.join(OUT, "func_table.o"), "-Wl,--large-address-aware"] + \
                 ["-Wl," + d for d in defsyms] + (SDL[1] if SDL else []) + ["-lwinmm"]
+        elif LINUX_ARM:
+            exe = os.path.join(OUT, "crash3")
+            link = CC + ["-no-pie", "-o", exe] + objs + [os.path.join(OUT, "func_table.o")] + \
+                ["-Wl," + d for d in defsyms] + ["-lm", "-lpthread"]
         else:
             exe = os.path.join(OUT, "crash3")
             link = CC + ["-no-pie", "-o", exe] + objs + [os.path.join(OUT, "func_table.o")] + \

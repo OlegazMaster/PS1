@@ -20,6 +20,11 @@ static s32 tex_w, tex_h;
 static u32 frame_rgb[640 * 512];
 static u32 frames;
 
+u32 pc_frames(void)
+{
+    return frames;
+}
+
 static void dump(void)
 {
     const char *dir = getenv("PC_DUMP_FRAMES");

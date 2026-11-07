@@ -23,6 +23,17 @@
 #include <strings.h>
 #endif
 
+#ifdef __ANDROID__
+/* an error: shown on the screen of the app (src/pc/android.c), which stays */
+void pc_android_fatal(void) __attribute__((noreturn));
+#define exit(n) pc_android_fatal()
+/* the steps of the start, on the screen and in the log */
+void pc_android_message(const char *s);
+#define STEP(s) pc_android_message(s)
+#else
+#define STEP(s)
+#endif
+
 #define RAM_ADDR 0x80000000u
 #define RAM_SIZE 0x200000u
 #define SCRATCH_ADDR PSX_SCRATCH
@@ -34,6 +45,23 @@ s32 pc_sys_map(u32 addr, u32 size); /* src/pc/platform.c */
 static void map_fixed(u32 addr, u32 size)
 {
     if (!pc_sys_map(addr, size)) {
+#ifdef __ANDROID__
+        /* what is there: the mappings of the process around it */
+        FILE *maps = fopen("/proc/self/maps", "r");
+        char line[256];
+
+        while (maps && fgets(line, sizeof(line), maps)) {
+            u32 lo = (u32)strtoul(line, NULL, 16), hi = (u32)strtoul(strchr(line, '-') + 1, NULL, 16);
+
+            if (hi > addr - 0x1000000u && lo < addr + size + 0x1000000u) {
+                fprintf(stderr, "port: mapped there: %s", line);
+            }
+        }
+        if (maps) {
+            fclose(maps);
+        }
+        pc_android_message("CANNOT MAP THE PLAYSTATION MEMORY");
+#endif
         fprintf(stderr, "cannot map the memory of the PlayStation at %08X-%08X%s\n", addr, addr + size,
 #ifdef _WIN32
                 " (the port needs a 64-bit Windows)"
@@ -53,11 +81,6 @@ extern const u32 pc_scan_count;
 
 s32 game_main(void); /* main() of src/main.c */
 
-#ifdef __ANDROID__
-/* an error: shown on the screen of the app (src/pc/android.c), which stays */
-void pc_android_fatal(void) __attribute__((noreturn));
-#define exit(n) pc_android_fatal()
-#endif
 
 /* for the start code of PSY-Q (__SN_ENTRY_POINT) */
 extern u8 D_80060A38[]; /* the start of .sbss/.bss */
@@ -297,6 +320,7 @@ s32 pc_start(const char *disc, const char *exe)
 {
     map_fixed(RAM_ADDR, RAM_SIZE);
     map_fixed(SCRATCH_ADDR, SCRATCH_SIZE);
+    STEP("MEMORY MAPPED");
     if (!disc) {
         load_exe(exe);
     } else {
@@ -304,14 +328,17 @@ s32 pc_start(const char *disc, const char *exe)
             fprintf(stderr, "cannot open the disc image %s\n", disc);
             exit(1);
         }
+        STEP("DISC IMAGE OPENED");
         if (exe) {
             load_exe(exe);
         } else {
             load_exe_from_disc("SCUS_942.44");
         }
     }
+    STEP("EXECUTABLE LOADED");
     patch_func_pointers();
     psx_start();
+    STEP("HEAP READY, STARTING THE GAME");
     return game_main();
 }
 

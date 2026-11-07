@@ -17,6 +17,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -433,6 +434,73 @@ static void ask_permission(ANativeActivity *a)
     JNI(env, J_ExceptionClear)(env);
 }
 
+/* ---- diagnostics: a crash is shown and logged; a heartbeat in the log ---- */
+
+void ANativeActivity_onCreate(ANativeActivity *a, void *saved, size_t saved_size);
+
+u32 pc_vblanks(void);
+u32 pc_frames(void);
+static volatile s32 game_started;
+
+/* bionic on 32-bit ARM: siginfo (si_addr at 12) and ucontext (the
+ * sigcontext at 20: r0 at 12, ..., lr at 68, pc at 72) */
+static void on_crash(int sig, void *info, void *uc)
+{
+    u32 addr = *(u32 *)((u8 *)info + 12);
+    u32 lr = *(u32 *)((u8 *)uc + 20 + 68);
+    u32 pc = *(u32 *)((u8 *)uc + 20 + 72);
+    u32 sp = *(u32 *)((u8 *)uc + 20 + 64);
+
+    say("CRASH: SIGNAL %d ADDRESS %08X", sig, addr);
+    say("PC %08X LR %08X SP %08X", pc, lr, sp);
+    say("BASE %08X (ANATIVEACTIVITY_ONCREATE)", (u32)ANativeActivity_onCreate);
+    say("PLEASE SEND A PHOTO OF THIS SCREEN");
+    for (;;) {
+        struct timespec t = { 1, 0 };
+
+        pc_android_present(NULL, 0, 0);
+        nanosleep(&t, NULL);
+    }
+}
+
+static void catch_crashes(void)
+{
+    struct {
+        void (*handler)(int, void *, void *);
+        unsigned long mask;
+        int flags;
+        void (*restorer)(void);
+    } sa;
+    static const int sigs[] = { 4, 7, 8, 11 }; /* SIGILL SIGBUS SIGFPE SIGSEGV */
+    u32 i;
+
+    memset(&sa, 0, sizeof(sa));
+    sa.handler = on_crash;
+    sa.flags = 4; /* SA_SIGINFO */
+    for (i = 0; i < 4; i++) {
+        sigaction(sigs[i], (void *)&sa, NULL);
+    }
+}
+
+static void *monitor_thread(void *arg)
+{
+    u32 n = 0;
+
+    for (;;) {
+        struct timespec t = { 3, 0 };
+
+        nanosleep(&t, NULL);
+        if (game_started && logf) {
+            fprintf(logf, "port: alive %u s, %u vblanks, %u frames\n", (n += 3), pc_vblanks(), pc_frames());
+            fflush(logf);
+        }
+        if (pc_frames() == 0) {
+            pc_android_present(NULL, 0, 0); /* the messages until the game shows something */
+        }
+    }
+    return NULL;
+}
+
 /* ---- the game thread ---- */
 
 static s32 find_image(const char *dir, char *out, size_t n)
@@ -514,6 +582,13 @@ static void *game_thread(void *arg)
         stdout = logf;
         stderr = logf;
     }
+    catch_crashes();
+    {
+        pthread_t m;
+
+        pthread_create(&m, NULL, monitor_thread, NULL);
+    }
+    game_started = 1;
     i = pc_start(image, NULL);
     say("THE GAME STOPPED (%d)", i);
     for (;;) {

@@ -132,6 +132,20 @@ u32 pc_func_lookup(u32 psx)
     return func_lookup(psx);
 }
 
+/* whether a code address is one of the C functions (a pointer the start
+ * patched in the data, which the original code calls) */
+s32 pc_func_is_native(u32 addr)
+{
+    u32 i;
+
+    for (i = 0; i < pc_func_count; i++) {
+        if (pc_func_table[i][1] == addr) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* the executable (a PS-X EXE) into the RAM */
 static void load_exe_image(const u8 *head, const u8 *text, u32 len, const char *what)
 {

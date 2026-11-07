@@ -104,6 +104,20 @@ OVERLAY_FUNCS = {"D_8006F64C", "D_8006F780"}
 INTERPRETED = {"func_8004F37C", "SetGeomScreen", "SetGeomOffset", "ReadGeomOffset", "SetRotMatrix",
                "SetTransMatrix", "MulMatrix", "TransMatrix", "RotTrans", "RotTransPers", "ReadSZfifo3",
                "func_8004F544", "func_8004F794"}
+# The shadow check (src/pc/shadow.c; not on Windows): the global functions of
+# these game files that compute only in the RAM (what they call, directly,
+# stays in these files or in SHADOW_CALLS; no calls through pointers) get a
+# wrapper that, for some of their calls, runs the original code in the
+# interpreter too and logs where the C version leaves the memory different
+SHADOW = not WINDOWS
+SHADOW_FILES = ["camera", "coll", "game", "gfx", "gool", "goolop", "goolvm", "interp", "level", "math", "nd", "obj",
+                "prop"]
+SHADOW_CALLS = {"gte_write_data", "gte_read_data", "gte_command", "gte_write_ctrl", "gte_read_ctrl", "AddPrim",
+                "psx_malloc", "psx_free", "psx_realloc", "SetSemiTrans", "SetPolyFT4", "SetPolyF4", "GetTPage",
+                "strlen", "strncmp", "atoi", "sprintf", "memcpy", "memset", "memmove", "__aeabi_idiv", "__aeabi_uidiv",
+                "__aeabi_idivmod", "__aeabi_uidivmod", "__aeabi_ldivmod", "__aeabi_uldivmod", "__aeabi_lmul",
+                "__aeabi_llsl", "__aeabi_llsr", "__aeabi_lasr", "__divdi3", "__moddi3", "__udivdi3",
+                "__umoddi3"} | INTERPRETED
 # SDL2 for MinGW (the Windows build)
 SDL_VERSION = "2.30.9"
 SDL_URL = "https://github.com/libsdl-org/SDL/releases/download/release-%s/SDL2-devel-%s-mingw.tar.gz" % (
@@ -208,6 +222,72 @@ def move_variables(asm, psx, moved):
     return "\n".join(out) + "\n"
 
 
+def shadow_set(asms, psx):
+    """The functions the shadow check wraps: name -> (address, returns a
+    value of what size), from the assembly of the game files (file -> text)."""
+    defs, calls, glob = {}, {}, set()
+    for g, asm in asms.items():
+        cur = None
+        for line in asm.splitlines():
+            m = re.match(r"^%s([A-Za-z_]\w*):" % US, line)
+            if m:
+                cur = m.group(1)
+                defs[cur] = g
+                calls[cur] = set()
+                continue
+            m = re.match(r"^\s+\.globa?l\s+%s(\w+)" % US, line)
+            if m:
+                glob.add(m.group(1))
+            if cur is None:
+                continue
+            m = re.match(r"^\s+(call|j[a-z]+|b[a-z]{0,4})\s+%s([A-Za-z_][\w.]*)" % US, line)
+            if m and not m.group(2).startswith(".L") and not re.match(r"^(r\d+|ip|lr|sp|fp)$", m.group(2)):
+                calls[cur].add(m.group(2).split("(")[0])
+            elif re.match(r"^\s+call\s+\*|^\s+(blx|bx)\s+(r\d|ip|lr)\b", line) and \
+                    not re.match(r"^\s+bx\s+lr", line):
+                calls[cur].add("*")  # through a pointer
+    bad = set(f for f in defs if defs[f] not in SHADOW_FILES)
+    changed = True
+    while changed:
+        changed = False
+        for f in defs:
+            if f not in bad and any(c in bad or (c not in defs and c not in SHADOW_CALLS) for c in calls[f]):
+                bad.add(f)
+                changed = True
+    out = {}
+    for f in defs:
+        if f in bad or f not in glob or f not in psx or psx[f][1] not in "Tt" or is_data(psx, f):
+            continue
+        src = open(os.path.join(ROOT, "src", defs[f] + ".c")).read()
+        m = re.search(r"^([A-Za-z_][\w \t\*]*?)\b%s\s*\(([^;{]*)\)\s*\{" % f, src, re.M)
+        if not m or "..." in m.group(2) or m.group(2).count(",") >= 8 or "struct" in m.group(2) and \
+                "*" not in m.group(2):
+            continue
+        ret = m.group(1).replace("static", "").replace("inline", "").strip()
+        # what it returns: 0 nothing, 1 32 bits, 2 16 bits, 3 8 bits
+        size = 0 if ret == "void" else 1 if "*" in ret else 2 if re.search(r"16|short", ret) else \
+            3 if re.search(r"\b[su]8\b|char", ret) else 1
+        out[f] = (psx[f][0], size)
+    return out
+
+
+def shadow_rename(asm, names):
+    """The definitions of the functions in names get the suffix __native (the
+    calls stay: they go to the wrappers)."""
+    out = []
+    for line in asm.splitlines():
+        s = line.strip()
+        m = re.match(r"^%s(\w+):" % US, s)
+        if m and m.group(1) in names:
+            line = line.replace(US + m.group(1) + ":", US + m.group(1) + "__native:", 1)
+        elif s.startswith(DIRECTIVES):
+            for name in set(re.findall(r"\b%s(\w+)" % US, s)):
+                if name in names:
+                    line = re.sub(r"\b%s%s\b" % (US, name), "%s%s__native" % (US, name), line)
+        out.append(line)
+    return "\n".join(out) + "\n"
+
+
 def compile_all(psx):
     os.makedirs(OUT, exist_ok=True)
     jobs = [(os.path.join(ROOT, "src", g + ".c"), os.path.join(OUT, g + ".o")) for g in GAME]
@@ -230,6 +310,7 @@ def compile_all(psx):
                 os.replace(f + ".new", f)
             jobs.append((f, os.path.join(OUT, os.path.basename(f)[:-2] + ".o")))
     moved = set()
+    asms = {}
 
     def one(job):
         src, obj = job
@@ -240,17 +321,22 @@ def compile_all(psx):
         if game:
             extra += HEAP_NAMES
             asm = run(CC + CFLAGS + extra + ["-S", src, "-o", "-"])
-            s = obj[:-2] + ".s"
-            open(s, "w").write(move_variables(asm, psx, moved))
-            run(CC + ["-Wa,-I" + os.path.join(ROOT, "include"), "-c", s, "-o", obj], cwd=ROOT)
+            asms[os.path.basename(src)[:-2]] = move_variables(asm, psx, moved)
             return
         if os.path.exists(obj) and os.path.getmtime(obj) > max(os.path.getmtime(src), newest_header()):
             return
         run(CC + CFLAGS + extra + ["-c", src, "-o", obj])
 
+    def assemble(g):
+        s = os.path.join(OUT, g + ".s")
+        open(s, "w").write(shadow_rename(asms[g], shadow) if shadow else asms[g])
+        run(CC + ["-Wa,-I" + os.path.join(ROOT, "include"), "-c", s, "-o", os.path.join(OUT, g + ".o")], cwd=ROOT)
+
     with ThreadPoolExecutor(os.cpu_count()) as ex:
         list(ex.map(one, jobs))
-    return [o for _, o in jobs], moved
+        shadow = shadow_set(asms, psx) if SHADOW else {}
+        list(ex.map(assemble, list(asms)))
+    return [o for _, o in jobs], moved, shadow
 
 
 def newest_header():
@@ -391,7 +477,7 @@ def package_apk(so):
 
 def main():
     psx = psx_symbols()
-    objs, moved = compile_all(psx)
+    objs, moved, shadow = compile_all(psx)
 
     # symbols defined nowhere: the variables at their PlayStation addresses
     # and the data of the executable
@@ -400,6 +486,7 @@ def main():
         undef |= set(unprefix(n) for t, n in symbols(o, "-u"))
         defined |= set(unprefix(n) for t, n in symbols(o, "--defined-only")
                        if t in "TDBR" and re.match(r"^%s[A-Za-z_]\w*$" % US, n))
+    defined |= set(shadow)  # (their wrappers: in func_table.c)
     # the functions of the overlay the game loads at run time (S0/WARPSCUS.BIN,
     # between the end of .bss and D_80072230): C thunks that interpret them
     # (src/pc/mips.c)
@@ -419,7 +506,16 @@ def main():
     funcs = sorted((psx[n][0], n) for n in defined if n in psx and psx[n][1] in "Tt" and not is_data(psx, n))
     tab = ['#include "types.h"', ""]
     for _, n in funcs:
-        tab.append("extern char %s[];" % n)
+        if n not in shadow:
+            tab.append("extern char %s[];" % n)
+    # the wrappers of the shadow check
+    tab += ["u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4,",
+            "              u32 a5, u32 a6, u32 a7);"]
+    for n, (a, ret) in sorted(shadow.items()):
+        tab += ["extern char %s__native[];" % n,
+                "u32 %s(u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7)" % n,
+                "{", "    return pc_shadow(\"%s\", 0x%08Xu, (u32)%s__native, %d, a0, a1, a2, a3, a4, a5, a6, a7);"
+                % (n, a, n, ret), "}"]
     tab += ["", "/* the C functions: PlayStation address, x86 address (sorted) */",
             "const u32 pc_func_table[][2] = {"]
     tab += ["    { 0x%08Xu, (u32)%s }," % (a, n) for a, n in funcs]
@@ -464,7 +560,7 @@ def main():
         if WINDOWS and SDL:
             shutil.copy(SDL[2], OUT)
     print("%s: %d variables at their PlayStation addresses, %d symbols of the executable, %d functions"
-          % (exe, len(moved), len(defsyms) - len(moved), len(funcs)))
+          " (%d in the shadow check)" % (exe, len(moved), len(defsyms) - len(moved), len(funcs), len(shadow)))
 
 
 main()

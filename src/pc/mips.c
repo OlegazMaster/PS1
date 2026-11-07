@@ -18,6 +18,7 @@
 
 /* src/pc/startup.c: the C function at a PlayStation address (0: none) */
 u32 pc_func_lookup(u32 psx);
+s32 pc_func_is_native(u32 addr);
 u32 nd_exec(u32 pc, RcRegs *regs);
 
 #define ND_LO 0x80039E3Cu
@@ -26,14 +27,22 @@ u32 nd_exec(u32 pc, RcRegs *regs);
 #define PSYQ_LO 0x80045750u /* the PSY-Q libraries in the executable */
 #define PSYQ_HI 0x8005BC40u
 
+static u32 stack_area[0x4000]; /* 64 KB for the stacks of the interpreted code */
+
 /* the memory at an address the code uses: kseg0/kseg1/kuseg mirrors of the
  * RAM, the scratchpad where the port has it */
 static u8 *mem(u32 a)
 {
+    if (a - 0x80000000u < 0x200000u || a - (u32)stack_area < sizeof(stack_area)) {
+        return (u8 *)a;
+    }
     if (a - 0x1F800000u < 0x4000u) {
         return (u8 *)(a - 0x1F800000u + PSX_SCRATCH);
     }
-    return (u8 *)(0x80000000u | (a & 0x1FFFFF));
+    if (a < 0x200000u || (a & 0xFFE00000u) == 0xA0000000u) {
+        return (u8 *)(0x80000000u | (a & 0x1FFFFF)); /* the mirrors of the RAM */
+    }
+    return (u8 *)a; /* memory of the port (a buffer of the C code: its stack, its heap) */
 }
 
 static u32 lw(u32 a)
@@ -119,7 +128,6 @@ volatile u32 pc_mips_pc;
 /* an address interpreted even when it has a C version (the self-test) */
 u32 pc_mips_force;
 
-static u32 stack_area[0x4000]; /* 64 KB for the stacks of the interpreted code */
 static u32 stack_top = 0;      /* the next free word (nested calls) */
 static u32 warned;
 
@@ -170,6 +178,15 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
             if ((pc & 0x1FFFFFFFu) == 0xA0 || (pc & 0x1FFFFFFFu) == 0xB0 || (pc & 0x1FFFFFFFu) == 0xC0) {
                 /* a call of the BIOS: the table at pc, the function in t1 */
                 r[2] = bios((pc & 0xFF), r[9], r);
+                pc = r[31];
+                npc = pc + 4;
+                jumped = 1;
+                continue;
+            }
+            if ((pc < 0x80010000u || pc >= 0x80200000u) && pc_func_is_native(pc)) {
+                /* a pointer to a C function in the data (patched by the start) */
+                r[2] = ((CFunc)pc)(r[4], r[5], r[6], r[7], lw(r[29] + 0x10), lw(r[29] + 0x14), lw(r[29] + 0x18),
+                                   lw(r[29] + 0x1C));
                 pc = r[31];
                 npc = pc + 4;
                 jumped = 1;

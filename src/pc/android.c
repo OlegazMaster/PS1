@@ -703,6 +703,24 @@ int pc_android_debug(void)
         f = fopen(path, "r");
         on = f != NULL;
         if (f) {
+            /* lines NAME=VALUE: the settings of the diagnostics (PC_FOCUS=22) */
+            char line[200];
+
+            while (fgets(line, sizeof(line), f)) {
+                char *eq = strchr(line, '=');
+                char *end = line + strlen(line);
+
+                while (end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ')) {
+                    *--end = 0;
+                }
+                if (eq && strncmp(line, "PC_", 3) == 0) {
+                    *eq = 0;
+                    setenv(line, eq + 1, 1);
+                    if (logf) {
+                        fprintf(logf, "port: %s=%s (crash3_debug.txt)\n", line, eq + 1);
+                    }
+                }
+            }
             fclose(f);
         }
     }

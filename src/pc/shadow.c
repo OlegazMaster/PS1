@@ -448,10 +448,7 @@ static void log_call(const char *name, u32 addr, s32 ret, const u32 *a, u32 r, s
 u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5,
               u32 a6, u32 a7, u32 a8, u32 a9, u32 a10, u32 a11)
 {
-    s32 outer = !nested;
-    s32 focus = !in_orig && is_focus(a0);
-    u32 id = focus ? *(u32 *)(a0 + 0xB4) : 0, state = focus ? *(u32 *)(a0 + 0x1C) : 0;
-    u32 r = shadow_call(name, addr, native, ret, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+    s32 outer;
 
     if (call_log < 0) {
         const char *e = getenv("PC_CALL_LOG");
@@ -461,6 +458,11 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
         call_log = e && atoi(e) != 0;
 #endif
     }
+    outer = !nested;
+    s32 focus = !in_orig && is_focus(a0);
+    u32 id = focus ? *(u32 *)(a0 + 0xB4) : 0, state = focus ? *(u32 *)(a0 + 0x1C) : 0;
+    u32 r = shadow_call(name, addr, native, ret, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+
     if (call_log && (outer || focus)) {
         u32 a[6] = { a0, a1, a2, a3, a4, a5 };
 
@@ -499,4 +501,18 @@ void pc_gool_trace(u32 obj, u32 pc, u32 op, u32 top)
     trace_lines++;
     fprintf(stderr, "gool %08X {sub %X state %X}: %08X: %08X  [top %X] [frame %u]\n", obj,
             *(u32 *)(obj + 0xB4) & 0xFFFF, *(u32 *)(obj + 0x1C), pc, op, top, pc_frames());
+}
+
+/* the native code of GOOL objects (opcode 0x49, src/goolvm.c): the first
+ * 300 runs, always */
+void pc_gool_native_log(u32 obj, u32 pc, u32 next, u32 flags)
+{
+    static u32 n;
+
+    if (in_orig || n++ >= 300) {
+        return;
+    }
+    fprintf(stderr, "gool native: object %08X exec %X sub %X state %X: code at %08X -> %s%08X, flags %X [frame %u]\n",
+            obj, *(u32 *)(obj + 0xB4) >> 16, *(u32 *)(obj + 0xB4) & 0xFFFF, *(u32 *)(obj + 0x1C), pc,
+            next ? "go on at " : "return ", next, flags, pc_frames());
 }

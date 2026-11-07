@@ -395,6 +395,7 @@ static void GoolDrawLine(GoolVm *vm, u32 op) {
 /* the trace of the PC port (src/pc/shadow.c) */
 s32 pc_gool_trace_on(u32 obj);
 void pc_mips_call_regs(u32 addr, u32 *regs);
+void pc_gool_native_log(u32 obj, u32 pc, u32 next, u32 flags);
 void pc_gool_trace(u32 obj, u32 pc, u32 op, u32 top);
 #endif
 
@@ -642,6 +643,7 @@ s32 func_80038E28(GoolObject *obj, u32 flags, u32 *out) {
             regs[30] = PSX_SCRATCH;
             SAVE();
             pc_mips_call_regs((u32)vm.pc, regs);
+            pc_gool_native_log((u32)obj, (u32)vm.pc, regs[21], regs[17]);
             flags = regs[17];
             vm.pc = (u32 *)regs[21];
             vm.sp = (u32 *)regs[22];

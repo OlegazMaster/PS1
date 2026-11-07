@@ -19,6 +19,7 @@
 /* src/pc/startup.c: the C function at a PlayStation address (0: none) */
 u32 pc_func_lookup(u32 psx);
 s32 pc_func_is_native(u32 addr);
+u32 nd_native_lookup(u32 addr);
 extern volatile s32 pc_shadow_orig;
 extern u32 pc_shadow_steps;
 void pc_shadow_unsafe(const char *what);
@@ -229,6 +230,12 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
                 /* a call of the BIOS: the table at pc, the function in t1 */
                 r[2] = bios((pc & 0xFF), r[9], r);
                 pc = r[31];
+                npc = pc + 4;
+                jumped = 1;
+                continue;
+            }
+            if ((pc < 0x80010000u || pc >= 0x80200000u) && nd_native_lookup(pc) != 0) {
+                pc = nd_native_lookup(pc); /* a C wrapper of nd_asm: its entry */
                 npc = pc + 4;
                 jumped = 1;
                 continue;

@@ -14,8 +14,8 @@
  *   - puts the memory back and runs the C version;
  *   - compares the results, and logs the first differences:
  *     "shadow: NAME (ADDR) call N: ...".
- * The game goes on with what the C version did. Enabled on Android, or with
- * PC_SHADOW=1 (PC_SHADOW=0 disables it). */
+ * The game goes on with what the C version did. Enabled with PC_SHADOW=1,
+ * on Android when a file crash3_debug.txt is next to the disc image. */
 #include "types.h"
 #include "gte_soft.h"
 #include "pc_gpu.h"
@@ -32,6 +32,9 @@ extern u32 pc_mips_extra[4]; /* src/pc/mips.c: arguments 9 to 12 of the next cal
 u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7);
 u32 pc_func_lookup(u32 psx);
 u32 pc_frames(void);
+#ifdef __ANDROID__
+int pc_android_debug(void);
+#endif
 u32 nd_native_lookup(u32 addr);
 void pc_cd_state(s32 save);
 s32 pc_mips_in_stack(u32 a);
@@ -246,7 +249,7 @@ static u32 shadow_call(const char *name, u32 addr, u32 native, s32 ret, u32 a0, 
     if (enabled < 0) {
         const char *e = getenv("PC_SHADOW");
 #ifdef __ANDROID__
-        enabled = !e || atoi(e) != 0;
+        enabled = e ? atoi(e) != 0 : pc_android_debug();
 #else
         enabled = e && atoi(e) != 0;
 #endif
@@ -403,8 +406,8 @@ static u32 shadow_call(const char *name, u32 addr, u32 native, s32 ret, u32 a0, 
     return r_port;
 }
 
-/* The log of the calls (on Android, or PC_CALL_LOG=1; PC_CALL_LOG=0 turns
- * it off): the first calls of each function of the game with their
+/* The log of the calls (PC_CALL_LOG=1, on Android with crash3_debug.txt
+ * next to the disc image): the first calls of each function of the game with their
  * arguments and what they return, the calls that return an error code (-1
  * to -255), all the objects created (GoolObjectCreate). Up to 30000 lines. */
 static s32 call_log = -1;
@@ -453,7 +456,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
     if (call_log < 0) {
         const char *e = getenv("PC_CALL_LOG");
 #ifdef __ANDROID__
-        call_log = !e || atoi(e) != 0;
+        call_log = e ? atoi(e) != 0 : pc_android_debug();
 #else
         call_log = e && atoi(e) != 0;
 #endif
@@ -473,7 +476,7 @@ void pc_spawn_log(const char *fmt, ...)
     static u32 lines;
     va_list ap;
 
-    if (nested || !call_log || lines++ >= 5000) {
+    if (nested || call_log <= 0 || lines++ >= 5000) {
         return;
     }
     fprintf(stderr, "spawn [frame %u]: ", pc_frames());
@@ -488,7 +491,7 @@ static u32 trace_lines;
 
 s32 pc_gool_trace_on(u32 obj)
 {
-    return call_log && !in_orig && trace_lines < 12000 && is_focus(obj);
+    return call_log > 0 && !in_orig && trace_lines < 12000 && is_focus(obj);
 }
 
 void pc_gool_trace(u32 obj, u32 pc, u32 op, u32 top)

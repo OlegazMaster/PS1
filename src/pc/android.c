@@ -688,6 +688,27 @@ const char *pc_android_dir(void)
     return image_dir[0] ? image_dir : NULL;
 }
 
+/* the diagnostics of the port (the shadow check, the log of the calls, the
+ * trace of GOOL): on when a file crash3_debug.txt is next to the disc image
+ * (they slow the game down) */
+int pc_android_debug(void)
+{
+    static int on = -1;
+
+    if (on < 0 && image_dir[0]) {
+        char path[700];
+        FILE *f;
+
+        snprintf(path, sizeof(path), "%s/crash3_debug.txt", image_dir);
+        f = fopen(path, "r");
+        on = f != NULL;
+        if (f) {
+            fclose(f);
+        }
+    }
+    return on > 0;
+}
+
 /* where the game thread is (sampled with SIGURG when it shows nothing:
  * SIGUSR1 is the runtime's) */
 extern volatile u32 pc_mips_pc;

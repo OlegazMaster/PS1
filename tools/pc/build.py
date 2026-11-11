@@ -526,7 +526,8 @@ def main():
             exe = os.path.join(OUT, "crash3.exe")
             # 4 GB of addresses for a 32-bit program on 64-bit Windows: the RAM
             # is at 0x80000000
-            link = CC + ["-o", exe] + objs + [os.path.join(OUT, "func_table.o"), "-Wl,--large-address-aware", "-Wl,--nxcompat"] + \
+            link = CC + ["-o", exe] + objs + [os.path.join(OUT, "func_table.o"), "-Wl,--large-address-aware", "-Wl,--nxcompat",
+                                                   "-Wl,--disable-dynamicbase"] + \
                 ["-Wl," + d for d in defsyms] + (SDL[1] if SDL else []) + ["-lwinmm"]
         elif LINUX_ARM:
             exe = os.path.join(OUT, "crash3")

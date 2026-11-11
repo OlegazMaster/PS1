@@ -120,7 +120,12 @@ static u32 low_count;
 static void low_log(u32 addr, u32 ip)
 {
     if (low_count++ < 20) {
+#ifdef _WIN32
+        fprintf(stderr, "port: an access at the low mirror %08X (instruction at %08X, crash3.exe+%X)\n", addr, ip,
+                ip - (u32)GetModuleHandleA(NULL));
+#else
         fprintf(stderr, "port: an access at the low mirror %08X (instruction at %08X)\n", addr, ip);
+#endif
     }
 }
 #endif

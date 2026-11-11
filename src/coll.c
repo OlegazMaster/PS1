@@ -4,6 +4,14 @@
 #include "game.h"
 #include "ns.h"
 
+#ifdef TARGET_PC
+/* the log of the PC port on the followed objects (src/pc/shadow.c) */
+void pc_focus_log(u32 obj, const char *fmt, ...);
+#define FOCUS_LOG(obj, ...) pc_focus_log((u32)(obj), __VA_ARGS__)
+#else
+#define FOCUS_LOG(obj, ...)
+#endif
+
 Entry *func_80028D8C(Entry *zone, s32 *pos);
 
 /* Collision of objects with the surfaces of the zones and with other
@@ -392,6 +400,8 @@ s32 func_8002B4E8(GoolObject *obj, s32 *prev, s32 *pos, CollQuery *q) {
             t = top;
         }
         h = func_8002B9A4(rec, b, 1, 1, best, t, (o->status_b & 0x200) ? o->misc_c : NULL);
+        FOCUS_LOG(o, "under/over test of %08X: its box %X %X %X - %X %X %X, record %X %X %X - %X %X %X: %X\n",
+                  (u32)obj, b[0], b[1], b[2], b[3], b[4], b[5], rec[2], rec[3], rec[4], rec[5], rec[6], rec[7], h);
         if (h != -999999999) {
             if ((o->status_b & 0x20000)
                 && ((((!(obj->state_flags & 0x10) && obj->invincibility_state != 5)
@@ -443,6 +453,9 @@ s32 func_8002B838(GoolObject *obj, s32 *pos, CollQuery *q) {
         rec = game.unk390[i];
         rbox = rec + 2;
         other = (GoolObject *)rec[1];
+        FOCUS_LOG(other, "box test of %08X: its box %X %X %X - %X %X %X, record %X %X %X - %X %X %X: %d\n", (u32)obj,
+                  box[0], box[1], box[2], box[3], box[4], box[5], rbox[0], rbox[1], rbox[2], rbox[3], rbox[4], rbox[5],
+                  func_8003191C(box, rbox));
         if (func_8003191C(box, rbox)) {
             func_8001B328(obj, box, other, (rec[0] & 7) == 0 ? rbox : NULL);
         }
@@ -1117,6 +1130,7 @@ s32 *func_8002D0E8(GoolObject *obj, s32 unused, s32 idx) {
         break;
     }
     if (end >= (u8 *)&game + 0xDB0) {
+        FOCUS_LOG(obj, "no room for a collision record (records %d)\n", game.unk5C);
         goto fail;
     }
     game.unk58 = end;

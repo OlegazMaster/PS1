@@ -1157,7 +1157,11 @@ done:
                 n = *(s32 *)(*(u8 **)((u8 *)obj->unk8 + 0x20) + 0x14);
             }
             for (i = 0; i < n; i++) {
-                func_8002D0E8(obj, 1, i);
+                s32 *rec = func_8002D0E8(obj, 1, i);
+
+                FOCUS_LOG(obj, "collision record %d of %d: %X %X %X - %X %X %X (records %d)\n", i, n,
+                          rec ? rec[2] : 0, rec ? rec[3] : 0, rec ? rec[4] : 0, rec ? rec[5] : 0, rec ? rec[6] : 0,
+                          rec ? rec[7] : 0, game.unk5C);
             }
         }
     }

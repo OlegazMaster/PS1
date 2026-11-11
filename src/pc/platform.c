@@ -67,6 +67,64 @@ void pc_sys_sleep(void)
 
 static void (*interrupt)(void);
 
+#if defined(__i386__) || (defined(_WIN32) && !defined(__ANDROID__))
+/* x86: a load or store through a pointer below 2 MB (the game reads through
+ * NULL objects: on the console that is the low mirror of the RAM). The
+ * fault handler finds the base register of the instruction at ip, adds
+ * 0x80000000 to it and runs the instruction once more, one step only; the
+ * step handler then puts the register back (unless the instruction wrote
+ * it). regs: eax, ecx, edx, ebx, esp, ebp, esi, edi as the instruction
+ * numbers them. Returns the number of the register to rebase, or -1. */
+static s32 low_base(const u8 *ip, u32 *const regs[8], u32 addr)
+{
+    u32 modrm, mod, rm, base;
+
+    while (*ip == 0x66 || *ip == 0xF2 || *ip == 0xF3 || *ip == 0x2E || *ip == 0x3E || *ip == 0x26 ||
+           *ip == 0x36 || *ip == 0x64 || *ip == 0x65 || *ip == 0xF0) {
+        ip++; /* prefixes */
+    }
+    if (*ip == 0x0F) {
+        ip++;
+        if (*ip == 0x38 || *ip == 0x3A) {
+            ip++;
+        }
+    } else if ((*ip >= 0xA0 && *ip <= 0xA7) || (*ip >= 0xAA && *ip <= 0xAF) || *ip == 0xD7) {
+        return -1; /* absolute addresses, string instructions */
+    }
+    modrm = ip[1];
+    mod = modrm >> 6;
+    rm = modrm & 7;
+    if (mod == 3) {
+        return -1;
+    }
+    if (rm == 4) {
+        base = ip[2] & 7;
+        if (base == 5 && mod == 0) {
+            return -1;
+        }
+    } else if (rm == 5 && mod == 0) {
+        return -1;
+    } else {
+        base = rm;
+    }
+    if (*regs[base] >= 0x200000u || *regs[base] > addr || addr - *regs[base] >= 0x200000u) {
+        return -1; /* (the index, not the base, would be the NULL pointer) */
+    }
+    return (s32)base;
+}
+
+static s32 low_reg = -1;      /* the rebased register (of the fault being stepped) */
+static u32 low_was, low_now; /* its value before, after the rebase */
+static u32 low_count;
+
+static void low_log(u32 addr, u32 ip)
+{
+    if (low_count++ < 20) {
+        fprintf(stderr, "port: an access at the low mirror %08X (instruction at %08X)\n", addr, ip);
+    }
+}
+#endif
+
 #if !defined(_WIN32) && !defined(__ANDROID__)
 /* Native code that calls a PlayStation address (a pointer to a function in
  * the data of the game) faults at that address: the handler runs the call in
@@ -91,6 +149,20 @@ static void on_segv(int sig, siginfo_t *si, void *ucv)
         g[REG_ESP] += 4;
         return;
     }
+    if (addr < 0x200000u && low_reg < 0) {
+        u32 *const regs[8] = { (u32 *)&g[REG_EAX], (u32 *)&g[REG_ECX], (u32 *)&g[REG_EDX], (u32 *)&g[REG_EBX],
+                               (u32 *)&g[REG_ESP], (u32 *)&g[REG_EBP], (u32 *)&g[REG_ESI], (u32 *)&g[REG_EDI] };
+        s32 k = low_base((const u8 *)pc, regs, addr);
+
+        if (k >= 0) {
+            low_log(addr, pc);
+            low_reg = k;
+            low_was = *regs[k];
+            low_now = *regs[k] |= 0x80000000u;
+            g[REG_EFL] |= 0x100; /* one step: SIGTRAP */
+            return;
+        }
+    }
 #elif defined(__arm__)
     u32 *r = (u32 *)&uc->uc_mcontext.arm_r0; /* r0..r10, fp, ip, sp, lr, pc, cpsr */
     u32 pc = r[15];
@@ -112,6 +184,26 @@ static void on_segv(int sig, siginfo_t *si, void *ucv)
     signal(SIGSEGV, SIG_DFL); /* a real crash */
 }
 
+#if defined(__i386__)
+/* the step after a rebased access: the register back */
+static void on_trap(int sig, siginfo_t *si, void *ucv)
+{
+    ucontext_t *uc = ucv;
+    greg_t *g = uc->uc_mcontext.gregs;
+
+    if (low_reg >= 0) {
+        u32 *const regs[8] = { (u32 *)&g[REG_EAX], (u32 *)&g[REG_ECX], (u32 *)&g[REG_EDX], (u32 *)&g[REG_EBX],
+                               (u32 *)&g[REG_ESP], (u32 *)&g[REG_EBP], (u32 *)&g[REG_ESI], (u32 *)&g[REG_EDI] };
+
+        if (*regs[low_reg] == low_now) {
+            *regs[low_reg] = low_was;
+        }
+        low_reg = -1;
+        g[REG_EFL] &= ~0x100;
+    }
+}
+#endif
+
 void pc_sys_catch_ps_calls(void)
 {
     struct sigaction sa;
@@ -120,6 +212,10 @@ void pc_sys_catch_ps_calls(void)
     sa.sa_sigaction = on_segv;
     sa.sa_flags = SA_SIGINFO | SA_NODEFER;
     sigaction(SIGSEGV, &sa, NULL);
+#if defined(__i386__)
+    sa.sa_sigaction = on_trap;
+    sigaction(SIGTRAP, &sa, NULL);
+#endif
 }
 #elif defined(_WIN32)
 /* Windows: a vectored exception handler does what the SIGSEGV handler does
@@ -141,6 +237,47 @@ static LONG CALLBACK on_exception(EXCEPTION_POINTERS *e)
         c->Esp += 4;
         return EXCEPTION_CONTINUE_EXECUTION;
     }
+    if (e->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && low_reg < 0 &&
+        (u32)e->ExceptionRecord->ExceptionInformation[1] < 0x200000u) {
+        u32 addr = (u32)e->ExceptionRecord->ExceptionInformation[1];
+        u32 *const regs[8] = { (u32 *)&c->Eax, (u32 *)&c->Ecx, (u32 *)&c->Edx, (u32 *)&c->Ebx,
+                               (u32 *)&c->Esp, (u32 *)&c->Ebp, (u32 *)&c->Esi, (u32 *)&c->Edi };
+        s32 k = low_base((const u8 *)pc, regs, addr);
+
+        if (k >= 0) {
+            low_log(addr, pc);
+            low_reg = k;
+            low_was = *regs[k];
+            low_now = *regs[k] |= 0x80000000u;
+            c->EFlags |= 0x100; /* one step */
+            return EXCEPTION_CONTINUE_EXECUTION;
+        }
+    }
+    if (e->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP && low_reg >= 0) {
+        u32 *const regs[8] = { (u32 *)&c->Eax, (u32 *)&c->Ecx, (u32 *)&c->Edx, (u32 *)&c->Ebx,
+                               (u32 *)&c->Esp, (u32 *)&c->Ebp, (u32 *)&c->Esi, (u32 *)&c->Edi };
+
+        if (*regs[low_reg] == low_now) {
+            *regs[low_reg] = low_was;
+        }
+        low_reg = -1;
+        c->EFlags &= ~0x100;
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+/* a crash: what and where, in the log (the instruction relative to the
+ * executable, for addr2line on crash3.exe; the interpreter's last pc) */
+static LONG WINAPI on_crash(EXCEPTION_POINTERS *e)
+{
+    extern volatile u32 pc_mips_pc;
+    u32 base = (u32)GetModuleHandleA(NULL);
+
+    fprintf(stderr, "CRASH: exception %08X at %08X (crash3.exe+%X), address %08X, interpreter %08X\n",
+            (u32)e->ExceptionRecord->ExceptionCode, (u32)e->ContextRecord->Eip, (u32)e->ContextRecord->Eip - base,
+            (u32)e->ExceptionRecord->ExceptionInformation[1], pc_mips_pc);
+    fflush(stderr);
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -154,6 +291,7 @@ void pc_sys_catch_ps_calls(void)
         dep(1); /* PROCESS_DEP_ENABLE */
     }
     AddVectoredExceptionHandler(1, on_exception);
+    SetUnhandledExceptionFilter(on_crash);
 }
 #else
 void pc_sys_catch_ps_calls(void)

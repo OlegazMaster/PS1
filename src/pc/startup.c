@@ -386,6 +386,26 @@ static void mips_selftest(void)
             fprintf(stderr, "mips test: BIOS TestEvent: timeout %u, ioe %u\n", x, y);
         }
     }
+#if defined(__i386__)
+    /* loads and stores through a pointer below 2 MB: the low mirror of the RAM
+     * (the fault handler of src/pc/platform.c) */
+    {
+        static volatile u8 *volatile null_obj; /* NULL, unknown to the compiler */
+        u32 x, y;
+        u8 b;
+
+        *(volatile u32 *)0x80000120u = 0x12345678u;
+        x = *(volatile u32 *)(null_obj + 0x120);
+        b = null_obj[0x121];
+        *(volatile u32 *)(null_obj + 0x124) = 0xCAFEu;
+        y = *(volatile u32 *)0x80000124u;
+        n += 3;
+        if (x != 0x12345678u || b != 0x56 || y != 0xCAFEu || null_obj != NULL) {
+            bad++;
+            fprintf(stderr, "mips test: the low mirror: %X %X %X\n", x, b, y);
+        }
+    }
+#endif
     /* the native code of GOOL (opcode 0x49): all the registers in and out */
     {
         static const u32 code[] = { 0x26B50008, 0x03E00008, 0x26D60004 }; /* addiu s5,8; jr ra; addiu s6,4 */

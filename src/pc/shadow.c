@@ -34,6 +34,9 @@ u32 pc_func_lookup(u32 psx);
 u32 pc_frames(void);
 #ifdef __ANDROID__
 int pc_android_debug(void);
+#elif defined(_WIN32)
+int pc_windows_debug(void);
+#define pc_android_debug pc_windows_debug
 #endif
 u32 nd_native_lookup(u32 addr);
 void pc_cd_state(s32 save);
@@ -52,6 +55,7 @@ static u8 scr_before[SCRATCH_SIZE], scr_orig[SCRATCH_SIZE];
 static GteState gte_before, gte_orig;
 static u8 win_before[12][WINDOW], win_orig[12][WINDOW];
 static u8 *win_at[12];
+static u32 win_len[12]; /* (up to the top of the stack) */
 static s32 nested, enabled = -1;
 static u32 checks, differ_total, unchecked;
 static s32 log_stops = 1; /* which functions could not be checked, and why */
@@ -60,6 +64,8 @@ volatile s32 pc_shadow_orig; /* the original code is running */
 #define in_orig pc_shadow_orig
 static const char *volatile stopped_by; /* why it stopped (NULL: a crash) */
 u32 pc_shadow_steps;                    /* its instructions (src/pc/mips.c) */
+double pc_shadow_start;                 /* when it began (seconds) */
+double pc_sys_now(void);
 static const char *volatile now; /* the function being checked */
 
 const char *pc_shadow_now(void)
@@ -209,8 +215,32 @@ static void hold(s32 on)
     }
 }
 #else
+s32 pc_sys_block_swap(s32 on);
+
 static void hold(s32 on)
 {
+    static s32 prev;
+
+    if (on) {
+        prev = pc_sys_block_swap(1);
+    } else {
+        pc_sys_block_swap(prev);
+    }
+}
+#endif
+
+/* the top (end) of the C stack of this thread */
+#ifdef _WIN32
+#include <windows.h>
+
+static u8 *stack_top(void)
+{
+    return (u8 *)((NT_TIB *)NtCurrentTeb())->StackBase;
+}
+#else
+static u8 *stack_top(void)
+{
+    return (u8 *)0xFFFFFFFFu; /* (Linux, Android: the stacks have room above their frames) */
 }
 #endif
 
@@ -220,7 +250,7 @@ static void save_windows(u8 (*to)[WINDOW])
 
     for (i = 0; i < 12; i++) {
         if (win_at[i]) {
-            memcpy(to[i], win_at[i], WINDOW);
+            memcpy(to[i], win_at[i], win_len[i]);
         }
     }
 }
@@ -231,7 +261,7 @@ static void load_windows(u8 (*from)[WINDOW])
 
     for (i = 0; i < 12; i++) {
         if (win_at[i]) {
-            memcpy(win_at[i], from[i], WINDOW);
+            memcpy(win_at[i], from[i], win_len[i]);
         }
     }
 }
@@ -249,7 +279,7 @@ static u32 shadow_call(const char *name, u32 addr, u32 native, s32 ret, u32 a0, 
 
     if (enabled < 0) {
         const char *e = getenv("PC_SHADOW");
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(_WIN32)
         enabled = e ? atoi(e) != 0 : pc_android_debug();
 #else
         enabled = e && atoi(e) != 0;
@@ -278,7 +308,8 @@ static u32 shadow_call(const char *name, u32 addr, u32 native, s32 ret, u32 a0, 
     for (i = 0; i < 12; i++) {
         u8 *p = (u8 *)args[i];
 
-        win_at[i] = p > here + 64 && p < here + 0x100000 ? p : NULL;
+        win_at[i] = p > here + 64 && p < here + 0x100000 && p < stack_top() ? p : NULL;
+        win_len[i] = win_at[i] ? (u32)(stack_top() - p < WINDOW ? stack_top() - p : WINDOW) & ~3u : 0;
     }
     memcpy(ram_before, (void *)0x80000000u, RAM_SIZE);
     memcpy(scr_before, (void *)PSX_SCRATCH, SCRATCH_SIZE);
@@ -291,6 +322,7 @@ static u32 shadow_call(const char *name, u32 addr, u32 native, s32 ret, u32 a0, 
     vram_kept = 0;
     in_orig = 1;
     pc_shadow_steps = 0;
+    pc_shadow_start = pc_sys_now();
     if (__builtin_setjmp(jump) == 0) {
         pc_mips_extra[0] = a8, pc_mips_extra[1] = a9, pc_mips_extra[2] = a10, pc_mips_extra[3] = a11;
         r_orig = pc_mips_call(addr, a0, a1, a2, a3, a4, a5, a6, a7);
@@ -366,7 +398,7 @@ static u32 shadow_call(const char *name, u32 addr, u32 native, s32 ret, u32 a0, 
         differ_total++;
     }
     for (i = 0; i < 12; i++) {
-        if (win_at[i] && (n = compare(win_orig[i], win_at[i], WINDOW, 0, &first, &va, &vb)) != 0) {
+        if (win_at[i] && (n = compare(win_orig[i], win_at[i], win_len[i], 0, &first, &va, &vb)) != 0) {
             fprintf(stderr, "shadow: %s (%08X) call %u: %u words differ after argument %d (a pointer to the C "
                     "stack), the first at +%X: %08X, the original %08X\n", name, addr, *calls, n, i, first, vb, va);
             ++*reports;
@@ -453,7 +485,7 @@ u32 pc_shadow(const char *name, u32 addr, u32 native, s32 ret, u32 a0, u32 a1, u
 
     if (call_log < 0) {
         const char *e = getenv("PC_CALL_LOG");
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(_WIN32)
         call_log = e ? atoi(e) != 0 : pc_android_debug();
 #else
         call_log = e && atoi(e) != 0;

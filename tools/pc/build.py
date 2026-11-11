@@ -107,13 +107,13 @@ OVERLAY_FUNCS = {"D_8006F64C", "D_8006F780"}
 INTERPRETED = {"func_8004F37C", "SetGeomScreen", "SetGeomOffset", "ReadGeomOffset", "SetRotMatrix",
                "SetTransMatrix", "MulMatrix", "TransMatrix", "RotTrans", "RotTransPers", "ReadSZfifo3",
                "func_8004F544", "func_8004F794"}
-# The shadow check (src/pc/shadow.c; not on Windows): the global functions of
+# The shadow check (src/pc/shadow.c): the global functions of
 # the game files (but main, which never returns) get a wrapper that, for some
 # of their calls, runs the original code in the interpreter too and logs where
 # the C version leaves the memory different (the functions of the port with
 # effects outside the PlayStation memory end such a run: include/pc_shadow.h)
-SHADOW = not WINDOWS
-SHADOW_SKIP = {"main"}
+SHADOW = True
+SHADOW_SKIP = {"main", "CoreLoop"}  # (they do not return)
 # SDL2 for MinGW (the Windows build)
 SDL_VERSION = "2.30.9"
 SDL_URL = "https://github.com/libsdl-org/SDL/releases/download/release-%s/SDL2-devel-%s-mingw.tar.gz" % (

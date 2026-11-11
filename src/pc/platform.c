@@ -264,7 +264,91 @@ static LONG CALLBACK on_exception(EXCEPTION_POINTERS *e)
         c->EFlags &= ~0x100;
         return EXCEPTION_CONTINUE_EXECUTION;
     }
+    if (e->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION ||
+        e->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION ||
+        e->ExceptionRecord->ExceptionCode == EXCEPTION_INT_DIVIDE_BY_ZERO) {
+        void pc_shadow_fault(void);
+
+        pc_shadow_fault(); /* a crash of the original code in the shadow check: back there */
+    }
     return EXCEPTION_CONTINUE_SEARCH;
+}
+
+/* the diagnostics (src/pc/shadow.c): on when a file crash3_debug.txt is
+ * next to crash3.exe (or in the current folder); its lines NAME=VALUE set
+ * their variables (PC_FOCUS=22 ...) */
+int pc_windows_debug(void)
+{
+    static int on = -1;
+
+    if (on < 0) {
+        char path[MAX_PATH + 32];
+        char *slash;
+        FILE *f;
+
+        GetModuleFileNameA(NULL, path, MAX_PATH);
+        slash = strrchr(path, '\\');
+        strcpy(slash ? slash + 1 : path, "crash3_debug.txt");
+        f = fopen(path, "r");
+        if (!f) {
+            f = fopen("crash3_debug.txt", "r");
+        }
+        on = f != NULL;
+        if (f) {
+            char line[200];
+
+            while (fgets(line, sizeof(line), f)) {
+                char *end = line + strlen(line);
+
+                while (end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ')) {
+                    *--end = 0;
+                }
+                if (strncmp(line, "PC_", 3) == 0 && strchr(line, '=')) {
+                    _putenv(line);
+                    fprintf(stderr, "port: %s (crash3_debug.txt)\n", line);
+                }
+            }
+            fclose(f);
+        }
+    }
+    return on > 0;
+}
+
+/* every 3 s in the log: the time, the vertical blanks, the frames; when no
+ * new frame came, where the game is (the instruction, the interpreter, the
+ * function in the shadow check) */
+static HANDLE game_thread;
+
+static DWORD WINAPI monitor_thread(LPVOID arg)
+{
+    u32 pc_frames(void);
+    u32 pc_vblanks(void);
+    const char *pc_shadow_now(void);
+    extern volatile u32 pc_mips_pc;
+    u32 n = 0, last = 0, base = (u32)GetModuleHandleA(NULL);
+
+    for (;;) {
+        u32 f;
+
+        Sleep(3000);
+        f = pc_frames();
+        fprintf(stderr, "port: alive %u s, %u vblanks, %u frames\n", n += 3, pc_vblanks(), f);
+        if (f == last && f != 0) {
+            CONTEXT c;
+
+            memset(&c, 0, sizeof(c));
+            c.ContextFlags = CONTEXT_CONTROL;
+            SuspendThread(game_thread);
+            GetThreadContext(game_thread, &c);
+            ResumeThread(game_thread);
+            fprintf(stderr, "port: no new frames; the game is at %08X (crash3.exe+%X), interpreter %08X%s%s\n",
+                    (u32)c.Eip, (u32)c.Eip - base, pc_mips_pc, pc_shadow_now() ? ", shadow check of " : "",
+                    pc_shadow_now() ? pc_shadow_now() : "");
+        }
+        fflush(stderr);
+        last = f;
+    }
+    return 0;
 }
 
 /* a crash: what and where, in the log (the instruction relative to the
@@ -292,6 +376,9 @@ void pc_sys_catch_ps_calls(void)
     }
     AddVectoredExceptionHandler(1, on_exception);
     SetUnhandledExceptionFilter(on_crash);
+    DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &game_thread, 0, FALSE,
+                    DUPLICATE_SAME_ACCESS);
+    CreateThread(NULL, 0, monitor_thread, NULL, 0, NULL);
 }
 #else
 void pc_sys_catch_ps_calls(void)
@@ -306,6 +393,12 @@ static volatile LONG blocked;
 void pc_sys_block(s32 on)
 {
     InterlockedExchange(&blocked, on);
+}
+
+/* blocks (or not) and gives the state before (the shadow check) */
+s32 pc_sys_block_swap(s32 on)
+{
+    return (s32)InterlockedExchange(&blocked, on);
 }
 
 static DWORD WINAPI timer_thread(LPVOID arg)

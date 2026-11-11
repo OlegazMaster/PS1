@@ -22,6 +22,8 @@ s32 pc_func_is_native(u32 addr);
 u32 nd_native_lookup(u32 addr);
 extern volatile s32 pc_shadow_orig;
 extern u32 pc_shadow_steps;
+extern double pc_shadow_start;
+double pc_sys_now(void);
 void pc_shadow_unsafe(const char *what);
 u32 nd_exec(u32 pc, RcRegs *regs);
 
@@ -291,7 +293,8 @@ u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a
             }
         }
     interpret:
-        if (pc_shadow_orig && ++pc_shadow_steps > 5000000) {
+        if (pc_shadow_orig && (++pc_shadow_steps > 5000000 ||
+                               (!(pc_shadow_steps & 0xFFF) && pc_sys_now() - pc_shadow_start > 2.0))) {
             pc_shadow_unsafe("too long");
         }
         cur = pc;

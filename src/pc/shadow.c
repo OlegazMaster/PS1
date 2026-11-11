@@ -588,3 +588,14 @@ s32 pc_call_log_on(void)
 {
     return call_log > 0;
 }
+
+/* the states of Crash (src/interp.c), with the log of the calls: up to 6000 */
+void pc_crash_state(u32 state, u32 flags, u32 held)
+{
+    static u32 lines;
+
+    if (in_orig || call_log <= 0 || lines++ >= 6000) {
+        return;
+    }
+    fprintf(stderr, "crash state %X, flags %08X, buttons %04X [frame %u]\n", state, flags, held, pc_frames());
+}

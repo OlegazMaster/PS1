@@ -107,6 +107,13 @@ s32 GoolObjectChangeState(GoolObject *obj, u32 state, s32 argc, u32 *argv) {
     obj->sp = (u32 *)((u8 *)obj + (((GoolHeader *)obj->global->items[0])->stack_size * 4 + 0x40));
     obj->status_a |= 0x20020;
     obj->state_flags = s->flags;
+#ifdef TARGET_PC
+    if (obj == crash) {
+        void pc_crash_state(u32 state, u32 flags, u32 held);
+
+        pc_crash_state(state, s->flags, pads.pads[0].held);
+    }
+#endif
     for (i = 0; i < argc; i++) {
         *obj->sp++ = argv[i];
     }

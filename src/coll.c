@@ -3,6 +3,7 @@
 #include "gfx.h"
 #include "game.h"
 #include "ns.h"
+#include "pad.h"
 
 #ifdef TARGET_PC
 /* the log of the PC port on the followed objects (src/pc/shadow.c) */
@@ -2180,6 +2181,8 @@ void func_8002F678(s32 *pos, s32 unused1, s32 unused2) {
 /* The log of the PC port: after a move of Crash, the collision records whose
  * box his box overlaps (passing through objects; with the log of the calls). */
 s32 pc_call_log_on(void);
+s32 pc_record_on(void);
+void pc_record_line(const char *fmt, ...);
 u32 pc_frames(void);
 extern GoolObject *crash;
 
@@ -2191,7 +2194,26 @@ void pc_crash_inside(void) {
     GoolObject *o;
     s32 i;
 
-    if (crash == NULL || crash->unk8 == NULL || lines >= 3000 || !pc_call_log_on()) {
+    if (crash == NULL || crash->unk8 == NULL) {
+        return;
+    }
+    if (pc_record_on()) {
+        /* frames.txt: Crash, then the collision records */
+        pc_record_line("%u: crash %X/%08X at %X %X %X speed %X %X %X buttons %04X records %d", pc_frames(),
+                       crash->state, crash->state_flags, crash->xform.trans[0], crash->xform.trans[1],
+                       crash->xform.trans[2], crash->misc_a[0], crash->misc_a[1], crash->misc_a[2],
+                       pads.pads[0].held, game.unk5C);
+        for (i = 0; i < game.unk5C; i++) {
+            rec = game.unk390[i];
+            o = (GoolObject *)rec[1];
+            rbox = (rec[0] & 7) == 0 ? rec + 2 : rec + 11;
+            pc_record_line(" | %08X e%X/%X st%X a%X b%X c%X f%X box %X %X %X %X %X %X", (u32)o, o->id >> 16,
+                           o->id & 0xFFFF, o->state, o->status_a, o->status_b, o->status_c, o->state_flags, rbox[0],
+                           rbox[1], rbox[2], rbox[3], rbox[4], rbox[5]);
+        }
+        pc_record_line("\n");
+    }
+    if (lines >= 3000 || !pc_call_log_on()) {
         return;
     }
     box[0] = crash->xform.trans[0] + *(s32 *)((u8 *)crash->unk8 + 0x30);

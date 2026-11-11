@@ -104,6 +104,17 @@ static void trace_frames(void)
     if (active && --active == 0) {
         gpu_trace_end(); /* 4 presents: a whole frame of the game (30 per second) */
     }
+    {
+        s32 pc_record_on(void);
+        const char *pc_record_dir(void);
+
+        if (!active && !key_trace && pc_record_on() && frames % 300 == 150) {
+            snprintf(path, sizeof(path), "%s/gpu_%05u.bin", pc_record_dir(), frames);
+            gpu_trace_begin(path);
+            active = 2;
+            return;
+        }
+    }
     if (key_trace && !active) {
         /* (F11) the GPU work of two presents: a frame of the game */
         static u32 n;
@@ -131,6 +142,11 @@ void pc_video_present(void)
     trace_frames();
     gpu_display_rgb(frame_rgb);
     dump();
+    {
+        void pc_record_present(const u32 *rgb, s32 w, s32 h, u32 frame);
+
+        pc_record_present(frame_rgb, gpu_display.w, gpu_display.h, frames);
+    }
 #ifdef __ANDROID__
     {
         void pc_android_present(const u32 *rgb, s32 w, s32 h);

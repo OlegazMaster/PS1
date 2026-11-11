@@ -348,7 +348,7 @@ ANDROID_LIBS = {
     "libc.so": r"^(strtoul|fopen|freopen|fclose|fread|fwrite|fseek|ftell|fgets|fputc|fputs|fflush|setvbuf|printf|fprintf|"
                r"vfprintf|sprintf|snprintf|vsnprintf|puts|malloc|calloc|realloc|free|exit|abort|atoi|getenv|memcpy|"
                r"memmove|memset|memcmp|memchr|strlen|strcmp|strncmp|strchr|strrchr|strstr|strcpy|strncpy|strcat|strspn|"
-               r"setenv|strerror|strcasecmp|strncasecmp|__errno|opendir|readdir|closedir|clock_gettime|nanosleep|"
+               r"setenv|mkdir|strerror|strcasecmp|strncasecmp|__errno|opendir|readdir|closedir|clock_gettime|nanosleep|"
                r"setitimer|sigaction|sigprocmask|pthread_sigmask|sigemptyset|sigaddset|mmap|munmap|usleep|"
                r"raise|pthread_attr_init|pthread_attr_setstacksize|pthread_create|pthread_kill|pthread_self|"
                r"__aeabi_memcpy\w*|__aeabi_memset\w*|__aeabi_memclr\w*|__aeabi_memmove\w*|stdin|stdout|stderr)$",

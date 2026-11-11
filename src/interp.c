@@ -261,6 +261,13 @@ s32 func_8001D674(GoolObject *obj, s32 full) {
         }
         func_8001CA68(obj, full);
         func_8001E78C(obj, (s32 *)&prev, out);
+#ifdef TARGET_PC
+        if (obj == crash) {
+            void pc_crash_inside(void);
+
+            pc_crash_inside();
+        }
+#endif
         obj->status_a &= ~0x20;
     } else {
         func_8001B630(obj, out);

@@ -2173,3 +2173,47 @@ void func_8002F678(s32 *pos, s32 unused1, s32 unused2) {
         }
     }
 }
+
+#ifdef TARGET_PC
+#include <stdio.h>
+
+/* The log of the PC port: after a move of Crash, the collision records whose
+ * box his box overlaps (passing through objects; with the log of the calls). */
+s32 pc_call_log_on(void);
+u32 pc_frames(void);
+extern GoolObject *crash;
+
+void pc_crash_inside(void) {
+    static u32 lines;
+    s32 box[6];
+    s32 *rec;
+    s32 *rbox;
+    GoolObject *o;
+    s32 i;
+
+    if (crash == NULL || crash->unk8 == NULL || lines >= 3000 || !pc_call_log_on()) {
+        return;
+    }
+    box[0] = crash->xform.trans[0] + *(s32 *)((u8 *)crash->unk8 + 0x30);
+    box[1] = crash->xform.trans[1] + *(s32 *)((u8 *)crash->unk8 + 0x34);
+    box[2] = crash->xform.trans[2] + *(s32 *)((u8 *)crash->unk8 + 0x38);
+    box[3] = crash->xform.trans[0] + *(s32 *)((u8 *)crash->unk8 + 0x3C);
+    box[4] = crash->xform.trans[1] + *(s32 *)((u8 *)crash->unk8 + 0x40);
+    box[5] = crash->xform.trans[2] + *(s32 *)((u8 *)crash->unk8 + 0x44);
+    for (i = 0; i < game.unk5C; i++) {
+        rec = game.unk390[i];
+        o = (GoolObject *)rec[1];
+        rbox = (rec[0] & 7) == 0 ? rec + 2 : rec + 11;
+        if (o == crash || !func_8003191C(box, rbox)) {
+            continue;
+        }
+        lines++;
+        fprintf(stderr, "inside [frame %u]: Crash %X %X %X - %X %X %X (state %X, flags %08X, speed %X %X %X) in "
+                "%08X exec %X sub %X state %X (status %08X %08X %08X, flags %08X): %X %X %X - %X %X %X (records %d)\n",
+                pc_frames(), box[0], box[1], box[2], box[3], box[4], box[5], crash->state, crash->state_flags,
+                crash->misc_a[0], crash->misc_a[1], crash->misc_a[2], (u32)o, o->id >> 16, o->id & 0xFFFF, o->state,
+                o->status_a, o->status_b, o->status_c, o->state_flags, rbox[0], rbox[1], rbox[2], rbox[3], rbox[4],
+                rbox[5], game.unk5C);
+    }
+}
+#endif

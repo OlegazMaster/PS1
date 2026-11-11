@@ -583,3 +583,8 @@ void pc_focus_log(u32 obj, const char *fmt, ...)
     vfprintf(stderr, fmt, ap);
     va_end(ap);
 }
+
+s32 pc_call_log_on(void)
+{
+    return call_log > 0;
+}

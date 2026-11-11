@@ -121,6 +121,40 @@ void pc_sys_catch_ps_calls(void)
     sa.sa_flags = SA_SIGINFO | SA_NODEFER;
     sigaction(SIGSEGV, &sa, NULL);
 }
+#elif defined(_WIN32)
+/* Windows: a vectored exception handler does what the SIGSEGV handler does
+ * on Linux. The RAM is not executable (DEP, on for the process at start), so
+ * a native call of a PlayStation address faults at that address. */
+u32 pc_mips_call(u32 addr, u32 a0, u32 a1, u32 a2, u32 a3, u32 a4, u32 a5, u32 a6, u32 a7);
+
+static LONG CALLBACK on_exception(EXCEPTION_POINTERS *e)
+{
+    CONTEXT *c = e->ContextRecord;
+    u32 pc = (u32)c->Eip;
+
+    if (e->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && pc - 0x80010000u < 0x1F0000u &&
+        !(pc & 3) && (u32)e->ExceptionRecord->ExceptionInformation[1] == pc) {
+        u32 *st = (u32 *)c->Esp; /* the return address, then the arguments */
+
+        c->Eax = pc_mips_call(pc, st[1], st[2], st[3], st[4], st[5], st[6], st[7], st[8]);
+        c->Eip = st[0];
+        c->Esp += 4;
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+void pc_sys_catch_ps_calls(void)
+{
+    /* DEP for this 32-bit process (off by default on some systems) */
+    BOOL(WINAPI * dep)(DWORD) = (BOOL(WINAPI *)(DWORD))GetProcAddress(GetModuleHandleA("kernel32.dll"),
+                                                                      "SetProcessDEPPolicy");
+
+    if (dep) {
+        dep(1); /* PROCESS_DEP_ENABLE */
+    }
+    AddVectoredExceptionHandler(1, on_exception);
+}
 #else
 void pc_sys_catch_ps_calls(void)
 {

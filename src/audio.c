@@ -990,7 +990,7 @@ void func_80034310(void) {
                 m->f6 = 0;
             }
             attr.mask |= 3;
-            if ((u8)(((GoolObject *)m->unk8)->unk120 - 6) < 2) {
+            if ((u8)(((GoolObject *)PSX_MIRROR(m->unk8))->unk120 - 6) < 2) { /* (unk8 may be NULL) */
                 attr.vol_left = attr.vol_right = m->unk1A >= 0x3FFF ? 0x3FFF : (m->unk1A < 0 ? 0 : m->unk1A);
             } else {
                 *(SpuVolume *)&attr.vol_left = *(SpuVolume *)func_8003328C(m, &m->unk20, m->unk1A);

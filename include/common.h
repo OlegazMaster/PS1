@@ -20,4 +20,14 @@
 #define STATIC_DATA static
 #endif
 
+/* A pointer the game may read through while it is NULL (it then reads the
+ * low mirror of the RAM, 0x00000000-0x001FFFFF on the console): the PC port
+ * reads the RAM itself (on Android a fault handler does the same for any
+ * such read; on Windows and Linux x86 only the places marked so). */
+#ifdef TARGET_PC
+#define PSX_MIRROR(p) ((u32)(p) < 0x200000u ? (void *)((u32)(p) | 0x80000000u) : (void *)(p))
+#else
+#define PSX_MIRROR(p) ((void *)(p))
+#endif
+
 #endif /* COMMON_H */

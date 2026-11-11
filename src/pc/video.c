@@ -1,7 +1,9 @@
 /* The screen of the PC port: the display area of the VRAM in an SDL2 window
  * (PC_SDL), scaled with the aspect of a TV. Without SDL, or with
  * PC_DUMP_FRAMES=dir, frames are written as dir/frame_NNNNN.ppm (every
- * PC_DUMP_EVERY-th, default 30): for tests without a screen. */
+ * PC_DUMP_EVERY-th, default 30): for tests without a screen. With the window,
+ * F11 records the GPU work of a frame (crash3_gpu_keyN.bin, for
+ * tools/pc/gpu_replay.c) and F12 writes the VRAM (crash3_vram_N.ppm). */
 #include "pc_gpu.h"
 
 #include <stdio.h>
@@ -57,6 +59,35 @@ static void dump(void)
 const char *pc_android_dir(void);
 #endif
 
+static volatile s32 key_trace; /* F11 */
+
+/* (F12) the whole VRAM as crash3_vram_N.ppm (1024x512, 15-bit colours) */
+static void dump_vram(void)
+{
+    static u32 n;
+    char path[64];
+    FILE *f;
+    s32 x, y;
+
+    snprintf(path, sizeof(path), "crash3_vram_%u.ppm", n++);
+    f = fopen(path, "wb");
+    if (!f) {
+        return;
+    }
+    fprintf(f, "P6\n%d %d\n255\n", GPU_VRAM_W, GPU_VRAM_H);
+    for (y = 0; y < GPU_VRAM_H; y++) {
+        for (x = 0; x < GPU_VRAM_W; x++) {
+            u16 c = gpu_vram[y][x];
+
+            fputc((c & 31) << 3, f);
+            fputc((c >> 5 & 31) << 3, f);
+            fputc((c >> 10 & 31) << 3, f);
+        }
+    }
+    fclose(f);
+    fprintf(stderr, "port: the VRAM went to %s (frame %u)\n", path, frames);
+}
+
 static void trace_frames(void)
 {
     static s32 active;
@@ -72,6 +103,17 @@ static void trace_frames(void)
 
     if (active && --active == 0) {
         gpu_trace_end(); /* 4 presents: a whole frame of the game (30 per second) */
+    }
+    if (key_trace && !active) {
+        /* (F11) the GPU work of two presents: a frame of the game */
+        static u32 n;
+
+        key_trace = 0;
+        snprintf(path, sizeof(path), "crash3_gpu_key%u.bin", n++);
+        gpu_trace_begin(path);
+        fprintf(stderr, "port: the GPU work of a frame goes to %s\n", path);
+        active = 2;
+        return;
     }
     if (dir && !active && frames % at == 0 && frames <= 3 * at) {
         snprintf(path, sizeof(path), "%s/crash3_gpu_%u.bin", dir, frames / at);
@@ -140,6 +182,12 @@ void pc_video_poll(void)
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
             exit(0);
+        }
+        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_F11) {
+            key_trace = 1;
+        }
+        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_F12) {
+            dump_vram();
         }
     }
     pc_pad_poll();
